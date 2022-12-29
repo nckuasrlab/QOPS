@@ -352,6 +352,12 @@ void QCORSyntaxHandler::GetReplacement(
 
   OS << ");\n";
   OS << "}\n";
+  OS << "auto staq_str = qcor::__internal__::translate(\"staq\", parent_kernel);\n";
+  OS << "std::ofstream myfile ((kernel_name+\".qasm\"));\n";
+  OS << "if (myfile.is_open()){\n";
+  OS << "myfile << staq_str;\n";
+  OS << "myfile.close();\n";
+  OS << "}\n";
   OS << "}\n";
 
   // close the quantum kernel subclass
@@ -535,6 +541,7 @@ void QCORSyntaxHandler::GetReplacement(
 void QCORSyntaxHandler::AddToPredefines(llvm::raw_string_ostream &OS) {
   if (__internal__developer__flags__::add_predefines) {
     OS << "#include \"qcor.hpp\"\n";
+    OS << "#include \"fstream\"\n";
     OS << "using namespace qcor;\n";
     OS << "using namespace xacc::internal_compiler;\n";
   }
