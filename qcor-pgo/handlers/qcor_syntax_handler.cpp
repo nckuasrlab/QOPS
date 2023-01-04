@@ -326,7 +326,7 @@ void QCORSyntaxHandler::GetReplacement(
   OS << "quantum::persistBitstring(" << bufferNames[0] << ".results());\n";
   OS << "}\n";
   // Use a special submit for FTQC to denote that this executable kernel has been completed.
-  OS << "quantum::submit(nullptr);\n";
+  // OS << "quantum::submit(nullptr);\n";
   OS << "}\n";
   OS << "return;\n";
   OS << "}\n";
@@ -345,12 +345,12 @@ void QCORSyntaxHandler::GetReplacement(
       OS << ", " << bufferNames[k] << ".results()";
     }
     OS << "};\n";
-    OS << "quantum::submit(buffers," << bufferNames.size();
+    // OS << "quantum::submit(buffers," << bufferNames.size();
   } else {
-    OS << "quantum::submit(" << bufferNames[0] << ".results()";
+    // OS << "quantum::submit(" << bufferNames[0] << ".results()";
   }
 
-  OS << ");\n";
+  // OS << ");\n";
   OS << "}\n";
   OS << "auto staq_str = qcor::__internal__::translate(\"staq\", parent_kernel);\n";
   OS << "std::ofstream myfile ((kernel_name+\".qasm\"));\n";
