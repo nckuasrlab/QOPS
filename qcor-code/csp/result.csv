@@ -1,0 +1,5 @@
+Test Case,Staq-Walltime,Staq-Before,Staq-After,Gate Merge-Walltime,Gate Merge-Before,Gate Merge-After,Circuit Optimizer-Walltime,Circuit Optimizer-Before,Circuit Optimizer-After,VOQC-Walltime,VOQC-Before,VOQC-After,Staq-Walltime,Staq-Before,Staq-After,Gate Merge-Walltime,Gate Merge-Before,Gate Merge-After,Circuit Optimizer-Walltime,Circuit Optimizer-Before,Circuit Optimizer-After,VOQC-Walltime,VOQC-Before,VOQC-After
+adder_8
+hwb6
+ham15-high
+grover_5
