@@ -140,6 +140,5 @@ __qpu__ void f(qreg qubits) {
 }
 int main() {
     auto qubits = qalloc(24);
-
     f(qubits);
 }
