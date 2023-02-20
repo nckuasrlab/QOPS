@@ -351,13 +351,14 @@ void QCORSyntaxHandler::GetReplacement(
   }
 
   // OS << ");\n";
-  OS << "}\n";
   OS << "auto staq_str = qcor::__internal__::translate(\"staq\", parent_kernel);\n";
   OS << "std::ofstream myfile ((kernel_name+\".qasm\"));\n";
   OS << "if (myfile.is_open()){\n";
   OS << "myfile << staq_str;\n";
   OS << "myfile.close();\n";
   OS << "}\n";
+  OS << "}\n";
+
   OS << "}\n";
 
   // close the quantum kernel subclass
