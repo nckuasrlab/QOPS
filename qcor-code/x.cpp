@@ -21,6 +21,7 @@ protected:
         quantum::set_current_program(parent_kernel);
         if (runtime_env == QrtType::FTQC)
         {
+            std::cout << "FTQC" << std::endl;
             quantum::set_current_buffer(q.results());
         }
         init_kernel_signature_args(parent_kernel, q);
@@ -53,7 +54,6 @@ public:
                     operator()(q);
                     quantum::persistBitstring(q.results());
                 }
-                quantum::submit(nullptr);
             }
             return;
         }
@@ -65,7 +65,13 @@ public:
         if (is_callable)
         {
             xacc::internal_compiler::execute_pass_manager();
-            quantum::submit(q.results());
+            auto staq_str = qcor::__internal__::translate("staq", parent_kernel);
+            std::ofstream myfile((kernel_name + ".qasm"));
+            if (myfile.is_open())
+            {
+                myfile << staq_str;
+                myfile.close();
+            }
         }
     }
 };

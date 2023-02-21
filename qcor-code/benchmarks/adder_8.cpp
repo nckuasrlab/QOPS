@@ -1,4 +1,4 @@
-__qpu__ void f(qreg qubits) {
+__qpu__ void adder_8(qreg qubits) {
     using qcor::openqasm;
 
     cx qubits[3],qubits[2];
@@ -140,5 +140,5 @@ __qpu__ void f(qreg qubits) {
 }
 int main() {
     auto qubits = qalloc(24);
-    f(qubits);
+    adder_8(qubits);
 }
