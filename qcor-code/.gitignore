@@ -1,1 +1,4 @@
 .vscode/
+qasm/output.txt
+*.out
+benchmarks/*.qasm
