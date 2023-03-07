@@ -44,6 +44,20 @@ with open("output.txt", 'w') as out:
                     out.write("U1(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] 
                                     + ", [" + str(real_1) + ", 0, 0, " + str(real_1) + "]"
                                     + ", [" + str(imag_1) + ", 0, 0, " + str(-imag_1) + "])\n")
+                elif line.split(' ')[0][0:2] == "u3":
+                    n_1 = line.split(' ')[0].split('(')[1].split(')')[0].split(',')[0]
+                    n_2 = line.split(' ')[0].split('(')[1].split(')')[0].split(',')[1]
+                    n_3 = line.split(' ')[0].split('(')[1].split(')')[0].split(',')[2]
+                    real_1 = round(math.cos(float(n_1)/2), 8)
+                    real_2 = -round(math.cos(float(n_3)) * math.sin(float(n_1)/2), 8)
+                    imag_2 = -round(math.sin(float(n_3)) * math.sin(float(n_1)/2), 8)
+                    real_3 = round(math.cos(float(n_2)) * math.sin(float(n_1)/2), 8)
+                    imag_3 = round(math.sin(float(n_2)) * math.sin(float(n_1)/2), 8)
+                    real_4 = round(math.cos(float(n_2) + float(n_3)) * math.cos(float(n_1)/2), 8)
+                    imag_4 = round(math.sin(float(n_2) + float(n_3)) * math.cos(float(n_1)/2), 8)
+                    out.write("U1(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] 
+                                    + ", [" + str(real_1) + ", " + str(real_2) + ", " + str(real_3) + ", " + str(real_4) + "]"
+                                    + ", [0, " + str(imag_2) + ", " + str(imag_3) + ", " + str(imag_4) + "])\n")
                 continue
 
 
@@ -70,6 +84,8 @@ with open("output.txt", 'w') as out:
                 out.write("U1(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] 
                                 + ", [1, 0, 0, 0]"
                                 + ", [0, 0, 0, -1])\n")
+            elif line.split(' ')[0] == "measure":
+                out.write("measure(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ", 1)\n")
 
 print(gate_list)
 print("gate_count: " + str(gate_count))
