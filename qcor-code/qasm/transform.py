@@ -74,6 +74,8 @@ with open("output.txt", 'w') as out:
                 out.write("T(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ")\n")
             elif line.split(' ')[0] == "x":
                 out.write("X(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ")\n")
+            elif line.split(' ')[0] == "z":
+                out.write("Z(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ")\n")
             elif line.split(' ')[0] == "s":
                 out.write("S(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ")\n")
             elif line.split(' ')[0] == "tdg":
@@ -86,6 +88,9 @@ with open("output.txt", 'w') as out:
                                 + ", [0, 0, 0, -1])\n")
             elif line.split(' ')[0] == "measure":
                 out.write("measure(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ", 1)\n")
+            else:
+                print("no this gate")
+                print(line)
 
 print(gate_list)
 print("gate_count: " + str(gate_count))
