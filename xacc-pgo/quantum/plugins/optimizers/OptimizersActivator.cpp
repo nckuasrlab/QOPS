@@ -10,6 +10,7 @@
  * Contributors:
  *   Alexander J. McCaskey - initial API and implementation
  *******************************************************************************/
+#include "pgo.hpp"
 #include "CircuitOptimizer.hpp"
 #include "default_placement.hpp"
 #include "GateMergeOptimizer.hpp"
@@ -36,6 +37,9 @@ public:
   /**
    */
   void Start(BundleContext context) {
+    auto c3 = std::make_shared<xacc::quantum::PGO>();
+    context.RegisterService<xacc::IRTransformation>(c3);
+
     auto c4 = std::make_shared<xacc::quantum::CircuitOptimizer>();
     context.RegisterService<xacc::IRTransformation>(c4);
 
