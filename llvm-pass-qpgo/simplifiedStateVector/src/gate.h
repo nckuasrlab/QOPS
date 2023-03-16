@@ -46,6 +46,8 @@ extern gate *gateMap; // gate gateMap [MAX_QUBIT*max_depth];
 
 void single_gate(int targ, int ops, int density);
 void control_gate(int ctrl, int targ, int ops, int density);
+void unitary4x4(int q0, int q1, int density);
 void SWAP(int q0, int q1, int density);
+void unitary8x8(int q0, int q1, int q2, int density);
 
 #endif /* GATE_H_ */
