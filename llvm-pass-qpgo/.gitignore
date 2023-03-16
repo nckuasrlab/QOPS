@@ -1,0 +1,10 @@
+*.out
+out*
+*.ll
+*.bc
+*.o
+*.profraw
+*.profdata
+.cache/
+tmp/
+build/
