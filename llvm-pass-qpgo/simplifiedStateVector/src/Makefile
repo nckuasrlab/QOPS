@@ -36,7 +36,7 @@ gate.o: gate.c common.h gate.h
 	$(eval CC = ~/.llvm/bin/clang)
 	$(eval LLVM_PROFDATA = llvm-profdata)
 	$(eval LDFLAGS += -fopenmp=libomp)
-	$(eval CFLAGS += -Xclang -load -Xclang /home/nckucsieserver/pro/selfpro/llvm-pass-qpgo/build/qpgo/libQpgoPass.so)
+	$(eval CFLAGS += -Xclang -load -Xclang /home/nckucsieserver/pro/selfpro/llvm-pass-qpgo/build/qpgo/libQpgoPass.so -mllvm -profile-gen=default.profdata)
 
 # $(eval CFLAGS += -S -emit-llvm)
 # $(eval CFLAGS += -fprofile-instr-generate -Xclang -load -Xclang /home/nckucsieserver/pro/selfpro/learn_llvm/llvm-pass-inject/build/inject/libInjectPass.so)

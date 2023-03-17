@@ -12,11 +12,18 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <vector>
+
 namespace llvm {
+// Register the argument option for the output file
+static cl::opt<std::string>
+    ProfileDataFilenameOpt("profile-gen",
+                           cl::desc("Specify output filename for profile data"),
+                           cl::value_desc("filename"), cl::init("stderr"));
 
 static const char *operandToFlag(const Value *Operand) {
   auto OperandType = Operand->getType();
@@ -195,6 +202,7 @@ bool QpgoPass::runOnFunction(Function &F) {
     Builder.CreateCall(M->getFunction("fflush"), {LoadedStderr});
     Builder.CreateCall(M->getFunction("funlockfile"), {LoadedStderr});
   }
+  errs() << ProfileDataFilenameOpt << "\n";
   return true;
 }
 
