@@ -1,23 +1,19 @@
 #include "pgo.hpp"
-#include "Graph.hpp"
-#include "CountGatesOfTypeVisitor.hpp"
-#include "CommonGates.hpp"
-#include "Circuit.hpp"
-#include "GateIR.hpp"
-#include "Utils.hpp"
-#include "xacc_service.hpp"
 #include "xacc.hpp"
-#include <assert.h>
-#include "PhasePolynomialRepresentation.hpp"
-#include <regex>
 
 namespace xacc {
 namespace quantum {
-
-void PGO::apply(std::shared_ptr<CompositeInstruction> gateFunction,
+void PGO::apply(std::shared_ptr<CompositeInstruction> program,
                              const std::shared_ptr<Accelerator> accelerator,
                              const HeterogeneousMap &options) {
-  std::cout << "Test\n";
+  std::cout << "Test PGO\n";
+  // staq_rotation_folding if t gate is up to XX%
+  int t = 3;
+  if(t > 10){
+    auto opt = xacc::getIRTransformation("rotation-folding");
+    opt->apply(program, nullptr);
+  }
+  
 }
 } // namespace quantum
 } // namespace xacc
