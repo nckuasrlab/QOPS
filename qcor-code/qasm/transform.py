@@ -88,6 +88,8 @@ with open("output.txt", 'w') as out:
                                 + ", [0, 0, 0, -1])\n")
             elif line.split(' ')[0] == "measure":
                 out.write("measure(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ", 1)\n")
+            elif line.split(' ')[0] == "swap":
+                out.write("SWAP(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] + ", " + line.split(' ')[2].split('[')[1].split(']')[0] + ")\n")
             else:
                 print("no this gate")
                 print(line)
