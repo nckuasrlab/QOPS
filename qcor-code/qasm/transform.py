@@ -29,7 +29,7 @@ with open("output.txt", 'w') as out:
                     imag_1 = round(-math.sin(float(n_1)/2), 8)
                     out.write("U1(circuit, " + line.split(' ')[1].split('[')[1].split(']')[0] 
                                     + ", [" + str(real_1) + ", 0, 0, " + str(real_1) + "]"
-                                    + ", [" + str(imag_1) + ", 0, 0, " + str(imag_1) + "])\n")
+                                    + ", [0, " + str(imag_1) + ", " + str(imag_1) + ", 0])\n")
                 elif line.split(' ')[0][0:2] == "ry":
                     n_1 = line.split(' ')[0].split('(')[1].split(')')[0]
                     real_1 = round(math.cos(float(n_1)/2), 8)
