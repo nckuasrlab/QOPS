@@ -1,7 +1,7 @@
 all: qSim.out
 CC:=gcc
 INCLUDE:=.
-CFLAGS:=-g -O0 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+CFLAGS:=-g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 OMPFLAGES:=-fopenmp
 
 qSim.out: main.o common.o gate.o

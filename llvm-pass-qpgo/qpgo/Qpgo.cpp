@@ -1,21 +1,22 @@
 //===-- Qpgo.cpp --------------------------------------------*- C++ -*-===//
 #include "Qpgo.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/IPO/PassManagerBuilder.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <llvm/ADT/StringRef.h>
+#include <llvm/ADT/Twine.h>
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/DebugInfoMetadata.h>
+#include <llvm/IR/Function.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Module.h>
+#include <llvm/IR/Value.h>
+#include <llvm/Pass.h>
+#include <llvm/Support/Casting.h>
+#include <llvm/Support/CommandLine.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Transforms/IPO/PassManagerBuilder.h>
+#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <vector>
 
 namespace llvm {
@@ -40,16 +41,21 @@ static const char *operandToFlag(const Value *Operand) {
     return "%p";
   }
 }
+static bool insertOnMainEntryBlock(BasicBlock &BB, Module *M) {
+  Instruction *inst = BB.getFirstNonPHI();
+  if (dyn_cast<AllocaInst>(inst)) {
+    errs() << inst << "\n";
+  }
+  return true;
+}
 
-bool QpgoPass::runOnFunction(Function &F) {
+// bool QpgoPass::runOnFunction(Function &F) {
+bool QpgoPass::runOnModule(Module &MM) {
   // Setup context
-  Module *M = F.getParent();
+  // Module *M = F.getParent();
+  auto *M = &MM;
   LLVMContext &Context = M->getContext();
   IRBuilder<> Builder(Context);
-
-  errs() << "I saw a function called '" << F.getName()
-         << "', arg_size: " << F.arg_size() << "\n";
-
   // Declare types
   Type *IOFileType = StructType::create(M->getContext(), "struct._IO_FILE");
   Type *IOFilePtrType = PointerType::getUnqual(IOFileType);
@@ -90,28 +96,39 @@ bool QpgoPass::runOnFunction(Function &F) {
   // Need to load stderr as a global variable first
   Value *GlobalStderr = M->getOrInsertGlobal("stderr", IOFilePtrType);
   if (GlobalStderr == nullptr) {
-    errs() << "global_var_stderr if null";
+    errs() << "global_var_stderr is null";
   }
 
-  // Iterate F, BB
   std::vector<CallInst *> InjectPoints;
-  for (BasicBlock &BB : F) {
-    for (Instruction &BI : BB) {
-      if (auto CBI = dyn_cast<CallInst>(&BI)) {
-        // get the called function name
-        auto FuncName = CBI->getCalledFunction()->getName();
+  errs() << "I saw a module called '" << MM.getName() << "'\n";
+  for (Function &F : MM) {
+    errs() << "I saw a function called '" << F.getName()
+           << "', arg_size: " << F.arg_size() << "\n";
 
-        // process specific functions (gates) and
-        // skip llvm functions to prevent error: Running pass 'X86
-        // DAG->DAG Instruction Selection when '-g'
-        const auto ProfiledFuncIt = ProfiledFuncs.find(FuncName.str());
-        if (ProfiledFuncIt == ProfiledFuncs.end()) {
-          // errs() << "I saw a CallInst called '" << FuncName << "' (skip)\n";
-          continue;
+    if ((F.getName() == "main")) {
+      insertOnMainEntryBlock(F.getEntryBlock(), M);
+    }
+
+    // Iterate F, BB
+    for (BasicBlock &BB : F) {
+      for (Instruction &BI : BB) {
+        if (auto CBI = dyn_cast<CallInst>(&BI)) {
+          // get the called function name
+          auto FuncName = CBI->getCalledFunction()->getName();
+
+          // process specific functions (gates) and
+          // skip llvm functions to prevent error: Running pass 'X86
+          // DAG->DAG Instruction Selection when '-g'
+          const auto ProfiledFuncIt = ProfiledFuncs.find(FuncName.str());
+          if (ProfiledFuncIt == ProfiledFuncs.end()) {
+            // errs() << "I saw a CallInst called '" << FuncName << "'
+            // (skip)\n";
+            continue;
+          }
+          errs() << "I saw a CallInst called '" << FuncName << "' (collect)\n";
+          // collect target functions into the vector
+          InjectPoints.push_back(CBI);
         }
-        errs() << "I saw a CallInst called '" << FuncName << "' (collect)\n";
-        // collect target functions into the vector
-        InjectPoints.push_back(CBI);
       }
     }
   }
@@ -209,12 +226,15 @@ bool QpgoPass::runOnFunction(Function &F) {
 char QpgoPass::ID = 0;
 
 // Automatically enable the pass.
-// http://adriansampson.net/blog/clangpass.html
-static void registerQpgoPass(const PassManagerBuilder &,
-                             legacy::PassManagerBase &PM) {
-  PM.add(new QpgoPass());
-}
-static RegisterStandardPasses
-    RegisterMyPass(PassManagerBuilder::EP_EarlyAsPossible, registerQpgoPass);
+static RegisterPass<QpgoPass> X("QpgoPass", "Qpgo Pass",
+                                false /* Only looks at CFG */,
+                                false /* Analysis Pass */);
+
+// EP_EarlyAsPossible is not working for ModulePass
+static RegisterStandardPasses Y(PassManagerBuilder::EP_ModuleOptimizerEarly,
+                                [](const PassManagerBuilder &Builder,
+                                   legacy::PassManagerBase &PM) {
+                                  PM.add(new QpgoPass());
+                                });
 
 } // namespace llvm

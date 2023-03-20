@@ -2,7 +2,7 @@
 #ifndef LLVM_PASS_QPGO_H
 #define LLVM_PASS_QPGO_H
 
-#include "llvm/Pass.h"
+#include <llvm/Pass.h>
 #include <unordered_map>
 
 // X-macro
@@ -23,13 +23,13 @@ namespace llvm {
 class Function;
 class Module;
 
-class QpgoPass : public FunctionPass {
+class QpgoPass : public ModulePass {
   /* Other private data members and functions */
 public:
   static char ID;
-  explicit QpgoPass() : FunctionPass(ID) {}
+  explicit QpgoPass() : ModulePass(ID) { }
   // Main run interface method.
-  virtual bool runOnFunction(Function &F) override;
+  virtual bool runOnModule(Module &M) override;
   StringRef getPassName() const override { return "QpgoPass"; }
 
 private:
