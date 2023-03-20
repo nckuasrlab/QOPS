@@ -55,5 +55,5 @@ pgo: clean .pgo qSim.out
 pgol: clean .pgol qSim.out
 	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib ./qSim.out
 clean:
-	rm -f qSim.out *.o *.ll
+	rm -f qSim.out *.o *.ll default.*
 

@@ -1,5 +1,6 @@
 //===-- Qpgo.cpp --------------------------------------------*- C++ -*-===//
 #include "Qpgo.h"
+#include "llvm/IR/Constants.h"
 #include <llvm/ADT/StringRef.h>
 #include <llvm/ADT/Twine.h>
 #include <llvm/IR/BasicBlock.h>
@@ -23,9 +24,9 @@
 namespace llvm {
 // Register the argument option for the output file
 static cl::opt<std::string>
-    ProfileDataFilenameOpt("profile-gen",
-                           cl::desc("Specify output filename for profile data"),
-                           cl::value_desc("filename"), cl::init("stderr"));
+    ProfileDataFilename("profile-gen",
+                        cl::desc("Specify output filename for profile data"),
+                        cl::value_desc("filename"), cl::init("stderr"));
 
 static const char *operandToFlag(const Value *Operand) {
   auto OperandType = Operand->getType();
@@ -90,12 +91,47 @@ static bool declareFunctions(Module &M) {
 }
 
 static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M) {
+  LLVMContext &Context = M.getContext();
+  IRBuilder<> Builder(Context);
+
   Instruction *inst = BB.getFirstNonPHI();
   if (dyn_cast<AllocaInst>(inst)) {
-    auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
-        getDeclaredTypes(M);
-    errs() << inst << "\n";
+    auto IOFilePtrType = std::get<1>(getDeclaredTypes(M));
+    // FILE *fopen (const char *, const char *);
+    auto FopenFunc = M.getOrInsertFunction("fopen", IOFilePtrType,
+                                           Type::getInt8PtrTy(Context),
+                                           Type::getInt8PtrTy(Context));
+    Value *ProfileDataFilenameStrVal = Builder.CreateGlobalStringPtr(
+        ProfileDataFilename, "ProfileDataFilenameStrVal", 0, &M);
+    Value *WPlusStrVal =
+        Builder.CreateGlobalStringPtr("w+", "WPlusStrVal", 0, &M);
+
+    Builder.SetInsertPoint(inst);
+    auto OpenedFile =
+        Builder.CreateCall(FopenFunc, {ProfileDataFilenameStrVal, WPlusStrVal});
+    auto GlobalFile = M.getOrInsertGlobal("profile_data_file", IOFilePtrType);
+    auto GVal = M.getNamedGlobal("profile_data_file");
+    // initialize the variable with an undef value to ensure it is added to the
+    // symbol table
+    GVal->setInitializer(UndefValue::get(IOFilePtrType));
+    Builder.CreateStore(OpenedFile, GlobalFile);
   }
+  return true;
+}
+
+static bool insertOnMainEndBlock(BasicBlock &BB, Module &M) {
+  LLVMContext &Context = M.getContext();
+  IRBuilder<> Builder(Context);
+  Instruction *inst = BB.getTerminator();
+  auto IOFilePtrType = std::get<1>(getDeclaredTypes(M));
+  // int fclose(FILE*);
+  auto FcloseFunc =
+      M.getOrInsertFunction("fclose", Type::getInt32Ty(Context), IOFilePtrType);
+  auto GlobalFile = M.getNamedGlobal("profile_data_file");
+
+  Builder.SetInsertPoint(inst);
+  auto LoadedGlobalFile = Builder.CreateLoad(IOFilePtrType, GlobalFile);
+  Builder.CreateCall(FcloseFunc, {LoadedGlobalFile});
   return true;
 }
 
@@ -109,9 +145,12 @@ bool QpgoPass::runOnModule(Module &M) {
   declareFunctions(M);
 
   // Need to load stderr as a global variable first
-  Value *GlobalStderr = M.getOrInsertGlobal("stderr", IOFilePtrType);
-  if (GlobalStderr == nullptr) {
-    errs() << "global_var_stderr is null";
+  auto GlobalFile =
+      ProfileDataFilename == "stderr" ? "stderr" : "profile_data_file";
+  Value *GlobalProfileOutput = M.getOrInsertGlobal(GlobalFile, IOFilePtrType);
+  // Value* GlobalStderr = M.getNamedGlobal("profile_data_file");
+  if (GlobalProfileOutput == nullptr) {
+    errs() << "GlobalProfileOutput is null";
   }
 
   std::vector<CallInst *> InjectPoints;
@@ -120,8 +159,9 @@ bool QpgoPass::runOnModule(Module &M) {
     errs() << "I saw a function called '" << F.getName()
            << "', arg_size: " << F.arg_size() << "\n";
 
-    if ((F.getName() == "main")) {
+    if (F.getName() == "main" && ProfileDataFilename != "stderr") {
       insertOnMainEntryBlock(F.getEntryBlock(), M);
+      insertOnMainEndBlock(F.getEntryBlock(), M);
     }
 
     // Iterate F, BB
@@ -172,8 +212,7 @@ bool QpgoPass::runOnModule(Module &M) {
         std::to_string(static_cast<std::underlying_type_t<ProfiledFuncKind>>(
             ProfiledFuncIt->second)),
         "FuncNameStrVal", 0, &M);
-    auto LoadedStderr = Builder.CreateLoad(IOFilePtrType, GlobalStderr);
-    std::vector<Value *> NameArgs({LoadedStderr, FuncNameStrVal});
+    auto LoadedStderr = Builder.CreateLoad(IOFilePtrType, GlobalProfileOutput);
 
     // get operands from the call inst
     unsigned NumOperands = CBI->getNumArgOperands();
@@ -223,17 +262,18 @@ bool QpgoPass::runOnModule(Module &M) {
 
     Value *TvStrVal =
         Builder.CreateGlobalStringPtr("%lld\n", "TvStrVal", 0, &M);
-    std::vector<Value *> TimeSpecArgs({LoadedStderr, TvStrVal, TvNsec});
 
     // Use lockfile to block stderr
     Builder.CreateCall(M.getFunction("flockfile"), {LoadedStderr});
-    Builder.CreateCall(M.getFunction("fprintf"), NameArgs);
+    Builder.CreateCall(M.getFunction("fprintf"),
+                       {LoadedStderr, FuncNameStrVal});
     Builder.CreateCall(M.getFunction("fprintf"), ArgsArgs);
-    Builder.CreateCall(M.getFunction("fprintf"), TimeSpecArgs);
+    Builder.CreateCall(M.getFunction("fprintf"),
+                       {LoadedStderr, TvStrVal, TvNsec});
     Builder.CreateCall(M.getFunction("fflush"), {LoadedStderr});
     Builder.CreateCall(M.getFunction("funlockfile"), {LoadedStderr});
   }
-  errs() << ProfileDataFilenameOpt << "\n";
+  errs() << ProfileDataFilename << "\n";
   return true;
 }
 
