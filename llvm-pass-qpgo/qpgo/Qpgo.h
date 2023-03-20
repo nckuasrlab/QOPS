@@ -27,7 +27,7 @@ class QpgoPass : public ModulePass {
   /* Other private data members and functions */
 public:
   static char ID;
-  explicit QpgoPass() : ModulePass(ID) { }
+  explicit QpgoPass() : ModulePass(ID) {}
   // Main run interface method.
   virtual bool runOnModule(Module &M) override;
   StringRef getPassName() const override { return "QpgoPass"; }

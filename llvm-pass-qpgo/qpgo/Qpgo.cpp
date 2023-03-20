@@ -41,7 +41,7 @@ static const char *operandToFlag(const Value *Operand) {
     return "%p";
   }
 }
-static bool insertOnMainEntryBlock(BasicBlock &BB, Module *M) {
+static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M) {
   Instruction *inst = BB.getFirstNonPHI();
   if (dyn_cast<AllocaInst>(inst)) {
     errs() << inst << "\n";
@@ -49,15 +49,12 @@ static bool insertOnMainEntryBlock(BasicBlock &BB, Module *M) {
   return true;
 }
 
-// bool QpgoPass::runOnFunction(Function &F) {
-bool QpgoPass::runOnModule(Module &MM) {
+bool QpgoPass::runOnModule(Module &M) {
   // Setup context
-  // Module *M = F.getParent();
-  auto *M = &MM;
-  LLVMContext &Context = M->getContext();
+  LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
   // Declare types
-  Type *IOFileType = StructType::create(M->getContext(), "struct._IO_FILE");
+  Type *IOFileType = StructType::create(M.getContext(), "struct._IO_FILE");
   Type *IOFilePtrType = PointerType::getUnqual(IOFileType);
   Type *IntType = Type::getInt32Ty(Context);
   Type *TimespecType = StructType::create(
@@ -94,14 +91,14 @@ bool QpgoPass::runOnModule(Module &MM) {
       OmpGetThreadNumType, Function::ExternalLinkage, "omp_get_thread_num", M);
 
   // Need to load stderr as a global variable first
-  Value *GlobalStderr = M->getOrInsertGlobal("stderr", IOFilePtrType);
+  Value *GlobalStderr = M.getOrInsertGlobal("stderr", IOFilePtrType);
   if (GlobalStderr == nullptr) {
     errs() << "global_var_stderr is null";
   }
 
   std::vector<CallInst *> InjectPoints;
-  errs() << "I saw a module called '" << MM.getName() << "'\n";
-  for (Function &F : MM) {
+  errs() << "I saw a module called '" << M.getName() << "'\n";
+  for (Function &F : M) {
     errs() << "I saw a function called '" << F.getName()
            << "', arg_size: " << F.arg_size() << "\n";
 
@@ -121,8 +118,6 @@ bool QpgoPass::runOnModule(Module &MM) {
           // DAG->DAG Instruction Selection when '-g'
           const auto ProfiledFuncIt = ProfiledFuncs.find(FuncName.str());
           if (ProfiledFuncIt == ProfiledFuncs.end()) {
-            // errs() << "I saw a CallInst called '" << FuncName << "'
-            // (skip)\n";
             continue;
           }
           errs() << "I saw a CallInst called '" << FuncName << "' (collect)\n";
@@ -141,7 +136,7 @@ bool QpgoPass::runOnModule(Module &MM) {
     // call omp_get_thread_num
     Value *Tid = Builder.CreateAlloca(IntType, 0, "Tid");
     Value *OmpThreadNum =
-        Builder.CreateCall(M->getFunction("omp_get_thread_num"), {});
+        Builder.CreateCall(M.getFunction("omp_get_thread_num"), {});
     Builder.CreateStore(OmpThreadNum, Tid);
     Tid = Builder.CreateLoad(IntType, Tid);
     // compare tid and 0
@@ -158,7 +153,7 @@ bool QpgoPass::runOnModule(Module &MM) {
     Value *FuncNameStrVal = Builder.CreateGlobalStringPtr(
         std::to_string(static_cast<std::underlying_type_t<ProfiledFuncKind>>(
             ProfiledFuncIt->second)),
-        "FuncNameStrVal", 0, M);
+        "FuncNameStrVal", 0, &M);
     auto LoadedStderr = Builder.CreateLoad(IOFilePtrType, GlobalStderr);
     std::vector<Value *> NameArgs({LoadedStderr, FuncNameStrVal});
 
@@ -174,7 +169,7 @@ bool QpgoPass::runOnModule(Module &MM) {
     errs() << "format specifier of printf: \"";
     errs().write_escaped(FuncArgsStr) << "\"\n";
     Value *FuncArgsStrVal =
-        Builder.CreateGlobalStringPtr(FuncArgsStr, "FuncArgsStrVal", 0, M);
+        Builder.CreateGlobalStringPtr(FuncArgsStr, "FuncArgsStrVal", 0, &M);
     std::vector<Value *> ArgsArgs({LoadedStderr, FuncArgsStrVal});
     for (int i = 0; i < NumOperands; ++i) {
       Value *Operand = CBI->getArgOperand(i);
@@ -193,7 +188,7 @@ bool QpgoPass::runOnModule(Module &MM) {
     Value *TimeSpec = Builder.CreateAlloca(TimespecType, 0, "TimeSpec");
     std::vector<Value *> ClockGettimeArgs(
         {Builder.getInt32(1), TimeSpec}); // CLOCK_MONOTONIC
-    Builder.CreateCall(M->getFunction("clock_gettime"), ClockGettimeArgs);
+    Builder.CreateCall(M.getFunction("clock_gettime"), ClockGettimeArgs);
 
     // TimeSpec.tv_sec*1000000000 + TimeSpec.tv_nsec
     Value *TvSec = Builder.CreateInBoundsGEP(
@@ -208,16 +203,16 @@ bool QpgoPass::runOnModule(Module &MM) {
     TvNsec = Builder.CreateLoad(Type::getInt64Ty(Context), TvNsec);
     TvNsec = Builder.CreateBinOp(Instruction::Add, TvNsec, TvSec);
 
-    Value *TvStrVal = Builder.CreateGlobalStringPtr("%lld\n", "TvStrVal", 0, M);
+    Value *TvStrVal = Builder.CreateGlobalStringPtr("%lld\n", "TvStrVal", 0, &M);
     std::vector<Value *> TimeSpecArgs({LoadedStderr, TvStrVal, TvNsec});
 
     // Use lockfile to block stderr
-    Builder.CreateCall(M->getFunction("flockfile"), {LoadedStderr});
-    Builder.CreateCall(M->getFunction("fprintf"), NameArgs);
-    Builder.CreateCall(M->getFunction("fprintf"), ArgsArgs);
-    Builder.CreateCall(M->getFunction("fprintf"), TimeSpecArgs);
-    Builder.CreateCall(M->getFunction("fflush"), {LoadedStderr});
-    Builder.CreateCall(M->getFunction("funlockfile"), {LoadedStderr});
+    Builder.CreateCall(M.getFunction("flockfile"), {LoadedStderr});
+    Builder.CreateCall(M.getFunction("fprintf"), NameArgs);
+    Builder.CreateCall(M.getFunction("fprintf"), ArgsArgs);
+    Builder.CreateCall(M.getFunction("fprintf"), TimeSpecArgs);
+    Builder.CreateCall(M.getFunction("fflush"), {LoadedStderr});
+    Builder.CreateCall(M.getFunction("funlockfile"), {LoadedStderr});
   }
   errs() << ProfileDataFilenameOpt << "\n";
   return true;
@@ -230,7 +225,6 @@ static RegisterPass<QpgoPass> X("QpgoPass", "Qpgo Pass",
                                 false /* Only looks at CFG */,
                                 false /* Analysis Pass */);
 
-// EP_EarlyAsPossible is not working for ModulePass
 static RegisterStandardPasses Y(PassManagerBuilder::EP_ModuleOptimizerEarly,
                                 [](const PassManagerBuilder &Builder,
                                    legacy::PassManagerBase &PM) {
