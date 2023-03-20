@@ -17,6 +17,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
+#include <tuple>
 #include <vector>
 
 namespace llvm {
@@ -41,28 +42,24 @@ static const char *operandToFlag(const Value *Operand) {
     return "%p";
   }
 }
-static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M) {
-  Instruction *inst = BB.getFirstNonPHI();
-  if (dyn_cast<AllocaInst>(inst)) {
-    errs() << inst << "\n";
-  }
-  return true;
-}
 
-bool QpgoPass::runOnModule(Module &M) {
-  // Setup context
+static auto getDeclaredTypes(Module &M) {
   LLVMContext &Context = M.getContext();
-  IRBuilder<> Builder(Context);
   // Declare types
+  Type *IntType = Type::getInt32Ty(Context);
   Type *IOFileType = StructType::create(M.getContext(), "struct._IO_FILE");
   Type *IOFilePtrType = PointerType::getUnqual(IOFileType);
-  Type *IntType = Type::getInt32Ty(Context);
   Type *TimespecType = StructType::create(
       ArrayRef<Type *>({Type::getInt64Ty(Context), Type::getInt64Ty(Context)}),
       "struct.timespec");
   Type *TimespecPtrType = PointerType::getUnqual(TimespecType);
+  return std::make_tuple(IntType, IOFilePtrType, TimespecType, TimespecPtrType);
+}
 
-  // Declare functions
+static bool declareFunctions(Module &M) {
+  LLVMContext &Context = M.getContext();
+  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
+      getDeclaredTypes(M);
   // int fprintf(FILE *stream, const char *format, ...);
   std::vector<Type *> FprintfArgsType(
       {IOFilePtrType, Type::getInt8PtrTy(Context)});
@@ -89,6 +86,27 @@ bool QpgoPass::runOnModule(Module &M) {
   FunctionType *OmpGetThreadNumType = FunctionType::get(IntType, false);
   Constant *OmpGetThreadNumFunc = Function::Create(
       OmpGetThreadNumType, Function::ExternalLinkage, "omp_get_thread_num", M);
+  return true;
+}
+
+static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M) {
+  Instruction *inst = BB.getFirstNonPHI();
+  if (dyn_cast<AllocaInst>(inst)) {
+    auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
+        getDeclaredTypes(M);
+    errs() << inst << "\n";
+  }
+  return true;
+}
+
+bool QpgoPass::runOnModule(Module &M) {
+  // Setup context
+  LLVMContext &Context = M.getContext();
+  IRBuilder<> Builder(Context);
+
+  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
+      getDeclaredTypes(M);
+  declareFunctions(M);
 
   // Need to load stderr as a global variable first
   Value *GlobalStderr = M.getOrInsertGlobal("stderr", IOFilePtrType);
@@ -203,7 +221,8 @@ bool QpgoPass::runOnModule(Module &M) {
     TvNsec = Builder.CreateLoad(Type::getInt64Ty(Context), TvNsec);
     TvNsec = Builder.CreateBinOp(Instruction::Add, TvNsec, TvSec);
 
-    Value *TvStrVal = Builder.CreateGlobalStringPtr("%lld\n", "TvStrVal", 0, &M);
+    Value *TvStrVal =
+        Builder.CreateGlobalStringPtr("%lld\n", "TvStrVal", 0, &M);
     std::vector<Value *> TimeSpecArgs({LoadedStderr, TvStrVal, TvNsec});
 
     // Use lockfile to block stderr
