@@ -158,9 +158,8 @@ bool QpgoPass::runOnModule(Module &M) {
       ProfileDataFilename == "stderr" ? "stderr" : "profile_data_file";
   Value *GlobalProfileDataFile =
       M.getOrInsertGlobal(StderrOrFile, IOFilePtrType);
-  if (GlobalProfileDataFile == nullptr) {
+  if (GlobalProfileDataFile == nullptr)
     errs() << "GlobalProfileDataFile is null";
-  }
 
   std::vector<std::pair<ProfiledFuncKind, CallInst *>> InjectPoints;
   QPGO_DEBUG(dbgs() << "I saw a module called '" << M.getName() << "'\n");
@@ -168,7 +167,8 @@ bool QpgoPass::runOnModule(Module &M) {
     QPGO_DEBUG(dbgs() << "I saw a function called '" << F.getName()
                       << "', arg_size: " << F.arg_size() << "\n");
 
-    if (F.getName() == "main" && ProfileDataFilename != "stderr") {
+    if (F.hasName() && F.getName() == "main" &&
+        ProfileDataFilename != "stderr") {
       // inject fopen, fclose to begin, end of main function if the target
       // output file option is not stderr
       insertOnMainEntryBlock(F.getEntryBlock(), M);
@@ -180,15 +180,18 @@ bool QpgoPass::runOnModule(Module &M) {
       for (Instruction &BI : BB) {
         if (auto *CBI = dyn_cast<CallInst>(&BI)) {
           // get the called function name
-          auto FuncName = CBI->getCalledFunction()->getName();
+          auto CalledFunction = CBI->getCalledFunction();
+          if (CalledFunction == nullptr) // inline function will be null
+            continue;
+          auto FuncName = CalledFunction->getName();
 
           // process specific functions (gates) and
           // skip llvm functions to prevent error: Running pass 'X86
           // DAG->DAG Instruction Selection when '-g'
           const auto &ProfiledFuncIt = ProfiledFuncsMap.find(FuncName.str());
-          if (ProfiledFuncIt == ProfiledFuncsMap.end()) {
+          if (ProfiledFuncIt == ProfiledFuncsMap.end())
             continue;
-          }
+
           QPGO_DEBUG(dbgs() << "I saw a CallInst called '" << FuncName
                             << "' (collect)\n");
           // collect target functions into the vector
