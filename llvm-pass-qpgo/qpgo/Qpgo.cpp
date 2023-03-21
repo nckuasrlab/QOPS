@@ -149,7 +149,7 @@ bool QpgoPass::runOnModule(Module &M) {
     errs() << "GlobalProfileDataFile is null";
   }
 
-  std::vector<CallInst *> InjectPoints;
+  std::vector<std::pair<ProfiledFuncKind, CallInst *>> InjectPoints;
   errs() << "I saw a module called '" << M.getName() << "'\n";
   for (Function &F : M) {
     errs() << "I saw a function called '" << F.getName()
@@ -172,21 +172,19 @@ bool QpgoPass::runOnModule(Module &M) {
           // process specific functions (gates) and
           // skip llvm functions to prevent error: Running pass 'X86
           // DAG->DAG Instruction Selection when '-g'
-          const auto &ProfiledFuncIt = ProfiledFuncs.find(FuncName.str());
-          if (ProfiledFuncIt == ProfiledFuncs.end()) {
+          const auto &ProfiledFuncIt = ProfiledFuncsMap.find(FuncName.str());
+          if (ProfiledFuncIt == ProfiledFuncsMap.end()) {
             continue;
           }
           errs() << "I saw a CallInst called '" << FuncName << "' (collect)\n";
           // collect target functions into the vector
-          InjectPoints.push_back(CBI);
+          InjectPoints.push_back(std::make_pair(ProfiledFuncIt->second, CBI));
         }
       }
     }
   }
   // Inject if condition to check tid == 0 for collected functions
-  // Ref: https://blog.csdn.net/weixin_50972562/article/details/125437597
-  for (auto *CBI : InjectPoints) {
-    auto FuncName = CBI->getCalledFunction()->getName();
+  for (auto [ProfiledFunc, CBI] : InjectPoints) {
     // insert printf right before the call instruction
     Builder.SetInsertPoint(CBI);
     // call omp_get_thread_num
@@ -205,10 +203,9 @@ bool QpgoPass::runOnModule(Module &M) {
     Builder.SetInsertPoint(ThenBB);
 
     // enum value to string
-    const auto &ProfiledFuncIt = ProfiledFuncs.find(FuncName.str());
     Value *FuncNameStrVal = Builder.CreateGlobalStringPtr(
         std::to_string(static_cast<std::underlying_type_t<ProfiledFuncKind>>(
-            ProfiledFuncIt->second)),
+            ProfiledFunc)),
         "FuncNameStrVal", 0, &M);
     auto *LoadedProfileDataFile =
         Builder.CreateLoad(IOFilePtrType, GlobalProfileDataFile);

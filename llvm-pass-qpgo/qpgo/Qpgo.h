@@ -33,11 +33,12 @@ public:
   StringRef getPassName() const override { return "QpgoPass"; }
 
 private:
-  inline static std::unordered_map<std::string, ProfiledFuncKind> ProfiledFuncs{
+  inline static std::unordered_map<std::string, ProfiledFuncKind>
+      ProfiledFuncsMap{
 #define ENTRY(f) {#f, PFK_##f},
-      PROFILED_FUNC
+          PROFILED_FUNC
 #undef ENTRY
-  };
+      };
 };
 } // namespace llvm
 
