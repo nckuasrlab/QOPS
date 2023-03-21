@@ -12,11 +12,24 @@
 #include <llvm/Pass.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Transforms/IPO/PassManagerBuilder.h>
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 #include <tuple>
 #include <vector>
+
+// Show debug info by adding '-DENABLE_DEBUG=ON' when building the pass
+#ifndef NDEBUG
+#define QPGO_DEBUG(X)                                                          \
+  do {                                                                         \
+    X;                                                                         \
+  } while (false)
+#else
+#define QPGO_DEBUG(X)                                                          \
+  do {                                                                         \
+  } while (false)
+#endif
 
 namespace llvm {
 // Register the argument option for the output file
@@ -150,10 +163,10 @@ bool QpgoPass::runOnModule(Module &M) {
   }
 
   std::vector<std::pair<ProfiledFuncKind, CallInst *>> InjectPoints;
-  errs() << "I saw a module called '" << M.getName() << "'\n";
+  QPGO_DEBUG(dbgs() << "I saw a module called '" << M.getName() << "'\n");
   for (Function &F : M) {
-    errs() << "I saw a function called '" << F.getName()
-           << "', arg_size: " << F.arg_size() << "\n";
+    QPGO_DEBUG(dbgs() << "I saw a function called '" << F.getName()
+                      << "', arg_size: " << F.arg_size() << "\n");
 
     if (F.getName() == "main" && ProfileDataFilename != "stderr") {
       // inject fopen, fclose to begin, end of main function if the target
@@ -176,7 +189,8 @@ bool QpgoPass::runOnModule(Module &M) {
           if (ProfiledFuncIt == ProfiledFuncsMap.end()) {
             continue;
           }
-          errs() << "I saw a CallInst called '" << FuncName << "' (collect)\n";
+          QPGO_DEBUG(dbgs() << "I saw a CallInst called '" << FuncName
+                            << "' (collect)\n");
           // collect target functions into the vector
           InjectPoints.push_back(std::make_pair(ProfiledFuncIt->second, CBI));
         }
@@ -212,15 +226,15 @@ bool QpgoPass::runOnModule(Module &M) {
 
     // get operands from the call inst
     unsigned NumOperands = CBI->getNumArgOperands();
-    errs() << "Num of arguments: " << NumOperands << ", args: ";
+    QPGO_DEBUG(dbgs() << "Num of arguments: " << NumOperands << ", args: ");
     std::string FuncArgsStr = " ";
     for (int i = 0; i < NumOperands; ++i) {
       const Value *operand = CBI->getArgOperand(i);
       FuncArgsStr.append(operandToFlag(operand));
       FuncArgsStr.append(" ");
     }
-    errs() << "format specifier of printf: \"";
-    errs().write_escaped(FuncArgsStr) << "\"\n";
+    QPGO_DEBUG(dbgs() << "format specifier of printf: \"");
+    QPGO_DEBUG(dbgs().write_escaped(FuncArgsStr) << "\"\n");
     Value *FuncArgsStrVal =
         Builder.CreateGlobalStringPtr(FuncArgsStr, "FuncArgsStrVal", 0, &M);
     std::vector<Value *> ArgsArgs({LoadedProfileDataFile, FuncArgsStrVal});
@@ -229,7 +243,7 @@ bool QpgoPass::runOnModule(Module &M) {
       if (Operand->getType()->isFloatTy()) {
         // We cannot print float number by printf function if we pass it
         // to the function Ref: https://stackoverflow.com/a/28097654
-        errs() << "Add fpext for printing float vaule\n";
+        QPGO_DEBUG(dbgs() << "Add fpext for printing float vaule\n");
         // update operand to the casted version
         Operand = Builder.CreateCast(Instruction::FPExt, Operand,
                                      Type::getDoubleTy(Context));
@@ -269,7 +283,6 @@ bool QpgoPass::runOnModule(Module &M) {
     Builder.CreateCall(M.getFunction("fflush"), {LoadedProfileDataFile});
     Builder.CreateCall(M.getFunction("funlockfile"), {LoadedProfileDataFile});
   }
-  errs() << ProfileDataFilename << "\n";
   return true;
 }
 
