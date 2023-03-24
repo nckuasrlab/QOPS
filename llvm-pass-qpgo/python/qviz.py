@@ -14,7 +14,7 @@ GATE_OPS = {
     "CU1": 12,
     "SWAP": 13,
     "TOFFOLI": 14,
-    "OPS_MEASURE": 20,
+    "M": 20,
     "OPS_MEASURE_MULTI": 21,
     "OPS_COPY": 22,
     "U2": 31,
@@ -78,6 +78,7 @@ def main():
     MAX_SEQ = len(data)
 
     g = graphviz.Digraph(name="CIRC", strict=True)
+    g.attr(margin="0")
     g.attr(
         "graph",
         rankdir="LR",
@@ -86,6 +87,7 @@ def main():
         nodesep="0.1",
         ranksep="0.2",
         ordering="out",
+        newrank="true",  # https://stackoverflow.com/a/18410951
     )
     g.attr("edge", arrowhead="none", headclip="false", tailclip="false")
     g.attr(
@@ -101,13 +103,13 @@ def main():
     with g.subgraph() as q:
         q.attr(rank="same")
         q.attr("node", shape="plaintext")
-        q.node("tu0", label="")
+        q.node("tu0", label="", height="0.0")
         q.node("td0", label="Time (us)", width="0.6")
         for qi in range(MAX_QUB):
-            q.node(f"map_{qi}_0", label=f"q_{qi}")
+            q.node(f"map_0_{qi}", label=f"q_{qi}")
 
     with g.subgraph() as c:
-        c.attr("node", shape="plaintext")
+        c.attr("node", shape="plaintext", fontsize="8")
         c.attr("edge", style="invis", constraint="true")
         for ti in range(MAX_SEQ):
             c.edge(f"tu{ti}", f"tu{ti+1}")
@@ -116,44 +118,51 @@ def main():
                 c.node(
                     f"td{ti}",
                     label=f"{(data[ti][-1]-data[ti-1][-1])/1e3:.1f}",
-                    fontsize="8",
-                    shape="ellipse",
-                    color="white",
                 )
         c.edge("tu0", "map_0_0")
-        c.edge(f"map_{MAX_QUB-1}_0", "td0")
+        c.edge(f"map_0_{MAX_QUB-1}", "td0")
         for qi in range(MAX_QUB - 1):
-            c.edge(f"map_{qi}_0", f"map_{qi+1}_0")
+            c.edge(f"map_0_{qi}", f"map_0_{qi+1}")
 
     with g.subgraph() as v:
         v.attr("edge", style="solid", weight="6")
         v.attr("node", shape="square")
-        has_gate = [list(range(MAX_QUB))]
+        gate_map = [list(range(MAX_QUB))]
         for idx, di in enumerate(data):
             ti = idx + 1
-            for qi in range(MAX_QUB):
-                # draw dummy node and be overwrited if has gate
-                v.node(f"map_{qi}_{ti}", label="", color="white")
+            has_gate = []
 
             if di[0] == 0:  # single_gate
                 gname = INV_GATE_OPS[di[2]]
-                has_gate.append([di[1]])
-                v.node(f"map_{di[1]}_{ti}", label=gname, color="black")
+                v.node(f"map_{ti}_{di[1]}", label=gname)
+                has_gate.append(di[1])
             elif di[0] == 1:  # control_gate
                 gname = INV_GATE_OPS[di[3]]
-                has_gate.append([di[1], di[2]])
-                # v.node(f"map_{di[1]}_{ti}", label=gname + "_c", color="black")
-                v.node(f"map_{di[1]}_{ti}", shape="point", color="black")
-                v.node(f"map_{di[2]}_{ti}", label=gname[1:], color="black")
+                # use a cluster to wrap the dot of control bit to unify the
+                # height
+                with v.subgraph(name=f"cluster_{ti}_{di[1]}") as p:
+                    p.attr(margin="8.9", color="white")
+                    p.attr("node", shape="point", width="0.15")
+                    p.node(f"map_{ti}_{di[1]}")
+                v.node(f"map_{ti}_{di[2]}", label=gname[1:])
+                has_gate.append(di[1])
+                has_gate.append(di[2])
             elif di[0] == 2:  # unitary4x4
                 pass
             elif di[0] == 3:  # SWAP
                 gname = INV_GATE_OPS[13]
-                has_gate.append([di[1], di[2]])
-                v.node(f"map_{di[1]}_{ti}", label=gname, color="black")
-                v.node(f"map_{di[2]}_{ti}", label=gname, color="black")
+                v.node(f"map_{ti}_{di[1]}", label=gname)
+                v.node(f"map_{ti}_{di[2]}", label=gname)
+                has_gate.append(di[1])
+                has_gate.append(di[2])
             elif di[0] == 4:  # unitary8x8
                 pass
+
+            gate_map.append(has_gate)
+            for qi in range(MAX_QUB):
+                # draw dummy node and be overwrited if has gate
+                if qi not in has_gate:
+                    v.node(f"map_{ti}_{qi}", label="", color="white")
 
         for ti in range(0, MAX_SEQ):
             if ti > 0:
@@ -161,20 +170,20 @@ def main():
                     v,
                     [
                         f"tu{ti}",
-                        *[f"map_{qi}_{ti}" for qi in range(MAX_QUB)],
+                        *[f"map_{ti}_{qi}" for qi in range(MAX_QUB)],
                         f"td{ti}",
                     ],
-                    has_gate[ti],
+                    gate_map[ti],
                 )
             for qi in range(MAX_QUB):
-                if qi in has_gate[ti] and qi in has_gate[ti + 1]:
-                    v.edge(f"map_{qi}_{ti}:e", f"map_{qi}_{ti+1}:w")
-                elif qi in has_gate[ti]:
-                    v.edge(f"map_{qi}_{ti}:e", f"map_{qi}_{ti+1}")
-                elif qi in has_gate[ti + 1]:
-                    v.edge(f"map_{qi}_{ti}", f"map_{qi}_{ti+1}:w")
+                if qi in gate_map[ti] and qi in gate_map[ti + 1]:
+                    v.edge(f"map_{ti}_{qi}:e", f"map_{ti+1}_{qi}:w")
+                elif qi in gate_map[ti]:
+                    v.edge(f"map_{ti}_{qi}:e", f"map_{ti+1}_{qi}")
+                elif qi in gate_map[ti + 1]:
+                    v.edge(f"map_{ti}_{qi}", f"map_{ti+1}_{qi}:w")
                 else:
-                    v.edge(f"map_{qi}_{ti}", f"map_{qi}_{ti+1}")
+                    v.edge(f"map_{ti}_{qi}", f"map_{ti+1}_{qi}")
 
     g.render("g.gv", view=False)
 
