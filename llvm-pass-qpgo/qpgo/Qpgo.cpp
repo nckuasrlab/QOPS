@@ -38,6 +38,11 @@ static cl::opt<std::string>
                         cl::desc("Specify output filename for profile data"),
                         cl::value_desc("filename"), cl::init("stderr"));
 
+static cl::opt<std::string>
+    ProfileMode("profile-mode",
+                cl::desc("Specify the mode for profiling (counter or context)"),
+                cl::value_desc("mode"), cl::init("counter"));
+
 static const char *operandToFlag(const Value *Operand) {
   const auto *OperandType = Operand->getType();
   // type check
@@ -144,62 +149,22 @@ static bool insertOnMainEndBlock(BasicBlock &BB, Module &M) {
   return true;
 }
 
-bool QpgoPass::runOnModule(Module &M) {
+static bool insertCounterProbe(
+    Module &M,
+    std::vector<std::pair<ProfiledFuncKind, CallInst *>> &InjectPoints,
+    Value *ProfilingFileHandle) {
+  return true;
+}
+
+static bool insertContextProbe(
+    Module &M,
+    std::vector<std::pair<ProfiledFuncKind, CallInst *>> &InjectPoints,
+    Value *ProfilingFileHandle) {
   // Setup context
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
-
   auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
       getDeclaredTypes(M);
-  declareFunctions(M);
-
-  // Need to load stderr or predefined output file as a global variable first
-  std::string StderrOrFile =
-      ProfileDataFilename == "stderr" ? "stderr" : "profile_data_file";
-  Value *GlobalProfileDataFile =
-      M.getOrInsertGlobal(StderrOrFile, IOFilePtrType);
-  if (GlobalProfileDataFile == nullptr)
-    errs() << "GlobalProfileDataFile is null";
-
-  std::vector<std::pair<ProfiledFuncKind, CallInst *>> InjectPoints;
-  QPGO_DEBUG(dbgs() << "I saw a module called '" << M.getName() << "'\n");
-  for (Function &F : M) {
-    QPGO_DEBUG(dbgs() << "I saw a function called '" << F.getName()
-                      << "', arg_size: " << F.arg_size() << "\n");
-
-    if (F.hasName() && F.getName() == "main" &&
-        ProfileDataFilename != "stderr") {
-      // inject fopen, fclose to begin, end of main function if the target
-      // output file option is not stderr
-      insertOnMainEntryBlock(F.getEntryBlock(), M);
-      insertOnMainEndBlock(F.getEntryBlock(), M);
-    }
-
-    // Iterate F, BB
-    for (BasicBlock &BB : F) {
-      for (Instruction &BI : BB) {
-        if (auto *CBI = dyn_cast<CallInst>(&BI)) {
-          // get the called function name
-          auto CalledFunction = CBI->getCalledFunction();
-          if (CalledFunction == nullptr) // inline function will be null
-            continue;
-          auto FuncName = CalledFunction->getName();
-
-          // process specific functions (gates) and
-          // skip llvm functions to prevent error: Running pass 'X86
-          // DAG->DAG Instruction Selection when '-g'
-          const auto &ProfiledFuncIt = ProfiledFuncsMap.find(FuncName.str());
-          if (ProfiledFuncIt == ProfiledFuncsMap.end())
-            continue;
-
-          QPGO_DEBUG(dbgs() << "I saw a CallInst called '" << FuncName
-                            << "' (collect)\n");
-          // collect target functions into the vector
-          InjectPoints.push_back(std::make_pair(ProfiledFuncIt->second, CBI));
-        }
-      }
-    }
-  }
   // Inject if condition to check tid == 0 for collected functions
   for (auto [ProfiledFunc, CBI] : InjectPoints) {
     // insert printf right before the call instruction
@@ -225,7 +190,7 @@ bool QpgoPass::runOnModule(Module &M) {
             ProfiledFunc)),
         "FuncNameStrVal", 0, &M);
     auto *LoadedProfileDataFile =
-        Builder.CreateLoad(IOFilePtrType, GlobalProfileDataFile);
+        Builder.CreateLoad(IOFilePtrType, ProfilingFileHandle);
 
     // get operands from the call inst
     unsigned NumOperands = CBI->getNumArgOperands();
@@ -286,6 +251,65 @@ bool QpgoPass::runOnModule(Module &M) {
     Builder.CreateCall(M.getFunction("fflush"), {LoadedProfileDataFile});
     Builder.CreateCall(M.getFunction("funlockfile"), {LoadedProfileDataFile});
   }
+  return true;
+}
+
+bool QpgoPass::runOnModule(Module &M) {
+  // Setup context
+  LLVMContext &Context = M.getContext();
+  IRBuilder<> Builder(Context);
+
+  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
+      getDeclaredTypes(M);
+  declareFunctions(M);
+
+  // Need to load stderr or predefined output file as a global variable first
+  std::string StderrOrFile =
+      ProfileDataFilename == "stderr" ? "stderr" : "profile_data_file";
+  Value *ProfilingFileHandle = M.getOrInsertGlobal(StderrOrFile, IOFilePtrType);
+  if (ProfilingFileHandle == nullptr)
+    errs() << "ProfilingFileHandle is null";
+
+  std::vector<std::pair<ProfiledFuncKind, CallInst *>> InjectPoints;
+  QPGO_DEBUG(dbgs() << "I saw a module called '" << M.getName() << "'\n");
+  for (Function &F : M) {
+    QPGO_DEBUG(dbgs() << "I saw a function called '" << F.getName()
+                      << "', arg_size: " << F.arg_size() << "\n");
+
+    if (F.hasName() && F.getName() == "main" &&
+        ProfileDataFilename != "stderr") {
+      // inject fopen, fclose to begin, end of main function if the target
+      // output file option is not stderr
+      insertOnMainEntryBlock(F.getEntryBlock(), M);
+      insertOnMainEndBlock(F.getEntryBlock(), M);
+    }
+
+    // Iterate F, BB
+    for (BasicBlock &BB : F) {
+      for (Instruction &BI : BB) {
+        if (auto *CBI = dyn_cast<CallInst>(&BI)) {
+          // get the called function name
+          auto CalledFunction = CBI->getCalledFunction();
+          if (CalledFunction == nullptr) // inline function will be null
+            continue;
+          auto FuncName = CalledFunction->getName();
+
+          // process specific functions (gates) and
+          // skip llvm functions to prevent error: Running pass 'X86
+          // DAG->DAG Instruction Selection when '-g'
+          const auto &ProfiledFuncIt = ProfiledFuncsMap.find(FuncName.str());
+          if (ProfiledFuncIt == ProfiledFuncsMap.end())
+            continue;
+
+          QPGO_DEBUG(dbgs() << "I saw a CallInst called '" << FuncName
+                            << "' (collect)\n");
+          // collect target functions into the vector
+          InjectPoints.push_back(std::make_pair(ProfiledFuncIt->second, CBI));
+        }
+      }
+    }
+  }
+  insertContextProbe(M, InjectPoints, ProfilingFileHandle);
   return true;
 }
 
