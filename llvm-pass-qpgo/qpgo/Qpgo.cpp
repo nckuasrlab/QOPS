@@ -19,7 +19,8 @@
 #include <tuple>
 #include <vector>
 
-// Show debug info by adding '-DENABLE_DEBUG=ON' when building the pass
+// Show debug info by adding '-DENABLE_DEBUG=ON' when using cmake to build the
+// pass; otherwise, suppress the debug info
 #ifndef NDEBUG
 #define QPGO_DEBUG(X)                                                          \
   do {                                                                         \
@@ -32,6 +33,9 @@
 #endif
 
 namespace llvm {
+const int MAX_NUM_OF_QUBIT = 40;
+const int MAX_NUM_OF_QGATE = 33;
+
 // Register the argument option for the output file
 static cl::opt<std::string>
     ProfileDataFilename("profile-gen",
@@ -104,7 +108,8 @@ static bool declareFunctions(Module &M) {
   return true;
 }
 
-static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M) {
+static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
+                                   bool is_counter_based) {
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
 
@@ -123,25 +128,41 @@ static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M) {
     Builder.SetInsertPoint(inst);
     auto OpenedFile =
         Builder.CreateCall(FopenFunc, {ProfileDataFilenameStrVal, WPlusStrVal});
-    auto GlobalFile = M.getOrInsertGlobal("profile_data_file", IOFilePtrType);
-    auto GVal = M.getNamedGlobal("profile_data_file");
+    auto GlobalFile = M.getOrInsertGlobal("_qpgo_profile_file", IOFilePtrType);
+    auto GVal = M.getNamedGlobal("_qpgo_profile_file");
     // initialize the variable with an undef value to ensure it is added to the
     // symbol table
     GVal->setInitializer(UndefValue::get(IOFilePtrType));
     Builder.CreateStore(OpenedFile, GlobalFile);
+
+    if (is_counter_based) { // add a global variable for counters
+      Type *IntType = Type::getInt32Ty(Context);
+      ArrayType *CounterInnerType = ArrayType::get(IntType, MAX_NUM_OF_QGATE);
+      ArrayType *CounterType =
+          ArrayType::get(CounterInnerType, MAX_NUM_OF_QUBIT);
+      auto GlobalCounters = M.getOrInsertGlobal("_qpgo_counters", CounterType);
+      auto GCountersVal = M.getNamedGlobal("_qpgo_counters");
+      GCountersVal->setAlignment(MaybeAlign(16));
+      ConstantAggregateZero *Const0Array =
+          ConstantAggregateZero::get(CounterType);
+      GCountersVal->setInitializer(Const0Array);
+    }
   }
   return true;
 }
 
-static bool insertOnMainEndBlock(BasicBlock &BB, Module &M) {
+static bool insertOnMainEndBlock(BasicBlock &BB, Module &M, bool is_counter_based) {
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
   Instruction *inst = BB.getTerminator();
+
+  if (is_counter_based) { // TODO: dump counters to the file
+  }
   Type *IOFilePtrType = std::get<1>(getDeclaredTypes(M));
   // int fclose(FILE*);
   auto FcloseFunc =
       M.getOrInsertFunction("fclose", Type::getInt32Ty(Context), IOFilePtrType);
-  auto GlobalFile = M.getNamedGlobal("profile_data_file");
+  auto GlobalFile = M.getNamedGlobal("_qpgo_profile_file");
 
   Builder.SetInsertPoint(inst);
   auto LoadedGlobalFile = Builder.CreateLoad(IOFilePtrType, GlobalFile);
@@ -153,6 +174,74 @@ static bool insertCounterProbe(
     Module &M,
     std::vector<std::pair<ProfiledFuncKind, CallInst *>> &InjectPoints,
     Value *ProfilingFileHandle) {
+  // Setup context
+  LLVMContext &Context = M.getContext();
+  IRBuilder<> Builder(Context);
+  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
+      getDeclaredTypes(M);
+
+  for (auto [ProfiledFunc, CBI] : InjectPoints) {
+    // insert printf right before the call instruction
+    Builder.SetInsertPoint(CBI);
+    // call omp_get_thread_num
+    Value *Tid = Builder.CreateAlloca(IntType, 0, "Tid");
+    Value *OmpThreadNum =
+        Builder.CreateCall(M.getFunction("omp_get_thread_num"), {});
+    Builder.CreateStore(OmpThreadNum, Tid);
+    Tid = Builder.CreateLoad(IntType, Tid);
+    // compare tid and 0
+    Value *Cmp =
+        Builder.CreateICmpEQ(Tid, Builder.getInt32(0), "icmp_thread_num");
+
+    // split BB and start to insert code in the then block
+    auto *ThenBB =
+        SplitBlockAndInsertIfThen(Cmp, &*Builder.GetInsertPoint(), false);
+    Builder.SetInsertPoint(ThenBB);
+
+    std::vector<Value *> ArgsArgs;
+    unsigned NumOperands = CBI->getNumArgOperands();
+    for (int i = 0; i < NumOperands; ++i) {
+      Value *Operand = CBI->getArgOperand(i);
+      if (Operand->getType()->isFloatTy()) {
+        // We cannot print float number by printf function if we pass it
+        // to the function Ref: https://stackoverflow.com/a/28097654
+        QPGO_DEBUG(dbgs() << "Add fpext for printing float vaule\n");
+        // update operand to the casted version
+        Operand = Builder.CreateCast(Instruction::FPExt, Operand,
+                                     Type::getDoubleTy(Context));
+      }
+      ArgsArgs.push_back(Operand);
+    }
+
+    ArrayType *CounterInnerType = ArrayType::get(IntType, 33);
+    ArrayType *CounterType = ArrayType::get(CounterInnerType, 40);
+    Value *GCountersVal = M.getOrInsertGlobal("_qpgo_counters", CounterType);
+    QPGO_DEBUG(dbgs() << "get _qpgo_counters\n");
+
+    Value *Counter = nullptr;
+    switch (ProfiledFunc) {
+    case PFK_single_gate:
+      QPGO_DEBUG(dbgs() << "PFK_single_gate\n");
+      Counter = Builder.CreateInBoundsGEP(
+          CounterType, GCountersVal,
+          ArrayRef<Value *>({Builder.getInt32(0), ArgsArgs[0], ArgsArgs[1]}));
+      break;
+    case PFK_control_gate:
+      break;
+    case PFK_unitary4x4:
+      break;
+    case PFK_SWAP:
+      break;
+    case PFK_unitary8x8:
+      break;
+    }
+    if (Counter != nullptr) {
+      Value *LoadedCounter = Builder.CreateLoad(IntType, Counter);
+      Value *tmp = Builder.CreateBinOp(Instruction::Add, LoadedCounter,
+                                       Builder.getInt32(1));
+      Builder.CreateStore(tmp, Counter);
+    }
+  }
   return true;
 }
 
@@ -196,7 +285,7 @@ static bool insertContextProbe(
     unsigned NumOperands = CBI->getNumArgOperands();
     QPGO_DEBUG(dbgs() << "Num of arguments: " << NumOperands << ", args: ");
     std::string FuncArgsStr = " ";
-    for (int i = 0; i < NumOperands; ++i) {
+    for (int i = 0; i < NumOperands - 1; ++i) { // -1 is for density
       const Value *operand = CBI->getArgOperand(i);
       FuncArgsStr.append(operandToFlag(operand));
       FuncArgsStr.append(" ");
@@ -206,7 +295,7 @@ static bool insertContextProbe(
     Value *FuncArgsStrVal =
         Builder.CreateGlobalStringPtr(FuncArgsStr, "FuncArgsStrVal", 0, &M);
     std::vector<Value *> ArgsArgs({LoadedProfileDataFile, FuncArgsStrVal});
-    for (int i = 0; i < NumOperands; ++i) {
+    for (int i = 0; i < NumOperands - 1; ++i) { // -1 is for density
       Value *Operand = CBI->getArgOperand(i);
       if (Operand->getType()->isFloatTy()) {
         // We cannot print float number by printf function if we pass it
@@ -265,7 +354,7 @@ bool QpgoPass::runOnModule(Module &M) {
 
   // Need to load stderr or predefined output file as a global variable first
   std::string StderrOrFile =
-      ProfileDataFilename == "stderr" ? "stderr" : "profile_data_file";
+      ProfileDataFilename == "stderr" ? "stderr" : "_qpgo_profile_file";
   Value *ProfilingFileHandle = M.getOrInsertGlobal(StderrOrFile, IOFilePtrType);
   if (ProfilingFileHandle == nullptr)
     errs() << "ProfilingFileHandle is null";
@@ -280,8 +369,8 @@ bool QpgoPass::runOnModule(Module &M) {
         ProfileDataFilename != "stderr") {
       // inject fopen, fclose to begin, end of main function if the target
       // output file option is not stderr
-      insertOnMainEntryBlock(F.getEntryBlock(), M);
-      insertOnMainEndBlock(F.getEntryBlock(), M);
+      insertOnMainEntryBlock(F.getEntryBlock(), M, ProfileMode == "counter");
+      insertOnMainEndBlock(F.getEntryBlock(), M, ProfileMode == "counter");
     }
 
     // Iterate F, BB
@@ -309,7 +398,16 @@ bool QpgoPass::runOnModule(Module &M) {
       }
     }
   }
-  insertContextProbe(M, InjectPoints, ProfilingFileHandle);
+  // using different modes for profiling
+  if (ProfileMode == "counter") {
+    insertCounterProbe(M, InjectPoints, ProfilingFileHandle);
+  } else if (ProfileMode == "context") {
+    insertContextProbe(M, InjectPoints, ProfilingFileHandle);
+  } else {
+    errs() << ProfileMode
+           << " is not supported profiling mode, which should be counter or "
+              "context.\n";
+  }
   return true;
 }
 
