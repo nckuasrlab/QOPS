@@ -28,6 +28,8 @@ import graphviz
 def get_involved_qubits(data):
     ret = {}
     for di in data:
+        if len(di) == 1:
+            break
         ret[di[1]] = 1
         if di[0] in [1, 3]:  # control, swap
             ret[di[2]] = 1

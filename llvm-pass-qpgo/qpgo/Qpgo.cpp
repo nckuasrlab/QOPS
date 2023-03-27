@@ -146,8 +146,8 @@ static auto getInjectedClockGettimeResult(Instruction *inst, Module &M) {
   return std::make_pair(TvNsecFmt, TvNsecVal);
 }
 
-static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
-                                   bool is_counter_based) {
+// insert file open instructions at the begin of main function
+static bool insertFileOpen(BasicBlock &BB, Module &M) {
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
 
@@ -172,21 +172,12 @@ static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
     // symbol table
     GVal->setInitializer(UndefValue::get(IOFilePtrType));
     Builder.CreateStore(OpenedFile, ProfilingFileHandle);
-
-    if (is_counter_based) { // add a global variable for counters
-      auto GlobalCounters = M.getOrInsertGlobal("_qpgo_counters", CounterType);
-      auto GCountersVal = M.getNamedGlobal("_qpgo_counters");
-      GCountersVal->setAlignment(MaybeAlign(16));
-      ConstantAggregateZero *Const0Array =
-          ConstantAggregateZero::get(CounterType);
-      GCountersVal->setInitializer(Const0Array);
-    }
   }
   return true;
 }
 
-static bool insertOnMainEndBlock(BasicBlock &BB, Module &M,
-                                 bool is_counter_based) {
+// insert file close instructions at the end of main function
+static bool insertFileClose(BasicBlock &BB, Module &M) {
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
   Instruction *inst = BB.getTerminator();
@@ -194,6 +185,24 @@ static bool insertOnMainEndBlock(BasicBlock &BB, Module &M,
 
   auto LoadedProfilingFileHandle =
       Builder.CreateLoad(IOFilePtrType, M.getNamedGlobal("_qpgo_profile_file"));
+
+  // int fclose(FILE*);
+  auto FcloseFunc =
+      M.getOrInsertFunction("fclose", Type::getInt32Ty(Context), IOFilePtrType);
+  Builder.CreateCall(FcloseFunc, {LoadedProfilingFileHandle});
+  return true;
+}
+
+// different modes dump different result before the file is closed
+static bool insertFinalDump(BasicBlock &BB, Module &M, bool is_counter_based,
+                            Value *ProfilingFileHandle) {
+  LLVMContext &Context = M.getContext();
+  IRBuilder<> Builder(Context);
+  Instruction *inst = BB.getTerminator();
+  Builder.SetInsertPoint(inst);
+
+  auto *LoadedProfilingFileHandle =
+      Builder.CreateLoad(IOFilePtrType, ProfilingFileHandle);
 
   if (is_counter_based) { // dump the counters to the file for counter-based
                           // profiling
@@ -226,10 +235,6 @@ static bool insertOnMainEndBlock(BasicBlock &BB, Module &M,
     Builder.CreateCall(M.getFunction("fprintf"),
                        {LoadedProfilingFileHandle, TvNsecFmt, TvNsecVal});
   }
-  // int fclose(FILE*);
-  auto FcloseFunc =
-      M.getOrInsertFunction("fclose", Type::getInt32Ty(Context), IOFilePtrType);
-  Builder.CreateCall(FcloseFunc, {LoadedProfilingFileHandle});
   return true;
 }
 
@@ -404,24 +409,36 @@ bool QpgoPass::runOnModule(Module &M) {
   declareFunctions(M);
 
   // Need to load stderr or predefined output file as a global variable first
+  bool is_output_to_stderr = ProfileDataFilename == "stderr";
   std::string StderrOrFile =
-      ProfileDataFilename == "stderr" ? "stderr" : "_qpgo_profile_file";
+      is_output_to_stderr ? "stderr" : "_qpgo_profile_file";
   Value *ProfilingFileHandle = M.getOrInsertGlobal(StderrOrFile, IOFilePtrType);
   if (ProfilingFileHandle == nullptr)
     errs() << "ProfilingFileHandle is null";
+  bool is_counter_based = ProfileMode == "counter";
 
   std::vector<std::pair<ProfiledFuncKind, CallInst *>> InjectPoints;
+  std::vector<BasicBlock *> MainReturnBBs;
   QPGO_DEBUG(dbgs() << "I saw a module called '" << M.getName() << "'\n");
   for (Function &F : M) {
     QPGO_DEBUG(dbgs() << "I saw a function called '" << F.getName()
                       << "', arg_size: " << F.arg_size() << "\n");
 
-    if (F.hasName() && F.getName() == "main" &&
-        ProfileDataFilename != "stderr") {
+    if (F.hasName() && F.getName() == "main") {
       // inject fopen, fclose to begin, end of main function if the target
       // output file option is not stderr
-      insertOnMainEntryBlock(F.getEntryBlock(), M, ProfileMode == "counter");
-      insertOnMainEndBlock(F.getEntryBlock(), M, ProfileMode == "counter");
+      if (!is_output_to_stderr)
+        insertFileOpen(F.getEntryBlock(), M);
+
+      if (is_counter_based) { // add a global variable for counters
+        auto GlobalCounters =
+            M.getOrInsertGlobal("_qpgo_counters", CounterType);
+        auto GCountersVal = M.getNamedGlobal("_qpgo_counters");
+        GCountersVal->setAlignment(MaybeAlign(16));
+        ConstantAggregateZero *Const0Array =
+            ConstantAggregateZero::get(CounterType);
+        GCountersVal->setInitializer(Const0Array);
+      }
     }
 
     // Iterate F, BB
@@ -446,6 +463,10 @@ bool QpgoPass::runOnModule(Module &M) {
           // collect target functions into the vector
           InjectPoints.push_back(std::make_pair(ProfiledFuncIt->second, CBI));
         }
+
+        if (F.hasName() && F.getName() == "main")
+          if (auto *_ = dyn_cast<ReturnInst>(&BI))
+            MainReturnBBs.push_back(&BB);
       }
     }
   }
@@ -458,6 +479,14 @@ bool QpgoPass::runOnModule(Module &M) {
     errs() << ProfileMode
            << " is not supported profiling mode, which should be counter or "
               "context.\n";
+  }
+
+  for (auto *MainReturnBB : MainReturnBBs) {
+    // both counter-based and context-based profilers need to dump results
+    insertFinalDump(*MainReturnBB, M, is_counter_based, ProfilingFileHandle);
+
+    if (!is_output_to_stderr)
+      insertFileClose(*MainReturnBB, M);
   }
   return true;
 }
