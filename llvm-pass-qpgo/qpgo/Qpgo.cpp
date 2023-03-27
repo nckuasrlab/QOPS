@@ -116,6 +116,36 @@ static bool declareFunctions(Module &M) {
   return true;
 }
 
+static auto getInjectedClockGettimeResult(Instruction *inst, Module &M) {
+  // Setup context
+  LLVMContext &Context = M.getContext();
+  IRBuilder<> Builder(Context);
+  Builder.SetInsertPoint(inst);
+
+  // call clock_gettime
+  Value *TimeSpec = Builder.CreateAlloca(TimespecType, 0, "TimeSpec");
+  std::vector<Value *> ClockGettimeArgs(
+      {Builder.getInt32(1), TimeSpec}); // CLOCK_MONOTONIC
+  Builder.CreateCall(M.getFunction("clock_gettime"), ClockGettimeArgs);
+
+  // TimeSpec.tv_sec*1000000000 + TimeSpec.tv_nsec
+  Value *TvSec = Builder.CreateInBoundsGEP(
+      TimespecType, TimeSpec,
+      ArrayRef<Value *>({Builder.getInt32(0), Builder.getInt32(0)}));
+  TvSec = Builder.CreateLoad(Type::getInt64Ty(Context), TvSec);
+  Value *E9 = Builder.getInt32(1000000000);
+  TvSec = Builder.CreateBinOp(Instruction::Mul, TvSec, E9);
+  Value *TvNsecVal = Builder.CreateInBoundsGEP(
+      TimespecType, TimeSpec,
+      ArrayRef<Value *>({Builder.getInt32(0), Builder.getInt32(1)}));
+  TvNsecVal = Builder.CreateLoad(Type::getInt64Ty(Context), TvNsecVal);
+  TvNsecVal = Builder.CreateBinOp(Instruction::Add, TvNsecVal, TvSec);
+
+  Value *TvNsecFmt =
+      Builder.CreateGlobalStringPtr("%lld\n", "TvNsecFmt", 0, &M);
+  return std::make_pair(TvNsecFmt, TvNsecVal);
+}
+
 static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
                                    bool is_counter_based) {
   LLVMContext &Context = M.getContext();
@@ -190,6 +220,11 @@ static bool insertOnMainEndBlock(BasicBlock &BB, Module &M,
         }
       }
     }
+  } else { // record the last timestamp before the program exits if the mode is
+           // context-based profiling
+    auto [TvNsecFmt, TvNsecVal] = getInjectedClockGettimeResult(inst, M);
+    Builder.CreateCall(M.getFunction("fprintf"),
+                       {LoadedProfilingFileHandle, TvNsecFmt, TvNsecVal});
   }
   // int fclose(FILE*);
   auto FcloseFunc =
@@ -344,27 +379,7 @@ static bool insertContextProbe(
       MetaFuncArgsFmtAndVal.push_back(Operand);
     }
 
-    // call clock_gettime
-    Value *TimeSpec = Builder.CreateAlloca(TimespecType, 0, "TimeSpec");
-    std::vector<Value *> ClockGettimeArgs(
-        {Builder.getInt32(1), TimeSpec}); // CLOCK_MONOTONIC
-    Builder.CreateCall(M.getFunction("clock_gettime"), ClockGettimeArgs);
-
-    // TimeSpec.tv_sec*1000000000 + TimeSpec.tv_nsec
-    Value *TvSec = Builder.CreateInBoundsGEP(
-        TimespecType, TimeSpec,
-        ArrayRef<Value *>({Builder.getInt32(0), Builder.getInt32(0)}));
-    TvSec = Builder.CreateLoad(Type::getInt64Ty(Context), TvSec);
-    Value *E9 = Builder.getInt32(1000000000);
-    TvSec = Builder.CreateBinOp(Instruction::Mul, TvSec, E9);
-    Value *TvNsec = Builder.CreateInBoundsGEP(
-        TimespecType, TimeSpec,
-        ArrayRef<Value *>({Builder.getInt32(0), Builder.getInt32(1)}));
-    TvNsec = Builder.CreateLoad(Type::getInt64Ty(Context), TvNsec);
-    TvNsec = Builder.CreateBinOp(Instruction::Add, TvNsec, TvSec);
-
-    Value *TvNsecFmt =
-        Builder.CreateGlobalStringPtr("%lld\n", "TvNsecFmt", 0, &M);
+    auto [TvNsecFmt, TvNsecVal] = getInjectedClockGettimeResult(ThenBB, M);
 
     // Use lockfile to block file write
     Builder.CreateCall(M.getFunction("flockfile"), {LoadedProfilingFileHandle});
@@ -372,7 +387,7 @@ static bool insertContextProbe(
                        {LoadedProfilingFileHandle, MetaFuncTypeVal});
     Builder.CreateCall(M.getFunction("fprintf"), MetaFuncArgsFmtAndVal);
     Builder.CreateCall(M.getFunction("fprintf"),
-                       {LoadedProfilingFileHandle, TvNsecFmt, TvNsec});
+                       {LoadedProfilingFileHandle, TvNsecFmt, TvNsecVal});
     Builder.CreateCall(M.getFunction("fflush"), {LoadedProfilingFileHandle});
     Builder.CreateCall(M.getFunction("funlockfile"),
                        {LoadedProfilingFileHandle});
