@@ -36,6 +36,15 @@ namespace llvm {
 const int MAX_NUM_OF_QUBIT = 40;
 const int MAX_NUM_OF_QGATE = 33;
 
+// types which are frequently used
+static Type *IntType;
+static Type *IOFileType;
+static Type *IOFilePtrType;
+static Type *TimespecType;
+static Type *TimespecPtrType;
+static ArrayType *CounterInnerType;
+static ArrayType *CounterType;
+
 // Register the argument option for the output file
 static cl::opt<std::string>
     ProfileDataFilename("profile-gen",
@@ -62,23 +71,22 @@ static const char *operandToFlag(const Value *Operand) {
   }
 }
 
-static auto getDeclaredTypes(Module &M) {
+static void declaredTypes(Module &M) {
   LLVMContext &Context = M.getContext();
   // Declare types
-  Type *IntType = Type::getInt32Ty(Context);
-  Type *IOFileType = StructType::create(M.getContext(), "struct._IO_FILE");
-  Type *IOFilePtrType = PointerType::getUnqual(IOFileType);
-  Type *TimespecType = StructType::create(
+  IntType = Type::getInt32Ty(Context);
+  IOFileType = StructType::create(M.getContext(), "struct._IO_FILE");
+  IOFilePtrType = PointerType::getUnqual(IOFileType);
+  TimespecType = StructType::create(
       ArrayRef<Type *>({Type::getInt64Ty(Context), Type::getInt64Ty(Context)}),
       "struct.timespec");
-  Type *TimespecPtrType = PointerType::getUnqual(TimespecType);
-  return std::make_tuple(IntType, IOFilePtrType, TimespecType, TimespecPtrType);
+  TimespecPtrType = PointerType::getUnqual(TimespecType);
+  CounterInnerType = ArrayType::get(IntType, MAX_NUM_OF_QGATE);
+  CounterType = ArrayType::get(CounterInnerType, MAX_NUM_OF_QUBIT);
 }
 
 static bool declareFunctions(Module &M) {
   LLVMContext &Context = M.getContext();
-  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
-      getDeclaredTypes(M);
   // int fprintf(FILE *stream, const char *format, ...);
   std::vector<Type *> FprintfArgsType(
       {IOFilePtrType, Type::getInt8PtrTy(Context)});
@@ -115,7 +123,6 @@ static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
 
   Instruction *inst = BB.getFirstNonPHI();
   if (dyn_cast<AllocaInst>(inst)) {
-    Type *IOFilePtrType = std::get<1>(getDeclaredTypes(M));
     // FILE *fopen (const char *, const char *);
     auto FopenFunc = M.getOrInsertFunction("fopen", IOFilePtrType,
                                            Type::getInt8PtrTy(Context),
@@ -137,10 +144,6 @@ static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
     Builder.CreateStore(OpenedFile, ProfilingFileHandle);
 
     if (is_counter_based) { // add a global variable for counters
-      Type *IntType = Type::getInt32Ty(Context);
-      ArrayType *CounterInnerType = ArrayType::get(IntType, MAX_NUM_OF_QGATE);
-      ArrayType *CounterType =
-          ArrayType::get(CounterInnerType, MAX_NUM_OF_QUBIT);
       auto GlobalCounters = M.getOrInsertGlobal("_qpgo_counters", CounterType);
       auto GCountersVal = M.getNamedGlobal("_qpgo_counters");
       GCountersVal->setAlignment(MaybeAlign(16));
@@ -159,16 +162,11 @@ static bool insertOnMainEndBlock(BasicBlock &BB, Module &M,
   Instruction *inst = BB.getTerminator();
   Builder.SetInsertPoint(inst);
 
-  Type *IntType = std::get<0>(getDeclaredTypes(M));
-  Type *IOFilePtrType = std::get<1>(getDeclaredTypes(M));
-
   auto LoadedProfilingFileHandle =
       Builder.CreateLoad(IOFilePtrType, M.getNamedGlobal("_qpgo_profile_file"));
 
   if (is_counter_based) { // dump the counters to the file for counter-based
                           // profiling
-    ArrayType *CounterInnerType = ArrayType::get(IntType, MAX_NUM_OF_QGATE);
-    ArrayType *CounterType = ArrayType::get(CounterInnerType, MAX_NUM_OF_QUBIT);
     Value *GCountersVal = M.getOrInsertGlobal("_qpgo_counters", CounterType);
     Value *CounterFmt =
         Builder.CreateGlobalStringPtr("%d ", "CounterFmt", 0, &M);
@@ -207,8 +205,6 @@ static bool insertCounterProbe(
   // Setup context
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
-  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
-      getDeclaredTypes(M);
 
   for (auto [ProfiledFunc, CBI] : InjectPoints) {
     // insert printf right before the call instruction
@@ -243,8 +239,6 @@ static bool insertCounterProbe(
       MetaFuncArgs.push_back(Operand);
     }
 
-    ArrayType *CounterInnerType = ArrayType::get(IntType, MAX_NUM_OF_QGATE);
-    ArrayType *CounterType = ArrayType::get(CounterInnerType, MAX_NUM_OF_QUBIT);
     Value *GCountersVal = M.getOrInsertGlobal("_qpgo_counters", CounterType);
     QPGO_DEBUG(dbgs() << "get _qpgo_counters\n");
 
@@ -293,8 +287,7 @@ static bool insertContextProbe(
   // Setup context
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
-  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
-      getDeclaredTypes(M);
+
   // Inject if condition to check tid == 0 for collected functions
   for (auto [ProfiledFunc, CBI] : InjectPoints) {
     // insert printf right before the call instruction
@@ -392,8 +385,7 @@ bool QpgoPass::runOnModule(Module &M) {
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
 
-  auto [IntType, IOFilePtrType, TimespecType, TimespecPtrType] =
-      getDeclaredTypes(M);
+  declaredTypes(M);
   declareFunctions(M);
 
   // Need to load stderr or predefined output file as a global variable first
