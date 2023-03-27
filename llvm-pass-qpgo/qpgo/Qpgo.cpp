@@ -128,12 +128,13 @@ static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
     Builder.SetInsertPoint(inst);
     auto OpenedFile =
         Builder.CreateCall(FopenFunc, {ProfileDataFilenameStrVal, WPlusStrVal});
-    auto GlobalFile = M.getOrInsertGlobal("_qpgo_profile_file", IOFilePtrType);
+    auto ProfilingFileHandle =
+        M.getOrInsertGlobal("_qpgo_profile_file", IOFilePtrType);
     auto GVal = M.getNamedGlobal("_qpgo_profile_file");
     // initialize the variable with an undef value to ensure it is added to the
     // symbol table
     GVal->setInitializer(UndefValue::get(IOFilePtrType));
-    Builder.CreateStore(OpenedFile, GlobalFile);
+    Builder.CreateStore(OpenedFile, ProfilingFileHandle);
 
     if (is_counter_based) { // add a global variable for counters
       Type *IntType = Type::getInt32Ty(Context);
@@ -151,22 +152,51 @@ static bool insertOnMainEntryBlock(BasicBlock &BB, Module &M,
   return true;
 }
 
-static bool insertOnMainEndBlock(BasicBlock &BB, Module &M, bool is_counter_based) {
+static bool insertOnMainEndBlock(BasicBlock &BB, Module &M,
+                                 bool is_counter_based) {
   LLVMContext &Context = M.getContext();
   IRBuilder<> Builder(Context);
   Instruction *inst = BB.getTerminator();
+  Builder.SetInsertPoint(inst);
 
-  if (is_counter_based) { // TODO: dump counters to the file
-  }
+  Type *IntType = std::get<0>(getDeclaredTypes(M));
   Type *IOFilePtrType = std::get<1>(getDeclaredTypes(M));
+
+  auto LoadedProfilingFileHandle =
+      Builder.CreateLoad(IOFilePtrType, M.getNamedGlobal("_qpgo_profile_file"));
+
+  if (is_counter_based) { // dump the counters to the file for counter-based
+                          // profiling
+    ArrayType *CounterInnerType = ArrayType::get(IntType, MAX_NUM_OF_QGATE);
+    ArrayType *CounterType = ArrayType::get(CounterInnerType, MAX_NUM_OF_QUBIT);
+    Value *GCountersVal = M.getOrInsertGlobal("_qpgo_counters", CounterType);
+    Value *CounterFmt =
+        Builder.CreateGlobalStringPtr("%d ", "CounterFmt", 0, &M);
+    Value *CounterNewlineFmt =
+        Builder.CreateGlobalStringPtr("%d\n", "CounterNewlineFmt", 0, &M);
+    for (int Qubit = 0; Qubit < MAX_NUM_OF_QUBIT; ++Qubit) {
+      for (int GateType = 0; GateType < MAX_NUM_OF_QGATE; ++GateType) {
+        Value *Counter = Builder.CreateInBoundsGEP(
+            CounterType, GCountersVal,
+            ArrayRef<Value *>({Builder.getInt32(0), Builder.getInt32(Qubit),
+                               Builder.getInt32(GateType)}));
+        Value *LoadedCounter = Builder.CreateLoad(IntType, Counter);
+        if (GateType == MAX_NUM_OF_QGATE - 1) {
+          Builder.CreateCall(
+              M.getFunction("fprintf"),
+              {LoadedProfilingFileHandle, CounterNewlineFmt, LoadedCounter});
+        } else {
+          Builder.CreateCall(
+              M.getFunction("fprintf"),
+              {LoadedProfilingFileHandle, CounterFmt, LoadedCounter});
+        }
+      }
+    }
+  }
   // int fclose(FILE*);
   auto FcloseFunc =
       M.getOrInsertFunction("fclose", Type::getInt32Ty(Context), IOFilePtrType);
-  auto GlobalFile = M.getNamedGlobal("_qpgo_profile_file");
-
-  Builder.SetInsertPoint(inst);
-  auto LoadedGlobalFile = Builder.CreateLoad(IOFilePtrType, GlobalFile);
-  Builder.CreateCall(FcloseFunc, {LoadedGlobalFile});
+  Builder.CreateCall(FcloseFunc, {LoadedProfilingFileHandle});
   return true;
 }
 
@@ -198,7 +228,7 @@ static bool insertCounterProbe(
         SplitBlockAndInsertIfThen(Cmp, &*Builder.GetInsertPoint(), false);
     Builder.SetInsertPoint(ThenBB);
 
-    std::vector<Value *> ArgsArgs;
+    std::vector<Value *> MetaFuncArgs;
     unsigned NumOperands = CBI->getNumArgOperands();
     for (int i = 0; i < NumOperands; ++i) {
       Value *Operand = CBI->getArgOperand(i);
@@ -210,32 +240,43 @@ static bool insertCounterProbe(
         Operand = Builder.CreateCast(Instruction::FPExt, Operand,
                                      Type::getDoubleTy(Context));
       }
-      ArgsArgs.push_back(Operand);
+      MetaFuncArgs.push_back(Operand);
     }
 
-    ArrayType *CounterInnerType = ArrayType::get(IntType, 33);
-    ArrayType *CounterType = ArrayType::get(CounterInnerType, 40);
+    ArrayType *CounterInnerType = ArrayType::get(IntType, MAX_NUM_OF_QGATE);
+    ArrayType *CounterType = ArrayType::get(CounterInnerType, MAX_NUM_OF_QUBIT);
     Value *GCountersVal = M.getOrInsertGlobal("_qpgo_counters", CounterType);
     QPGO_DEBUG(dbgs() << "get _qpgo_counters\n");
 
-    Value *Counter = nullptr;
-    switch (ProfiledFunc) {
+    std::vector<Value *> Qubits;
+    Value *GateType;
+    switch (ProfiledFunc) { // collect counters for different gate types
     case PFK_single_gate:
-      QPGO_DEBUG(dbgs() << "PFK_single_gate\n");
-      Counter = Builder.CreateInBoundsGEP(
-          CounterType, GCountersVal,
-          ArrayRef<Value *>({Builder.getInt32(0), ArgsArgs[0], ArgsArgs[1]}));
+      GateType = MetaFuncArgs[1];
+      Qubits.push_back(MetaFuncArgs[0]);
       break;
     case PFK_control_gate:
+      GateType = MetaFuncArgs[2];
+      Qubits.push_back(MetaFuncArgs[0]);
+      Qubits.push_back(MetaFuncArgs[1]);
       break;
     case PFK_unitary4x4:
+      errs() << "Not implement yet for PFK_unitary4x4\n";
       break;
     case PFK_SWAP:
+      GateType = Builder.getInt32(
+          13); // hard code for the SWAP (ref: simulator's gate.h)
+      Qubits.push_back(MetaFuncArgs[0]);
+      Qubits.push_back(MetaFuncArgs[1]);
       break;
     case PFK_unitary8x8:
+      errs() << "Not implement yet for PFK_unitary8x8\n";
       break;
     }
-    if (Counter != nullptr) {
+    for (Value *Qubit : Qubits) { // increase counters
+      Value *Counter = Builder.CreateInBoundsGEP(
+          CounterType, GCountersVal,
+          ArrayRef<Value *>({Builder.getInt32(0), Qubit, GateType}));
       Value *LoadedCounter = Builder.CreateLoad(IntType, Counter);
       Value *tmp = Builder.CreateBinOp(Instruction::Add, LoadedCounter,
                                        Builder.getInt32(1));
@@ -273,29 +314,31 @@ static bool insertContextProbe(
         SplitBlockAndInsertIfThen(Cmp, &*Builder.GetInsertPoint(), false);
     Builder.SetInsertPoint(ThenBB);
 
-    // enum value to string
-    Value *FuncNameStrVal = Builder.CreateGlobalStringPtr(
+    // enum value to string, we only use integer to represent different meta
+    // function to reduce the output bytes
+    Value *MetaFuncTypeVal = Builder.CreateGlobalStringPtr(
         std::to_string(static_cast<std::underlying_type_t<ProfiledFuncKind>>(
             ProfiledFunc)),
-        "FuncNameStrVal", 0, &M);
-    auto *LoadedProfileDataFile =
+        "MetaFuncTypeVal", 0, &M);
+    auto *LoadedProfilingFileHandle =
         Builder.CreateLoad(IOFilePtrType, ProfilingFileHandle);
 
     // get operands from the call inst
     unsigned NumOperands = CBI->getNumArgOperands();
     QPGO_DEBUG(dbgs() << "Num of arguments: " << NumOperands << ", args: ");
-    std::string FuncArgsStr = " ";
-    for (int i = 0; i < NumOperands - 1; ++i) { // -1 is for density
+    std::string Fmt = " "; // the format of fprintf function
+    for (int i = 0; i < NumOperands - 1; ++i) { // -1 is for skipping density
       const Value *operand = CBI->getArgOperand(i);
-      FuncArgsStr.append(operandToFlag(operand));
-      FuncArgsStr.append(" ");
+      Fmt.append(operandToFlag(operand));
+      Fmt.append(" ");
     }
     QPGO_DEBUG(dbgs() << "format specifier of printf: \"");
-    QPGO_DEBUG(dbgs().write_escaped(FuncArgsStr) << "\"\n");
-    Value *FuncArgsStrVal =
-        Builder.CreateGlobalStringPtr(FuncArgsStr, "FuncArgsStrVal", 0, &M);
-    std::vector<Value *> ArgsArgs({LoadedProfileDataFile, FuncArgsStrVal});
-    for (int i = 0; i < NumOperands - 1; ++i) { // -1 is for density
+    QPGO_DEBUG(dbgs().write_escaped(Fmt) << "\"\n");
+    Value *MetaFuncArgsFmt =
+        Builder.CreateGlobalStringPtr(Fmt, "MetaFuncArgsFmt", 0, &M);
+    std::vector<Value *> MetaFuncArgsFmtAndVal(
+        {LoadedProfilingFileHandle, MetaFuncArgsFmt});
+    for (int i = 0; i < NumOperands - 1; ++i) { // -1 is for skipping density
       Value *Operand = CBI->getArgOperand(i);
       if (Operand->getType()->isFloatTy()) {
         // We cannot print float number by printf function if we pass it
@@ -305,7 +348,7 @@ static bool insertContextProbe(
         Operand = Builder.CreateCast(Instruction::FPExt, Operand,
                                      Type::getDoubleTy(Context));
       }
-      ArgsArgs.push_back(Operand);
+      MetaFuncArgsFmtAndVal.push_back(Operand);
     }
 
     // call clock_gettime
@@ -327,18 +370,19 @@ static bool insertContextProbe(
     TvNsec = Builder.CreateLoad(Type::getInt64Ty(Context), TvNsec);
     TvNsec = Builder.CreateBinOp(Instruction::Add, TvNsec, TvSec);
 
-    Value *TvStrVal =
-        Builder.CreateGlobalStringPtr("%lld\n", "TvStrVal", 0, &M);
+    Value *TvNsecFmt =
+        Builder.CreateGlobalStringPtr("%lld\n", "TvNsecFmt", 0, &M);
 
     // Use lockfile to block file write
-    Builder.CreateCall(M.getFunction("flockfile"), {LoadedProfileDataFile});
+    Builder.CreateCall(M.getFunction("flockfile"), {LoadedProfilingFileHandle});
     Builder.CreateCall(M.getFunction("fprintf"),
-                       {LoadedProfileDataFile, FuncNameStrVal});
-    Builder.CreateCall(M.getFunction("fprintf"), ArgsArgs);
+                       {LoadedProfilingFileHandle, MetaFuncTypeVal});
+    Builder.CreateCall(M.getFunction("fprintf"), MetaFuncArgsFmtAndVal);
     Builder.CreateCall(M.getFunction("fprintf"),
-                       {LoadedProfileDataFile, TvStrVal, TvNsec});
-    Builder.CreateCall(M.getFunction("fflush"), {LoadedProfileDataFile});
-    Builder.CreateCall(M.getFunction("funlockfile"), {LoadedProfileDataFile});
+                       {LoadedProfilingFileHandle, TvNsecFmt, TvNsec});
+    Builder.CreateCall(M.getFunction("fflush"), {LoadedProfilingFileHandle});
+    Builder.CreateCall(M.getFunction("funlockfile"),
+                       {LoadedProfilingFileHandle});
   }
   return true;
 }
