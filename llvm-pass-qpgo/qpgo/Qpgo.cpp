@@ -38,6 +38,7 @@ const int MAX_NUM_OF_QGATE = 33;
 
 // types which are frequently used
 static Type *IntType;
+static Type *ConstCharPtrType;
 static Type *IOFileType;
 static Type *IOFilePtrType;
 static Type *TimespecType;
@@ -75,6 +76,7 @@ static void declaredTypes(Module &M) {
   LLVMContext &Context = M.getContext();
   // Declare types
   IntType = Type::getInt32Ty(Context);
+  ConstCharPtrType = Type::getInt8PtrTy(Context);
   IOFileType = StructType::create(M.getContext(), "struct._IO_FILE");
   IOFilePtrType = PointerType::getUnqual(IOFileType);
   TimespecType = StructType::create(
@@ -88,8 +90,7 @@ static void declaredTypes(Module &M) {
 static bool declareFunctions(Module &M) {
   LLVMContext &Context = M.getContext();
   // int fprintf(FILE *stream, const char *format, ...);
-  std::vector<Type *> FprintfArgsType(
-      {IOFilePtrType, Type::getInt8PtrTy(Context)});
+  std::vector<Type *> FprintfArgsType({IOFilePtrType, ConstCharPtrType});
   auto FprintfType = FunctionType::get(IntType, FprintfArgsType, true);
   auto FprintfFunc =
       Function::Create(FprintfType, Function::ExternalLinkage, "fprintf", M);
@@ -153,18 +154,33 @@ static bool insertFileOpen(BasicBlock &BB, Module &M) {
 
   Instruction *inst = BB.getFirstNonPHI();
   if (dyn_cast<AllocaInst>(inst)) {
-    // FILE *fopen (const char *, const char *);
-    auto FopenFunc = M.getOrInsertFunction("fopen", IOFilePtrType,
-                                           Type::getInt8PtrTy(Context),
-                                           Type::getInt8PtrTy(Context));
-    Value *ProfileDataFilenameStrVal = Builder.CreateGlobalStringPtr(
-        ProfileDataFilename, "ProfileDataFilenameStrVal", 0, &M);
+    Builder.SetInsertPoint(inst);
+
+    // filename set via compile time
+    Value *ProfileDataFilenameCompile = Builder.CreateGlobalStringPtr(
+        ProfileDataFilename, "ProfileDataFilenameCompile", 0, &M);
     Value *WPlusStrVal =
         Builder.CreateGlobalStringPtr("w+", "WPlusStrVal", 0, &M);
 
-    Builder.SetInsertPoint(inst);
-    auto OpenedFile =
-        Builder.CreateCall(FopenFunc, {ProfileDataFilenameStrVal, WPlusStrVal});
+    // get the environment variable for custom output filename
+    auto GetenvFunc =
+        M.getOrInsertFunction("getenv", ConstCharPtrType, ConstCharPtrType);
+    Value *QpgoProfileFile = Builder.CreateGlobalStringPtr(
+        "QPGO_PROFILE_FILE", "QpgoProfileFile", 0, &M);
+    Value *ProfileDataFilenameEnv =
+        Builder.CreateCall(GetenvFunc, {QpgoProfileFile});
+    // check if the env is null
+    Value *Cmp = Builder.CreateICmpNE(ProfileDataFilenameEnv,
+                                      Constant::getNullValue(ConstCharPtrType),
+                                      "icmp_env_file");
+
+    // FILE *fopen (const char *, const char *);
+    auto FopenFunc = M.getOrInsertFunction("fopen", IOFilePtrType,
+                                           ConstCharPtrType, ConstCharPtrType);
+    auto OpenedFile = Builder.CreateCall(
+        FopenFunc, {Builder.CreateSelect(Cmp, ProfileDataFilenameEnv,
+                                         ProfileDataFilenameCompile),
+                    WPlusStrVal});
     auto ProfilingFileHandle =
         M.getOrInsertGlobal("_qpgo_profile_file", IOFilePtrType);
     auto GVal = M.getNamedGlobal("_qpgo_profile_file");
