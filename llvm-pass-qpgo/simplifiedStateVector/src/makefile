@@ -33,5 +33,5 @@ gate.o: gate.c common.h gate.h
 # 	$(CC) -c $(CFLAGS) ini.c
 
 clean:
-	rm -f qSim.out *.o *.ll default.*
+	rm -f qSim.out *.o
 

@@ -3,6 +3,7 @@ out*
 *.ll
 *.bc
 *.o
+*.so
 *.profraw
 *.profdata
 .cache/

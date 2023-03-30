@@ -296,7 +296,6 @@ static bool insertCounterProbe(
     }
 
     Value *GCountersVal = M.getOrInsertGlobal("_qpgo_counters", CounterType);
-    QPGO_DEBUG(dbgs() << "get _qpgo_counters\n");
 
     std::vector<Value *> Qubits;
     Value *GateType;
