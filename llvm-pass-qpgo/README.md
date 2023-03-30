@@ -7,7 +7,7 @@ Two types of probes are implemented for the Quantum Profile-Guided Optimization
 
 ## Usage
 
-+ Commands beginning with `$` are commands entered by the user; otherwise, they are screen output
++ Commands beginning with `$` are commands entered by the user; otherwise, they are screen output (insignificant information is ignored by `...`)
 
 ## Build the QPGO LLVM pass
 
@@ -16,20 +16,25 @@ $ git clone https://github.com/aben20807/llvm-pass-qpgo.git
 $ cd llvm-pass-qpgo
 $ export QPGO_HOME=$(pwd) # Optional for convenient path switching
 $ mkdir build && cd build
-$ cmake -G Ninja ..
-$ ninja
+$ cmake -G Ninja .. # with '-DENABLE_DEBUG=ON' can get debug info during compilation with the pass
+...
+$ ninja # or 'cmake --build .'
+...
 ```
 
-## Compile the simulator to insert context-based probes
+## Compile the simulator and insert context-based probes
 
 ```bash
 $ cd $QPGO_HOME
 $ cd simplifiedStateVector/src/
 $ make -f pgo.mk clean
+...
 $ make -f pgo.mk 2>|compiler_output.out # default is context-based profiler
+make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Qunused-arguments -Xclang -load -Xclang /home/nckucsieserver/pro/selfpro/llvm-pass-qpgo/build/qpgo/libQpgoPass.so -mllvm -profile-gen=default.profdata -mllvm -profile-mode=context'
+...
 ```
 
-## Run the simulator and gain the profile data
+## Run the simulator and get the profile data
 
 ```bash
 $ time make -f pgo.mk run
@@ -65,19 +70,23 @@ $ cat default.profdata
 264094611198262
 ```
 
-## Compile the simulator to insert counter-based probes
+## Compile the simulator and insert counter-based probes
 
 ```bash
 $ cd $QPGO_HOME
 $ cd simplifiedStateVector/src/
 $ make -f pgo.mk clean
+...
 $ make -f pgo.mk MODE=counter 2>|compiler_output.out
+make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -Qunused-arguments -Xclang -load -Xclang /home/nckucsieserver/pro/selfpro/llvm-pass-qpgo/build/qpgo/libQpgoPass.so -mllvm -profile-gen=default.profdata -mllvm -profile-mode=counter'
+...
 ```
 
-## Run the simulator and gain the profile data
+## Run the simulator and get the profile data
 
 ```bash
 $ time make -f pgo.mk run
+...
 
 $ cat default.profdata
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
@@ -87,11 +96,13 @@ $ cat default.profdata
 ...
 ```
 
-## Custom the profile data filename
+## Custom the profile data filename in runtime
 
 For example: using the datetime as the file name
 
 ```bash
 $ time make -f pgo.mk run FILE=$(date +%H%M%S%Y%m%d).out
+LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=13104020230330.out ./qSim.out
+...
 ```
 
