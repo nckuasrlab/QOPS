@@ -10,6 +10,7 @@
  * Contributors:
  *   Alexander J. McCaskey - initial API and implementation
  *******************************************************************************/
+#include "CTSwap.hpp"
 #include "virtualSwap.hpp"
 #include "pgo.hpp"
 #include "CircuitOptimizer.hpp"
@@ -38,6 +39,9 @@ public:
   /**
    */
   void Start(BundleContext context) {
+    auto c1 = std::make_shared<xacc::quantum::CTSwap>();
+    context.RegisterService<xacc::IRTransformation>(c1);
+
     auto c2 = std::make_shared<xacc::quantum::VirtualSwap>();
     context.RegisterService<xacc::IRTransformation>(c2);
 

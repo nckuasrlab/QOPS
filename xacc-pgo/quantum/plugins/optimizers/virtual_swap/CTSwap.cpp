@@ -1,4 +1,4 @@
-#include "virtualSwap.hpp"
+#include "CTSwap.hpp"
 #include "xacc.hpp"
 
 const int numQbit = 24;
@@ -7,7 +7,7 @@ namespace {
 size_t getSwapIndex(size_t index, size_t* swapIndex){
   for(size_t i = 0; i < 6; ++i){
     if(index == i && swapIndex[i] != numQbit)
-      return swapIndex[index];
+      return swapIndex[i];
     if(index == swapIndex[i])
       return i;
   }
@@ -17,34 +17,34 @@ size_t getSwapIndex(size_t index, size_t* swapIndex){
 
 namespace xacc {
 namespace quantum {
-void VirtualSwap::apply(std::shared_ptr<CompositeInstruction> program,
+void CTSwap::apply(std::shared_ptr<CompositeInstruction> program,
                              const std::shared_ptr<Accelerator> accelerator,
                              const HeterogeneousMap &options) {
-  std::cout << "Test virtual swap\n";
+  std::cout << "Test control target swap\n";
   
   // virtual swap
   auto provider = xacc::getIRProvider("quantum");
   const auto buffer_name = program -> getInstruction(0) -> getBufferNames()[0];
   
   // get swap qbit index
-  size_t targetCount[numQbit] = {0};
+  size_t controlCount[numQbit] = {0};
   for(size_t i = 0; i < program->nInstructions(); ++i){
     auto nowInst = program -> getInstruction(i);
-    if(nowInst -> bits().size() == 1)
-      targetCount[nowInst -> bits()[0]]++;
+    if(nowInst -> bits().size() == 2)
+      controlCount[nowInst -> bits()[0]]++;
   }
   size_t swapIndex[6];
   for(int i = 0; i < 6; ++i)
     swapIndex[i] = numQbit;
   for(size_t i = 0; i < 6; ++i){
-    size_t smallCount = i;
+    size_t bigCount = i;
     for(size_t j = 6; j < numQbit; ++j){
-      if(targetCount[smallCount] > targetCount[j])
-        smallCount = j;
+      if(controlCount[bigCount] < controlCount[j])
+        bigCount = j;
     }
-    if(smallCount != i){
-      swapIndex[i] = smallCount;
-      targetCount[smallCount] = targetCount[i];
+    if(bigCount != i){
+      swapIndex[i] = bigCount;
+      controlCount[bigCount] = controlCount[i];
     }
   }
   for(int i = 5; i > 0; --i){
