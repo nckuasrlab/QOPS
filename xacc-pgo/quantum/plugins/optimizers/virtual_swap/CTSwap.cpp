@@ -1,10 +1,8 @@
 #include "CTSwap.hpp"
 #include "xacc.hpp"
 
-const int numQbit = 24;
-
 namespace {
-size_t getSwapIndex(size_t index, size_t* swapIndex){
+size_t getSwapIndex(size_t index, size_t* swapIndex, size_t numQbit){
   for(size_t i = 0; i < 6; ++i){
     if(index == i && swapIndex[i] != numQbit)
       return swapIndex[i];
@@ -20,7 +18,7 @@ namespace quantum {
 void CTSwap::apply(std::shared_ptr<CompositeInstruction> program,
                              const std::shared_ptr<Accelerator> accelerator,
                              const HeterogeneousMap &options) {
-  std::cout << "Test control target swap\n";
+  const size_t numQbit = program->nLogicalBits();
   
   // virtual swap
   auto provider = xacc::getIRProvider("quantum");
@@ -56,14 +54,14 @@ void CTSwap::apply(std::shared_ptr<CompositeInstruction> program,
   // change qbit index
   for(size_t i = 0; i < program->nInstructions(); ++i){
     auto nowInst = program -> getInstruction(i);
-    size_t newQbit = getSwapIndex(nowInst -> bits()[0], swapIndex);
+    size_t newQbit = getSwapIndex(nowInst -> bits()[0], swapIndex, numQbit);
     if(newQbit != numQbit && nowInst -> bits().size() == 1)  
       nowInst->setBits({newQbit});
     if(nowInst -> bits().size() == 2){
-      newQbit = getSwapIndex(nowInst -> bits()[0], swapIndex);
+      newQbit = getSwapIndex(nowInst -> bits()[0], swapIndex, numQbit);
       if(newQbit != numQbit)  
         nowInst->setBits({newQbit, nowInst -> bits()[1]});
-      newQbit = getSwapIndex(nowInst -> bits()[1], swapIndex);
+      newQbit = getSwapIndex(nowInst -> bits()[1], swapIndex, numQbit);
       if(newQbit != numQbit)  
         nowInst->setBits({nowInst -> bits()[0], newQbit});
     }
