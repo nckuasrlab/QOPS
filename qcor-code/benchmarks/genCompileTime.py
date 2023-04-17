@@ -14,7 +14,7 @@ def exe(name: str, command: list):
                 output = subprocess.run(exe_command, capture_output=True, text=True, timeout=60*int(roundtime))
                 lines = output.stderr.split("\n")
                 time1 = lines[3].split()[0]
-                output = subprocess.run(['perf', 'stat', '--null', '-r', roundtime, './a.out'], capture_output=True, text=True, timeout=10*int(roundtime))
+                output = subprocess.run(['perf', 'stat', '--null', '-r', roundtime, './a.out'], capture_output=True, text=True, timeout=(900-float(time1))*int(roundtime))
                 lines = output.stderr.split("\n")
                 time2 = lines[3].split()[0]
                 file.write("qcor time: " + str(round(float(time1), 4)) + "\n")
