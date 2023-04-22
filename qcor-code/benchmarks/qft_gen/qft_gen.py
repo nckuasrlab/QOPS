@@ -1,7 +1,7 @@
 import math
 
 if __name__ == "__main__":
-    for number_qbit in range(24, 41, 2):
+    for number_qbit in range(20, 33, 2):
         name = "qft_n" + str(number_qbit) +".cpp"
         with open(name, "w") as file:
             file.write("__qpu__ void qft_n" + str(number_qbit) + "(qreg q) {\n")
