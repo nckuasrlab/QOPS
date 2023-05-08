@@ -73,9 +73,15 @@ void CTSwap::apply(std::shared_ptr<CompositeInstruction> program,
       auto Inst = provider -> createInstruction("Swap", {i, swapIndex[i]});
       Inst -> setBufferNames({buffer_name, buffer_name});
       program -> insertInstruction(0, Inst);
-      Inst = provider -> createInstruction("Swap", {i, swapIndex[i]});
+    }
+  size_t position = program->nInstructions()-1;
+  while(program -> getInstruction(position) -> name() == "Measure")
+    position--;
+  for(size_t i = 0; i < 6; ++i)
+    if(swapIndex[i] != numQbit){
+      auto Inst = provider -> createInstruction("Swap", {i, swapIndex[i]});
       Inst -> setBufferNames({buffer_name, buffer_name});
-      program -> addInstruction(Inst);
+      program -> insertInstruction(position+1, Inst);
     }
 }
 } // namespace quantum
