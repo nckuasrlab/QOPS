@@ -1,0 +1,37 @@
+stages:
+  - build
+  - deploy
+
+docker build_devel:
+  stage: build
+  except:
+  - schedules
+  only:
+  - xacc-devel
+  script:
+  - cd docker/ci/ubuntu1804/devel && docker build -t xacc/devel-ci . --no-cache
+
+docker build_master:
+  stage: build
+  except:
+  - schedules
+  only:
+  - master
+  script:
+  - cd docker/ci/ubuntu1804/master && docker build -t xacc/master-ci . --no-cache
+  - git config remote.aideqc.url >&- || git remote add -t master aideqc https://amccaskey:$AIDEQC_ACCESS_TOKEN@github.com/aide-qc/xacc
+  - git push -f aideqc HEAD:master
+  - git remote remove aideqc
+
+docker run_docker_deploy:
+  stage: deploy
+  only:
+   - schedules
+  script:
+  - cd docker/deploy/dev && docker build -t xacc/xacc . --no-cache
+  - cd ../../ci/alpine && docker build -t xacc/alpine . --no-cache
+  - echo "$REGISTRY_PASSWORD" | docker login -u xacc --password-stdin
+  - docker push xacc/xacc
+  - docker push xacc/alpine
+  allow_failure: true
+

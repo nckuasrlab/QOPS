@@ -1,0 +1,417 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title> &mdash; XACC 1.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="install.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="#" class="icon icon-home" alt="Documentation Home"> XACC
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="basics.html">Basics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions.html">Extensions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developers.html">Developers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">XACC</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+        
+      <li></li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <img alt="_images/xacc_full_logo.svg" src="_images/xacc_full_logo.svg" /><div class="section" id="id1">
+<h1><a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>XACC (pronounced as it’s spelled) is an extensible compilation framework for hybrid quantum-classical
+computing architectures. It provides extensible language frontend and hardware
+backend compilation components glued together via a novel, polymorphic quantum intermediate
+representation. XACC currently supports quantum-classical programming and enables
+the execution of quantum kernels on IBM, Rigetti, IonQ, and D-Wave QPUs, as well as a
+number of quantum computer simulators.</p>
+<p>The XACC programming model follows the traditional co-processor model, akin to OpenCL or CUDA for GPUs, but
+takes into account the subtleties and complexities inherent to the interplay
+between classical and quantum hardware. XACC provides a high-level API that
+enables classical applications to offload work
+(represented as quantum kernels) to an attached quantum accelerator in a
+manner that is independent to the quantum programming language and hardware.
+This enables one to write quantum code once, and perform benchmarking,
+verification and validation, and performance studies for a set of virtual
+(simulators) or physical hardware.</p>
+<div class="section" id="modular-infrastructure">
+<h2>Modular Infrastructure<a class="headerlink" href="#modular-infrastructure" title="Permalink to this headline">¶</a></h2>
+<p>XACC relies on a project called <a class="reference external" href="http://github.com/cppmicroservices/cppmicroservices">CppMicroServices</a> -
+a native C++ implementation of the <a class="reference external" href="https://www.osgi.org/developer/architecture/">OSGi</a>
+specification that enables an extensible, modular
+plugin infrastructure for quantum compilers and accelerators.</p>
+</div>
+<div class="section" id="description-of-architecture">
+<h2>Description of Architecture<a class="headerlink" href="#description-of-architecture" title="Permalink to this headline">¶</a></h2>
+<p>For a comprehensive discussion of all components of the XACC programming model and architecture,
+please refer to this <a class="reference external" href="https://arxiv.org/abs/1911.02452">manuscript</a>.</p>
+<p>For class documentation, check out this <a class="reference external" href="https://ornl-qci.github.io/xacc-api-docs/">site</a>.</p>
+</div>
+<div class="section" id="xacc-development-team">
+<h2>XACC Development Team<a class="headerlink" href="#xacc-development-team" title="Permalink to this headline">¶</a></h2>
+<p>XACC is developed and maintained by:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="mailto:mccaskeyaj&#37;&#52;&#48;ornl&#46;gov">Alex McCaskey</a></p></li>
+<li><p><a class="reference external" href="mailto:humblets&#37;&#52;&#48;ornl&#46;gov">Travis Humble</a></p></li>
+<li><p><a class="reference external" href="mailto:dumitrescuef&#37;&#52;&#48;ornl&#46;gov">Eugene Dumitrescu</a></p></li>
+<li><p><a class="reference external" href="mailto:liakhdi&#37;&#52;&#48;ornl&#46;gov">Dmitry Liakh</a></p></li>
+<li><p><a class="reference external" href="mailto:mschen&#37;&#52;&#48;vt&#46;edu">Mengsu Chen</a></p></li>
+<li><p><a class="reference external" href="mailto:parkszp&#37;&#52;&#48;ornl&#46;gov">Zach Parks</a></p></li>
+<li><p><a class="reference external" href="mailto:rsand3642&#37;&#52;&#48;gmail&#46;com">Ryan Sand</a></p></li>
+<li><p><a class="reference external" href="mailto:czhao39&#37;&#52;&#48;gmail&#46;com">Charles Zhao</a></p></li>
+<li><p><a class="reference external" href="mailto:billingsjj&#37;&#52;&#48;ornl&#46;gov">Jay Billings</a></p></li>
+<li><p><a class="reference external" href="mailto:nguyentm&#37;&#52;&#48;ornl&#46;gov">Thien Nguyen</a></p></li>
+<li><p><a class="reference external" href="mailto:claudinodc&#37;&#52;&#48;ornl&#46;gov">Daniel Chaves-Claudino</a></p></li>
+<li><p><a class="reference external" href="mailto:kharazitd&#37;&#52;&#48;ornl&#46;gov">Tyler Kharazi</a></p></li>
+<li><p><a class="reference external" href="mailto:santanaam&#37;&#52;&#48;ornl&#46;gov">Anthony Santana</a></p></li>
+</ul>
+</div>
+<div class="section" id="questions-bug-reporting-and-issue-tracking">
+<h2>Questions, Bug Reporting, and Issue Tracking<a class="headerlink" href="#questions-bug-reporting-and-issue-tracking" title="Permalink to this headline">¶</a></h2>
+<p>Questions, bug reporting and issue tracking are provided by GitHub. Please
+report all bugs by creating a <a class="reference external" href="https://github.com/eclipse/xacc/issues/new">new issue</a>.
+You can ask questions by creating a new issue with the question tag.</p>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install.html#quick-start-with-docker">Quick-Start with Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install.html#prerequisites">Prerequisites</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="install.html#ubuntu-16-04">Ubuntu 16.04</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install.html#ubuntu-18-04">Ubuntu 18.04</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install.html#centos-7">Centos 7</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install.html#fedora-30">Fedora 30</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install.html#mac-os-x">Mac OS X</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="install.html#build-xacc">Build XACC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="basics.html">Basics</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#accelerator-buffer">Accelerator Buffer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#intermediate-representation-kernels-and-compilers">Intermediate Representation, Kernels, and Compilers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#observable">Observable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#accelerator">Accelerator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#optimizer">Optimizer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#xacc-qasm">xacc::qasm()</a></li>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#single-source-pythonic-programming">Single-source Pythonic Programming</a></li>
+<li class="toctree-l2"><a class="reference internal" href="basics.html#benchmarks">Benchmarks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="basics.html#chemistry">Chemistry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="basics.html#quantum-process-tomography">Quantum Process Tomography</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="extensions.html">Extensions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#compilers">Compilers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#xasm">xasm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#quilc">quilc</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#optimizers">Optimizers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#mlpack">MLPack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#nlopt">NLOpt</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#accelerators">Accelerators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#ibm">IBM</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#aer">Aer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#qcs">QCS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#ionq">IonQ</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#dwave">DWave</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#dwave-neal">DWave Neal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#quac">QuaC</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#qrack">Qrack</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#algorithms">Algorithms</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#vqe">VQE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#ddcl">DDCL</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#rotoselect">Rotoselect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#rbm-classification">RBM Classification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#quantum-process-tomography">Quantum Process Tomography</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#qaoa">QAOA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#quantum-phase-estimation">Quantum Phase Estimation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#qite">QITE</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#adapt">ADAPT</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#accelerator-decorators">Accelerator Decorators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#roerrordecorator">ROErrorDecorator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#rdmpurificationdecorator">RDMPurificationDecorator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#improvedsamplingdecorator">ImprovedSamplingDecorator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#vqe-restart-decorator">VQE Restart Decorator</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#ir-transformations">IR Transformations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#circuitoptimizer">CircuitOptimizer</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#observables">Observables</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#psi4-frozen-core">Psi4 Frozen-Core</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="extensions.html#circuit-generator">Circuit Generator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="extensions.html#aswap-ansatz-circuit">ASWAP Ansatz Circuit</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html#acceleratorbuffer-execution-data">AcceleratorBuffer Execution Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html#error-mitigation">Error Mitigation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="advanced.html#pulse-level-programming">Pulse-level Programming</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="advanced.html#pulse-level-results-in-acceleratorbuffer">Pulse-level results in AcceleratorBuffer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced.html#lab-frame-vs-rotating-frame">Lab-frame vs. Rotating frame</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced.html#initial-population-qubit-decay">Initial Population &amp; Qubit Decay</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced.html#higher-dimensional-systems">Higher-dimensional systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced.html#pulse-level-ir-transformation">Pulse-level IR Transformation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="advanced.html#enable-mpi">Enable MPI</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="developers.html">Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="developers.html#quick-start-with-docker">Quick Start with Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developers.html#writing-a-plugin-in-c">Writing a Plugin in C++</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developers.html#writing-a-plugin-in-python">Writing a Plugin in Python</a></li>
+<li class="toctree-l2"><a class="reference internal" href="developers.html#extending-accelerator-for-new-simulators">Extending Accelerator for new Simulators</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials.html#pulse-control-tutorial">Pulse Control Tutorial</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="tutorials.html#quick-start-with-docker">Quick Start with Docker</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tutorials.html#basics-of-manipulating-quantum-systems-in-xacc">Basics of Manipulating Quantum Systems in XACC</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tutorials.html#returning-the-fidelity">Returning the Fidelity</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="tutorials.html#case-1-returning-the-probability-of-the-1-state-for-a-single-qubit">Case 1: Returning the probability of the |1&gt; state for a single qubit:</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tutorials.html#case-2-returning-the-probability-of-the-1-and-2-states-for-a-single-qutrit">Case 2: Returning the probability of the |1&gt; and |2&gt; states for a single qutrit:</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tutorials.html#case-3-fidelity-calculation-using-density-matrices">Case 3: Fidelity Calculation using Density Matrices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tutorials.html#case-4-quantum-process-tomography">Case 4: Quantum Process Tomography:</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tutorials.html#case-4a-quantum-process-tomography-from-the-gate-level">Case 4A: Quantum Process Tomography from the Gate-Level:</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="tutorials.html#optimizing-controls-for-quantum-systems">Optimizing Controls for Quantum Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tutorials.html#alternative-hamiltonian-declaration">Alternative Hamiltonian Declaration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="publications">
+<h2>Publications<a class="headerlink" href="#publications" title="Permalink to this headline">¶</a></h2>
+<p>The following publications describe XACC or experiments leveraging the it.</p>
+<p>[1] <a class="reference external" href="https://arxiv.org/abs/1911.02452">XACC: A System-Level Software Infrastructure for Heterogeneous Quantum-Classical Computing</a></p>
+<p>[2] <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S2352711018300700">A language and hardware independent approach to quantum-classical computing</a></p>
+<p>[3] <a class="reference external" href="https://arxiv.org/abs/1807.07914">Validating Quantum-Classical Programming Models with Tensor Network Simulations</a></p>
+<p>[4] <a class="reference external" href="https://arxiv.org/abs/1805.09279">Hybrid Programming for Near-term Quantum Computing Systems</a></p>
+<p>[5] <a class="reference external" href="https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.120.210501">Cloud Quantum Computing of an Atomic Nucleus</a></p>
+<p>[6] <a class="reference external" href="https://journals.aps.org/pra/abstract/10.1103/PhysRevA.98.032331">Quantum-Classical Computations of Schwinger Model Dynamics using Quantum Computers</a></p>
+<div class="section" id="indices-and-tables">
+<h3>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="install.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2019, Alex McCaskey
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

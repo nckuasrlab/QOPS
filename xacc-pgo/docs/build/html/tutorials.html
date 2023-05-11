@@ -1,0 +1,681 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tutorials &mdash; XACC 1.0.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+
+  
+  
+  
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script src="_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Developers" href="developers.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home" alt="Documentation Home"> XACC
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="basics.html">Basics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extensions.html">Extensions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="advanced.html">Advanced</a></li>
+<li class="toctree-l1"><a class="reference internal" href="developers.html">Developers</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#pulse-control-tutorial">Pulse Control Tutorial</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quick-start-with-docker">Quick Start with Docker</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#basics-of-manipulating-quantum-systems-in-xacc">Basics of Manipulating Quantum Systems in XACC</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#returning-the-fidelity">Returning the Fidelity</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#case-1-returning-the-probability-of-the-1-state-for-a-single-qubit">Case 1: Returning the probability of the |1&gt; state for a single qubit:</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#case-2-returning-the-probability-of-the-1-and-2-states-for-a-single-qutrit">Case 2: Returning the probability of the |1&gt; and |2&gt; states for a single qutrit:</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#case-3-fidelity-calculation-using-density-matrices">Case 3: Fidelity Calculation using Density Matrices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#case-4-quantum-process-tomography">Case 4: Quantum Process Tomography:</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#case-4a-quantum-process-tomography-from-the-gate-level">Case 4A: Quantum Process Tomography from the Gate-Level:</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#optimizing-controls-for-quantum-systems">Optimizing Controls for Quantum Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#alternative-hamiltonian-declaration">Alternative Hamiltonian Declaration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">XACC</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>Tutorials</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="_sources/tutorials.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="tutorials">
+<h1>Tutorials<a class="headerlink" href="#tutorials" title="Permalink to this headline">¶</a></h1>
+<p></p>
+<div class="section" id="pulse-control-tutorial">
+<h2>Pulse Control Tutorial<a class="headerlink" href="#pulse-control-tutorial" title="Permalink to this headline">¶</a></h2>
+<p>Here we describe how users can easily leverage XACC with the
+QuaC Open-Pulse Simulator to conduct optimal control experiments.
+We currently support the following control algorithms:
+GRAPE [1], CRAB [2], Krotov [3], GOAT [4], and DRAG [5] with near-term plans of supporting Deep Reinforcement Learning
+and GRAFS [6].</p>
+<div class="section" id="quick-start-with-docker">
+<h3>Quick Start with Docker<a class="headerlink" href="#quick-start-with-docker" title="Permalink to this headline">¶</a></h3>
+<p>We have put together a docker image based on Ubuntu 18.04 that has all required
+dependencies for building XACC and QuaC. Moreover, we have set this image up to serve an
+Eclipse Theia IDE on <code class="docutils literal notranslate"><span class="pre">localhost:3000</span></code>. To use this image run the following from some
+scratch development directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ docker run --security-opt <span class="nv">seccomp</span><span class="o">=</span>unconfined --init -it -p <span class="m">3000</span>:3000 xacc/xacc-quac
+</pre></div>
+</div>
+<p>Now navigate to <code class="docutils literal notranslate"><span class="pre">localhost:3000</span></code> in your web browser. This will open the
+Theia IDE and you are good to go. Open a terminal with <code class="docutils literal notranslate"><span class="pre">ctrl</span> <span class="pre">+</span> <span class="pre">`</span></code>.</p>
+</div>
+<div class="section" id="basics-of-manipulating-quantum-systems-in-xacc">
+<h3>Basics of Manipulating Quantum Systems in XACC<a class="headerlink" href="#basics-of-manipulating-quantum-systems-in-xacc" title="Permalink to this headline">¶</a></h3>
+<p>We will begin by showing how to define a quantum system in XACC, and subsqequently demonstrate how to manipulate the system.
+The <a class="reference external" href="https://xacc.readthedocs.io/en/latest/tutorials.html#Optimizing-Controls-for-Quantum-Systems">next section</a>
+will cover optimizing controls for the system through the use of XACC’s Quantum Control algorithms.</p>
+<p>Make sure to run the following imports:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">xacc</span>
+<span class="kn">import</span> <span class="nn">sys</span><span class="o">,</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">json</span><span class="o">,</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+
+<span class="c1"># Alternative to the following two lines is to run</span>
+<span class="c1"># from the IDE terminal: export PYTHONPATH=$PYTHONPATH:$HOME/.xacc</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">())</span> <span class="o">+</span> <span class="s1">&#39;/.xacc&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Each file then begins by defining the Hamiltonian of the system in jSON format:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hamiltonianJson</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;One-qutrit Hamiltonian.&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;h_latex&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;h_str&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;(w - 0.5*alpha)*O0&quot;</span><span class="p">,</span> <span class="s2">&quot;0.5*alpha*O0*O0&quot;</span><span class="p">,</span> <span class="s2">&quot;O*(SM0 + SP0)||D0&quot;</span><span class="p">],</span>
+    <span class="s2">&quot;osc&quot;</span><span class="p">:</span> <span class="p">{},</span>
+    <span class="s2">&quot;qub&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;0&quot;</span><span class="p">:</span> <span class="mi">3</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;vars&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;w&quot;</span><span class="p">:</span> <span class="mf">31.63772297724</span><span class="p">,</span>
+        <span class="s2">&quot;alpha&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">1.47969</span><span class="p">,</span>
+        <span class="s2">&quot;O&quot;</span><span class="p">:</span> <span class="mf">0.0314</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>with the above being an example of a single qutrit system. For more information on formatting the Hamiltonian,
+see <a class="reference external" href="https://xacc.readthedocs.io/en/latest/advanced.html">Advanced/Pulse-level Programming</a> . Alternatively,
+in <a class="reference external" href="https://github.com/ORNL-QCI/QuaC/tree/xacc-integration/xacc_examples/python">QuaC/xacc_examples/python</a>,
+there are several example files outlining definitions for one-qubit, one-qutrit, two-qubit,
+and two-qutrit Hamiltonians that users can plug-and-play with.</p>
+<p>Next, a pulse model must be instantiated and the Hamiltonian is passed to the module by calling:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">createPulseModel</span><span class="p">()</span>
+<span class="n">loadResult</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">loadHamiltonianJson</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">hamiltonianJson</span><span class="p">))</span>
+<span class="n">qpu</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getAccelerator</span><span class="p">(</span><span class="s1">&#39;QuaC&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;system-model&#39;</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">name</span><span class="p">()})</span>
+<span class="n">channelConfig</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">BackendChannelConfigs</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>See <a class="reference external" href="https://xacc.readthedocs.io/en/latest/tutorials.html#Alternative-Hamiltonian-Declaration">Tutorials/Alternative Hamiltonian Declaration</a>
+for declaring a Hamiltonian through default backends.</p>
+<p>Let’s now define some of the parameters of the pulse, beginning with the total pulse time in nanoseconds, the number of samples,
+the time between the samples (dt), and the frequency of the driving envelope (typically chosen to be on resonance with the qubit):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">T</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">nbSamples</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="c1"># dt (time between data samples)</span>
+<span class="n">channelConfig</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="n">nbSamples</span> <span class="o">/</span> <span class="n">T</span>
+<span class="c1"># Drive at resonance: 31.63772297724/(2pi)</span>
+<span class="n">channelConfig</span><span class="o">.</span><span class="n">loFregs_dChannels</span> <span class="o">=</span> <span class="p">[</span><span class="mf">5.0353</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>XACC currently supports several pre-installed pulse declarations:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 19%" />
+<col style="width: 20%" />
+<col style="width: 36%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Pulse Type</p></th>
+<th class="head"><p>Parameters</p></th>
+<th class="head"><p>Parameter Description</p></th>
+<th class="head"><p>type</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>SquarePulse</p></td>
+<td><p>nbSamples</p></td>
+<td><p>Number of samples in the pulse</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-odd"><td><p>GaussianPulse</p></td>
+<td><p>nbSamples</p></td>
+<td><p>Number of samples in the pulse</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>sigma</p></td>
+<td><p>Standard deviation of Gaussian distribution</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-odd"><td><p>GaussianSquare</p></td>
+<td><p>duration</p></td>
+<td><p>Total pulse duration</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>amplitude</p></td>
+<td><p>Min/max amplitude of pulse</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p>sigma</p></td>
+<td><p>Standard deviation of Gaussian distribution</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>width</p></td>
+<td><p>Width of pulse peak/trough</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-odd"><td><p>DragPulse</p></td>
+<td><p>duration</p></td>
+<td><p>Total pulse duration</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>amplitude</p></td>
+<td><p>Amplitude of driving envelope</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p>sigma</p></td>
+<td><p>Standard deviation of Gaussian distribution</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>beta</p></td>
+<td><p>Correction amplitude</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-odd"><td><p>SlepianPulse</p></td>
+<td><p>alpha vector (weights)</p></td>
+<td><p>Weights for all k-orders of Slepians</p></td>
+<td><p>array</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>nbSamples</p></td>
+<td><p>Number of samples in the pulse</p></td>
+<td><p>int</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p>in_bW</p></td>
+<td><p>Half-bandwith of Slepian sequences</p></td>
+<td><p>double</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>in_K</p></td>
+<td><p>Max number of orders to use</p></td>
+<td><p>int</p></td>
+</tr>
+</tbody>
+</table>
+<p>which may be called as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">channelConfig</span><span class="o">.</span><span class="n">addOrReplacePulse</span><span class="p">(</span><span class="s1">&#39;square&#39;</span><span class="p">,</span> <span class="n">xacc</span><span class="o">.</span><span class="n">SquarePulse</span><span class="p">(</span><span class="n">nbSamples</span><span class="p">))</span>
+<span class="c1"># channelConfig.addOrReplacePulse(&#39;gaussian&#39;, xacc.GaussianPulse(nSamples, sigma = 0.1))</span>
+<span class="c1"># etc.</span>
+</pre></div>
+</div>
+<p>XACC currently supports the use of Discrete Prolate Spheroidal Sequences [7], or Slepians, for creating
+time and bandwidth limited discrete pulses. First applied directly to qubit control
+in [6], these show promise at creating accurate and smooth controls in the NISQ era.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Typically want more samples here to maintain precision</span>
+<span class="n">nbSamples</span> <span class="o">=</span> <span class="mi">500</span>
+
+<span class="c1"># Half-bandwidth \in (0.0, 0.5]</span>
+<span class="n">in_bW</span> <span class="o">=</span> <span class="mf">0.02</span>
+
+<span class="c1"># Maximum number of Slepian orders to use</span>
+<span class="c1"># Typically (2 * nbSamples * W) -- remember to make it an integer</span>
+<span class="n">in_K</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">nbSamples</span> <span class="o">*</span> <span class="n">in_bW</span><span class="p">)</span>
+
+<span class="c1"># Weight vector of length in_K as array. Just using one&#39;s</span>
+<span class="c1"># as an example, but for optimal control purposes, this vector</span>
+<span class="c1"># is the array that we seek to optimize.</span>
+<span class="n">alpha_vector</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">in_K</span><span class="p">)</span>
+
+<span class="n">channelConfig</span><span class="o">.</span><span class="n">addOrReplacePulse</span><span class="p">(</span><span class="s1">&#39;slepian&#39;</span><span class="p">,</span> <span class="n">xacc</span><span class="o">.</span><span class="n">SlepianPulse</span><span class="p">(</span><span class="n">alpha_vector</span><span class="p">,</span> <span class="n">nbSamples</span><span class="p">,</span> <span class="n">in_bW</span><span class="p">,</span> <span class="n">in_K</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Alternatively, one may define a custom pulse in numpy array format:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pulseData</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nbSamples</span><span class="p">)</span>
+<span class="n">pulseName</span> <span class="o">=</span> <span class="s1">&#39;custom&#39;</span>
+<span class="n">xacc</span><span class="o">.</span><span class="n">addPulse</span><span class="p">(</span><span class="n">pulseName</span><span class="p">,</span> <span class="n">pulseData</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now we allocate the amount of qubits needed for the program, create the program containing the pulse,
+and set the channel to drive it on:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Allocate qubits:</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">qalloc</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="c1"># Create the quantum program that contains the custom pulse</span>
+<span class="c1"># and the drive channel (D0) is set on the instruction</span>
+<span class="n">provider</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getIRProvider</span><span class="p">(</span><span class="s1">&#39;quantum&#39;</span><span class="p">)</span>
+<span class="n">prog</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">createComposite</span><span class="p">(</span><span class="s1">&#39;pulse&#39;</span><span class="p">)</span>
+<span class="n">customPulse</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">createInstruction</span><span class="p">(</span><span class="n">pulseName</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">customPulse</span><span class="o">.</span><span class="n">setChannel</span><span class="p">(</span><span class="s1">&#39;d0&#39;</span><span class="p">)</span>
+<span class="n">prog</span><span class="o">.</span><span class="n">addInstruction</span><span class="p">(</span><span class="n">customPulse</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally, we instruct the program on what measurement we’d like it to make and execute the program:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Measure Q0</span>
+<span class="n">prog</span><span class="o">.</span><span class="n">addInstruction</span><span class="p">(</span><span class="n">xacc</span><span class="o">.</span><span class="n">gate</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;Measure&quot;</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+<span class="n">qpu</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">prog</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="returning-the-fidelity">
+<h3>Returning the Fidelity<a class="headerlink" href="#returning-the-fidelity" title="Permalink to this headline">¶</a></h3>
+<p>Depending on the backend that you’re targetting, the gate operation you’re attempting to do,
+and the number of qubits in your system, there are different ways to return the fidelity.</p>
+<div class="section" id="case-1-returning-the-probability-of-the-1-state-for-a-single-qubit">
+<h4>Case 1: Returning the probability of the <a href="#id1"><span class="problematic" id="id2">|</span></a>1&gt; state for a single qubit:<a class="headerlink" href="#case-1-returning-the-probability-of-the-1-state-for-a-single-qubit" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fidelity</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">computeMeasurementProbability</span><span class="p">(</span><span class="s1">&#39;1&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="case-2-returning-the-probability-of-the-1-and-2-states-for-a-single-qutrit">
+<h4>Case 2: Returning the probability of the <a href="#id3"><span class="problematic" id="id4">|</span></a>1&gt; and <a href="#id5"><span class="problematic" id="id6">|</span></a>2&gt; states for a single qutrit:<a class="headerlink" href="#case-2-returning-the-probability-of-the-1-and-2-states-for-a-single-qutrit" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fidelity</span> <span class="o">=</span> <span class="n">q</span><span class="p">[</span><span class="s1">&#39;DensityMatrixDiags&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+<span class="n">leakage</span> <span class="o">=</span> <span class="n">q</span><span class="p">[</span><span class="s1">&#39;DensityMatrixDiags&#39;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="case-3-fidelity-calculation-using-density-matrices">
+<h4>Case 3: Fidelity Calculation using Density Matrices<a class="headerlink" href="#case-3-fidelity-calculation-using-density-matrices" title="Permalink to this headline">¶</a></h4>
+<p>In this case, we can provide a target density matrix for the system (both the real and imaginary part)
+and calculate the fidelity against that matrix. Here we outline the fidelity calculation for an X-Gate on a
+2-qubit system.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Expected density matrix: rho = |10&gt;&lt;10| for an X gate on the first qubit.</span>
+<span class="n">expectedDmReal</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+    <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+<span class="p">],</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+
+<span class="n">expectedDmImag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>
+
+<span class="c1"># Add target density matrix info to the buffer before execution</span>
+<span class="n">q</span><span class="o">.</span><span class="n">addExtraInfo</span><span class="p">(</span><span class="s2">&quot;target-dm-real&quot;</span><span class="p">,</span> <span class="n">expectedDmReal</span><span class="p">)</span>
+<span class="n">q</span><span class="o">.</span><span class="n">addExtraInfo</span><span class="p">(</span><span class="s2">&quot;target-dm-imag&quot;</span><span class="p">,</span> <span class="n">expectedDmImag</span><span class="p">)</span>
+
+<span class="c1"># Execute the program</span>
+<span class="n">qpu</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">prog</span><span class="p">)</span>
+
+<span class="c1"># Return the fidelity</span>
+<span class="n">fidelity</span> <span class="o">=</span> <span class="n">q</span><span class="p">[</span><span class="s2">&quot;fidelity&quot;</span><span class="p">]</span>
+<span class="k">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Fidelity: {}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">fidelity</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="case-4-quantum-process-tomography">
+<h4>Case 4: Quantum Process Tomography:<a class="headerlink" href="#case-4-quantum-process-tomography" title="Permalink to this headline">¶</a></h4>
+<p>The final method is to run XACC’s Quantum Process Tomography algorithm on the system. In simulation,
+this method will take more time than the others listed above, but on actual hardware the difference
+in time will be marginal. The fidelity here is calculated against a user-provided target process matrix.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># This line should replace the previous provider.createComposite(&#39;pulse&#39;) call</span>
+<span class="n">prog</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">createComposite</span><span class="p">(</span><span class="s1">&#39;pulse_qpt&#39;</span><span class="p">)</span>
+
+<span class="c1"># Create the Quantum Process Tomography Algorithm</span>
+<span class="n">qpt</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getAlgorithm</span><span class="p">(</span><span class="s1">&#39;qpt&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;circuit&#39;</span><span class="p">:</span> <span class="n">prog</span><span class="p">,</span> <span class="s1">&#39;accelerator&#39;</span><span class="p">:</span> <span class="n">qpu</span><span class="p">,</span> <span class="s1">&#39;optimize-circuit&#39;</span><span class="p">:</span> <span class="bp">False</span><span class="p">})</span>
+
+<span class="c1"># Allocate qubit and execute</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">qalloc</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">qpt</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+
+<span class="c1"># Target chi matrix (X-gate)</span>
+<span class="n">chi_real_vec</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span>
+                <span class="mf">0.</span><span class="p">,</span> <span class="mf">2.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span>
+                <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span>
+                <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">,</span> <span class="mf">0.</span><span class="p">]</span>
+<span class="n">fidelity</span> <span class="o">=</span> <span class="n">qpt</span><span class="o">.</span><span class="n">calculate</span><span class="p">(</span><span class="s1">&#39;fidelity&#39;</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;chi-theoretical-real&#39;</span><span class="p">:</span> <span class="n">chi_real_vec</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="case-4a-quantum-process-tomography-from-the-gate-level">
+<h4>Case 4A: Quantum Process Tomography from the Gate-Level:<a class="headerlink" href="#case-4a-quantum-process-tomography-from-the-gate-level" title="Permalink to this headline">¶</a></h4>
+<p>Instead of calcualting the target process matrix by hand, we can leverage XACC’s
+Pulse-Level IR Transformation to convert a user-provided gate into its corresponding chi-matrix.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">prog</span> <span class="o">=</span> <span class="n">provider</span><span class="o">.</span><span class="n">createComposite</span><span class="p">(</span><span class="s1">&#39;pulse_qpt&#39;</span><span class="p">)</span>
+
+<span class="c1"># Get Quantum Process Tomography Algo</span>
+<span class="n">qpt</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getAlgorithm</span><span class="p">(</span><span class="s1">&#39;qpt&#39;</span><span class="p">)</span>
+
+<span class="c1"># Compute Theoretical Chi Matrix</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">qalloc</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">qpu</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getAccelerator</span><span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;shots&#39;</span><span class="p">:</span> <span class="mi">10000</span><span class="p">})</span>
+<span class="n">compiler</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getCompiler</span><span class="p">(</span><span class="s1">&#39;xasm&#39;</span><span class="p">)</span>
+<span class="c1"># Getting IR for an X gate</span>
+<span class="n">ir</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;__qpu__ void f(qbit q) {X(q[0]);}&#39;&#39;&#39;</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+<span class="n">qppCompositeInstr</span> <span class="o">=</span> <span class="n">ir</span><span class="o">.</span><span class="n">getComposites</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="n">qpt</span><span class="o">.</span><span class="n">initialize</span><span class="p">({</span><span class="s1">&#39;circuit&#39;</span><span class="p">:</span> <span class="n">qppCompositeInstr</span><span class="p">,</span> <span class="s1">&#39;accelerator&#39;</span><span class="p">:</span> <span class="n">qpu</span><span class="p">})</span>
+
+<span class="c1"># Execute the algorithm and return real and imaginary parts of process matrix</span>
+<span class="n">qpt</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+<span class="n">chi_real_vec</span> <span class="o">=</span> <span class="n">q</span><span class="p">[</span><span class="s2">&quot;chi-real&quot;</span><span class="p">]</span>
+<span class="n">chi_imag_vec</span> <span class="o">=</span> <span class="n">q</span><span class="p">[</span><span class="s2">&quot;chi-imag&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="optimizing-controls-for-quantum-systems">
+<h3>Optimizing Controls for Quantum Systems<a class="headerlink" href="#optimizing-controls-for-quantum-systems" title="Permalink to this headline">¶</a></h3>
+<p>Using XACC’s IR Transformation, similarly to in <a class="reference external" href="https://xacc.readthedocs.io/en/latest/tutorials.html#case-4a-quantum-process-tomography-from-the-gate-level">Returning the Fidelity/Case 4A</a>,
+users can pass a Gate-Level instruction to the backend and return an optimized pulse with the algorithm of their
+choosing. The following is a short snippet of using GRAPE to construct a CNOT on a two-qubit system
+(for the full example, see <a class="reference external" href="https://github.com/ORNL-QCI/QuaC/blob/xacc-integration/xacc_examples/python/ir_transform_grape_cnot.py">QuaC/xacc_examples/python/ir_transform_grape_cnot</a>).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assuming users have already defined the Hamiltonian, pulse system model,</span>
+<span class="c1"># qpu = xacc.getAccelerator(), and the channelConfigs parameters</span>
+
+<span class="c1"># Get the XASM compiler</span>
+<span class="n">xasmCompiler</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getCompiler</span><span class="p">(</span><span class="s1">&#39;xasm&#39;</span><span class="p">);</span>
+
+<span class="c1"># Composite to be transformed to pulse</span>
+<span class="n">ir</span> <span class="o">=</span> <span class="n">xasmCompiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;__qpu__ void f(qbit q) {CNOT(q[0], q[1]);}&#39;&#39;&#39;</span><span class="p">,</span> <span class="n">qpu</span><span class="p">);</span>
+<span class="n">program</span> <span class="o">=</span> <span class="n">ir</span><span class="o">.</span><span class="n">getComposites</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="c1"># Run the pulse IRTransformation</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getIRTransformation</span><span class="p">(</span><span class="s1">&#39;quantum-control&#39;</span><span class="p">)</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">program</span><span class="p">,</span> <span class="n">qpu</span><span class="p">,</span> <span class="p">{</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;GRAPE&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;max-time&#39;</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span>
+    <span class="s1">&#39;dt&#39;</span><span class="p">:</span> <span class="n">channelConfigs</span><span class="o">.</span><span class="n">dt</span>
+<span class="p">})</span>
+
+<span class="c1"># Run the simulation of the optimized pulse program</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">qalloc</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">qpu</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">program</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After calling qpu.execute(), the <cite>program</cite> variable is no longer a gate, but is now the optimized pulse.
+Similarly, here is how to optimize an X-gate on a single qubit using GOAT:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assuming users have already defined the Hamiltonian, pulse system model,</span>
+<span class="c1"># qpu = xacc.getAccelerator(), and the channelConfigs parameters</span>
+
+<span class="c1"># Get the XASM compiler</span>
+<span class="n">xasmCompiler</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getCompiler</span><span class="p">(</span><span class="s1">&#39;xasm&#39;</span><span class="p">);</span>
+
+<span class="c1"># Composite to be transform to pulse</span>
+<span class="n">ir</span> <span class="o">=</span> <span class="n">xasmCompiler</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;__qpu__ void f(qbit q) {Rx(q[0], 1.57);}&#39;&#39;&#39;</span><span class="p">,</span> <span class="n">qpu</span><span class="p">);</span>
+<span class="n">program</span> <span class="o">=</span> <span class="n">ir</span><span class="o">.</span><span class="n">getComposites</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+<span class="c1"># Run the pulse IRTransformation</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getIRTransformation</span><span class="p">(</span><span class="s1">&#39;quantum-control&#39;</span><span class="p">)</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">program</span><span class="p">,</span> <span class="n">qpu</span><span class="p">,</span> <span class="p">{</span>
+    <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="s1">&#39;GOAT&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;control-params&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;sigma&#39;</span><span class="p">],</span>
+    <span class="c1"># Gaussian pulse</span>
+    <span class="s1">&#39;control-funcs&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;exp(-t^2/(2*sigma^2))&#39;</span><span class="p">],</span>
+    <span class="c1"># Initial params</span>
+    <span class="s1">&#39;initial-parameters&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">],</span>
+    <span class="s1">&#39;max-time&#39;</span><span class="p">:</span> <span class="mf">100.0</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+<p>See <a class="reference external" href="https://xacc.readthedocs.io/en/latest/advanced.html#pulse-level-ir-transformation">Advanced/Pulse-evel Programming/Pulse-level IR Transformation</a>
+for a more comprehensive list of each optimization method and its corresponding parameters.</p>
+</div>
+<div class="section" id="alternative-hamiltonian-declaration">
+<h3>Alternative Hamiltonian Declaration<a class="headerlink" href="#alternative-hamiltonian-declaration" title="Permalink to this headline">¶</a></h3>
+<p>Currently, XACC provides a default two-qubit backend represented by the following Hamiltonian:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">{</span>
+<span class="sd">    &quot;description&quot;: &quot;Two-qubit Hamiltonian&quot;,</span>
+<span class="sd">    &quot;h_str&quot;: [&quot;_SUM[i,0,1,wq{i}*O{i}]&quot;, &quot;_SUM[i,0,1,delta{i}*O{i}*(O{i}-I{i})]&quot;, &quot;_SUM[i,0,1,omegad{i}*X{i}||D{i}]&quot;, &quot;omegad1*X0||U0&quot;, &quot;omegad0*X1||U1&quot;, &quot;jq0q1*Sp0*Sm1&quot;, &quot;jq0q1*Sm0*Sp1&quot;],</span>
+<span class="sd">    &quot;osc&quot;: {},</span>
+<span class="sd">    &quot;qub&quot;: {</span>
+<span class="sd">        &quot;0&quot;: 2,</span>
+<span class="sd">        &quot;1&quot;: 2</span>
+<span class="sd">    },</span>
+<span class="sd">    &quot;vars&quot;: {</span>
+<span class="sd">        &quot;wq0&quot;: 30.518812656662774,</span>
+<span class="sd">        &quot;wq1&quot;: 31.238229295532093,</span>
+<span class="sd">        &quot;delta0&quot;: -2.011875935,</span>
+<span class="sd">        &quot;delta1&quot;: -2.008734343,</span>
+<span class="sd">        &quot;omegad0&quot;: -1.703999855,</span>
+<span class="sd">        &quot;omegad1&quot;: -1.703999855,</span>
+<span class="sd">        &quot;jq0q1&quot;: 0.011749557</span>
+<span class="sd">    }</span>
+<span class="sd">}</span>
+<span class="sd">&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>Accessing this backend is as simple as:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">qpu</span> <span class="o">=</span> <span class="n">xacc</span><span class="o">.</span><span class="n">getAccelerator</span><span class="p">(</span><span class="s1">&#39;QuaC:Default2Q&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Additionally, this backend comes with the following pre-calibrated pulses:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 24%" />
+<col style="width: 25%" />
+<col style="width: 52%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Pulse Type</p></th>
+<th class="head"><p>Gate Operation</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Single Qubit</p></td>
+<td><p>X-Gate</p></td>
+<td><p>pi/2 rotation over X-axis on Q0 or Q1</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p>H-Gate</p></td>
+<td><p>Hadamard Gate on Q0 or Q1</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p>U3-Gate</p></td>
+<td><p>U3 Operation on Q0 or Q1</p></td>
+</tr>
+<tr class="row-odd"><td><p>Double Qubit</p></td>
+<td><p>CNOT</p></td>
+<td><p>CNOT with U3 gates to correct local rotation errors</p></td>
+</tr>
+</tbody>
+</table>
+<p>[1] <a class="reference external" href="https://journals.aps.org/pra/abstract/10.1103/PhysRevA.97.042122">Data-driven gradient algorithm for high-precision quantum control</a></p>
+<p>[2] <a class="reference external" href="https://journals.aps.org/pra/abstract/10.1103/PhysRevA.84.022326">Chopped random-basis quantum optimization</a></p>
+<p>[3] <a class="reference external" href="https://link.springer.com/chapter/10.1007/978-1-4899-2326-4_24">Control of Photochemical Branching: Novel Procedures for Finding Optimal Pulses and Global Upper Bounds</a></p>
+<p>[4] <a class="reference external" href="https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.120.150401">Tunable, Flexible, and Efficient Optimization of Control Pulses for Practical Qubits</a></p>
+<p>[5] <a class="reference external" href="https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.103.110501">Simple Pulses for Elimination of Leakage in Weakly Nonlinear Qubits</a></p>
+<p>[6] <a class="reference external" href="https://journals.aps.org/pra/abstract/10.1103/PhysRevA.97.062346">Quantum optimal control via gradient ascent in function space and the time-bandwidth quantum speed limit</a></p>
+<p>[7] <a class="reference external" href="https://ieeexplore.ieee.org/document/6771595?arnumber=6771595&amp;tag=1">Prolate spheroidal wave functions, fourier analysis, and uncertainty — V: the discrete case</a></p>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="developers.html" class="btn btn-neutral float-left" title="Developers" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        
+        &copy; Copyright 2019, Alex McCaskey
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

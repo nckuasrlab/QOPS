@@ -1,0 +1,78 @@
+name: "Linux CI"
+
+on:
+  push:
+    branches: [ master, xacc-devel ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # once every weekend
+    - cron: '0 3 * * 6'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: "Linux CI"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Declares the repository safe and not under dubious ownership.
+      - name: Add repository to git safe directories
+        run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+      - name: Create Build Environment
+        run: cmake -E make_directory build
+      
+      - name: Install dependencies
+        run: sudo apt-get -y update && sudo apt-get install -y --no-install-recommends ninja-build libssl-dev libcurl4-openssl-dev python3 libpython3-dev python3-pip libblas-dev liblapack-dev
+      
+      - name: Configure
+        working-directory: build/
+        run: cmake -GNinja $GITHUB_WORKSPACE -DXACC_BUILD_TESTS=TRUE -DXACC_BUILD_EXAMPLES=TRUE
+    
+      - name: Build
+        working-directory: build/
+        run: cmake --build . --target install
+      
+      - name: Test
+        working-directory: build/
+        run: ctest --output-on-failure
+  
+  check-compilers:
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - "gcc:7"
+          - "gcc:8"
+          - "gcc:9"
+          - "gcc:10"
+          - "gcc:11"
+          - "gcc:12"
+        build_type: [Debug, Release]
+
+    runs-on: ubuntu-latest
+    container:
+      image: ${{matrix.image}}
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    # Declares the repository safe and not under dubious ownership.
+    - name: Add repository to git safe directories
+      run: git config --global --add safe.directory $GITHUB_WORKSPACE
+
+    - name: Install dependencies
+      run: apt -y update && apt install -y --no-install-recommends ninja-build libssl-dev libcurl4-openssl-dev python3 libpython3-dev python3-pip cmake libblas-dev liblapack-dev
+      
+    - name: Create Build Environment
+      run: cmake -E make_directory build
+
+    - name: Configure
+      working-directory: build/
+      run: cmake -GNinja $GITHUB_WORKSPACE -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DXACC_BUILD_TESTS=TRUE -DXACC_BUILD_EXAMPLES=TRUE
+    
+    - name: Build
+      working-directory: build/
+      run: cmake --build . --target install
