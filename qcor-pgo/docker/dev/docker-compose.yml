@@ -1,0 +1,10 @@
+version: '2'
+
+services:
+  qcor-dev:
+    image: code.ornl.gov:4567/qci/qcor
+    volumes:
+      - ../../..:/home/project
+    ports:
+      - 3000:3000
+      - 9005:9005

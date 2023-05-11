@@ -1,0 +1,71 @@
+stages:
+  - build
+  - deploy
+
+docker build_master:
+  stage: build
+  except:
+   - schedules
+  only:
+   - master
+  script:
+  - cd docker/ci/ubuntu1804/master && docker build -t qcor/master-ci . --no-cache
+  - docker system prune -f
+  - docker rmi -f qcor/master-ci
+  - git config remote.aideqcqcor.url >&- || git remote add -t master aideqcqcor https://amccaskey:$AIDEQC_ACCESS_TOKEN@github.com/aide-qc/qcor
+  - git push -f aideqcqcor HEAD:master
+  - git remote remove aideqcqcor
+
+# builds xacc and qcor bottles nightly
+docker run_brew_linux_bottles:
+  stage: deploy
+  only:
+   - schedules
+  script:
+  - git clone https://github.com/aide-qc/homebrew-deploy
+  - cd homebrew-deploy/scripts/linux-x86_64
+  - docker build --build-arg AIDEQC_ACCESS_TOKEN=$AIDEQC_ACCESS_TOKEN --build-arg JFROG_API_KEY=$JFROG_API_KEY -t qcor/brew-linux . --no-cache
+  - docker system prune -f
+  - docker rmi -f qcor/brew-linux
+  allow_failure: true
+
+docker run_macosx_catalina_bottles:
+  stage: deploy
+  only:
+    - schedules
+  tags: 
+    - osx
+  script:
+  - $HOME/catalina/run_build.sh $AIDEQC_ACCESS_TOKEN
+  allow_failure: true
+  
+# docker run_macosx_mojave_bottles:
+#   stage: deploy
+#   only:
+#     - schedules
+#   tags: 
+#     - mojave
+#   script:
+#   - id=$(docker run -d -it --device /dev/kvm -p 50922:10022 -v "${HOME}/mojave/mac_hdd_ng.img:/image" sickcodes/docker-osx:naked)
+#   - sleep 240
+#   - ssh mojave-ci "PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin bash run_bottle_build.sh $AIDEQC_ACCESS_TOKEN"
+#   - docker stop $id && docker rm -v $id
+#   allow_failure: true
+
+docker run_docker_deploy:
+  stage: deploy
+  only:
+    - schedules
+  script:
+  - cd docker/ci/alpine/qcor && docker build -t qcor/cli . --no-cache
+  - cd ../code-server && docker build -t qcor/qcor . --no-cache
+  - cd ../qsharp-code-server && docker build -t qcor/qsharp-qcor . --no-cache
+  - cd ../code-server-dev && docker build -t qcor/qcor-dev . --no-cache
+  - echo "$REGISTRY_PASSWORD" | docker login -u qcor --password-stdin
+  - docker push qcor/cli
+  - docker push qcor/qcor
+  - docker push qcor/qsharp-qcor
+  - docker push qcor/qcor-dev
+  - docker system prune -f
+  - docker rmi -f qcor/qcor qcor/cli qcor/qsharp-qcor qcor/qcor-dev xacc/alpine
+  allow_failure: true
