@@ -1,0 +1,22 @@
+# Generated files
+*.o
+*.a
+*.so
+*.x
+*.mod
+
+# Python cache
+__pycache__
+.ipynb_checkpoints
+
+# Build
+/build
+*.egg-info
+
+# Bazel output
+bazel-*
+
+.idea/*
+
+# Eigen library
+eigen

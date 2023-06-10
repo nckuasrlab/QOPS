@@ -1,0 +1,118 @@
+# Copyright 2020 Google LLC. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+book_path: /qsim/_book.yaml
+project_path: /qsim/_project.yaml
+description: >
+  Quantum circuit simulator qsim.
+landing_page:
+  custom_css_path: /site-assets/css/style.css
+  rows:
+  - classname: quantum-hero quantum-hero--qsim quantum-hero--icon-medium
+    options:
+    - hero
+    - description-50
+    - padding-large
+    heading: qsim
+    icon:
+      path: /site-assets/images/icons/icon_qsim.png
+    description: >
+      Optimized quantum circuit simulators
+    items:
+    - description: >
+        <h4>qsim</h4>
+        <p>
+        qsim is a full wave function simulator written in C++. It uses gate
+        fusion, AVX/FMA vectorized instructions and multi-threading using
+        OpenMP to achieve state of the art simulations of quantum circuits.
+        qsim is integrated with Cirq and can be used to run simulations of up
+        to 40 qubits on a 90 core Intel Xeon workstation.
+        </p>
+      buttons:
+      - label: Get started with qsim on Cirq
+        path: /qsim/tutorials/qsimcirq
+        classname: button button-primary
+        icon_name: open_in_new
+      - label: GitHub repository
+        path: //github.com/quantumlib/qsim
+        classname: button button-white
+        icon_name: open_in_new
+      code_block: |
+        <pre class = "prettyprint">
+        import cirq
+        import qsimcirq
+
+        # Pick up to ~25 qubits to simulate (requires ~256MB of RAM)
+        qubits = [cirq.GridQubit(i,j) for i in range(5) for j in range(5)]
+
+        # Define a circuit to run
+        # (Example is from the 2019 "Quantum Supremacy" experiement)
+        circuit = (cirq.experiments.
+            random_rotations_between_grid_interaction_layers_circuit(
+            qubits=qubits, depth=16))
+
+        # Measure qubits at the end of the circuit
+        circuit.append(cirq.measure(*qubits, key='all_qubits'))
+
+        # Simulate the circuit with qsim and return just the measurement values
+        # just like you would with Cirq
+        qsim_simulator = qsimcirq.QSimSimulator()
+        qsim_results = qsim_simulator.run(circuit, repetitions=5)
+        print('qsim results:')
+        print(qsim_results)
+        </pre>
+  - classname: quantum-row quantum-row--yellow
+    background: theme
+    heading: "Features and updates"
+    options:
+    - cards
+    items:
+    - heading: "Cirq integration"
+      image_path: /site-assets/images/cards/qsim-card-cirq-integrations.png
+      description: >
+        Cirq is a python framework for writing, simulating, and executing
+        quantum programs. Cirq's built in simulator is useful to around 20
+        qubits. By using the qsim Cirq simulator one can boost the number of
+        qubits simulated to be mostly limited by available ram. Up to 40 qubits
+        can be simulated on a 90 core Intel Xeon workstation.
+      buttons:
+      - label: "Learn more"
+        path: /qsim/cirq_interface
+    - heading: "Install qsim on GCP"
+      image_path: /site-assets/images/cards/qsim-card-gcp.jpg
+      description: >
+        Learn how to simulate up to 38 qubits on Google Cloud's Compute Engine.
+        qsim has a prepackaged docker image that allows easy deployment of qsim,
+        Juypter, and Cirq onto a virtual machine.
+      buttons:
+      - label: "Learn more"
+        path: /qsim/tutorials/gcp_before_you_begin
+    - heading: "Upgrades to qsim"
+      image_path: /site-assets/images/cards/qsim-card-schrodinger.png
+      description: >
+        To help researchers and developers develop quantum algorithms today, we
+        have made updates to qsim that make it more performant and intuitive,
+        and more "hardware-like".
+      buttons:
+      - label: "Learn more"
+        path: https://opensource.googleblog.com/2021/11/Upgrading%20qsim%20Google%20Quantum%20AIs%20Open%20Source%20Quantum%20Simulator%20.html?linkId=138925083
+    - heading: "Integrating qsim with NVIDIA's cuQuantum SDK"
+      image_path: /qsim/images/qsim_nvidia.png
+      description: >
+        The integration between qsim and the NVIDIA cuQuantum SDK will enable
+        qsim users to make the most of GPUs when developing quantum algorithms
+        and applications.
+      buttons:
+      - label: "Learn more"
+        path: https://opensource.googleblog.com/2021/11/qsim%20integrates%20with%20NVIDIA%20cuQuantum%20SDK%20to%20accelerate%20quantum%20circuit%20simulations%20on%20NVIDIA%20GPUs.html

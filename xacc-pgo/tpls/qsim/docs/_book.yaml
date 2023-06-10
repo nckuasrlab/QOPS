@@ -1,0 +1,67 @@
+upper_tabs:
+# Dropdown menu
+- name: "Software"
+  path: /software
+  is_default: true
+  menu:
+  - include: /_book/menu_software.yaml
+  lower_tabs:
+   # Subsite tabs
+   other:
+   - name: "Tutorials"
+     contents:
+       - title: "Get started with qsimcirq"
+         path: /qsim/tutorials/qsimcirq
+       - heading: "qsim on Google Cloud"
+       - title: "Before you begin"
+         path: /qsim/tutorials/gcp_before_you_begin
+       - title: "CPU-based simulation"
+         path: /qsim/tutorials/gcp_cpu
+       - title: "GPU-based simulation"
+         path: /qsim/tutorials/gcp_gpu
+       - title: "Multinode simulation"
+         path: /qsim/tutorials/multinode
+       - heading: "Other tutorials"
+       - title: "Simulate a large circuit"
+         path: /qsim/tutorials/q32d14
+       - title: "Simulate noise"
+         path: /qsim/tutorials/noisy_qsimcirq
+
+   - name: "Guides"
+     contents:
+       - title: "Introduction"
+         path: /qsim/overview
+       - title: "Choosing hardware"
+         path: /qsim/choose_hw
+       - title: "Command line reference"
+         path: /qsim/usage
+       - title: "Python interface"
+         path: /qsim/cirq_interface
+       - title: "C++ templates"
+         path: /qsim/type_reference
+       - title: "C++ builds with Bazel"
+         path: /qsim/bazel
+       - title: "Docker builds"
+         path: /qsim/docker
+       - title: "Testing qsim"
+         path: /qsim/testing
+       - title: "Release process"
+         path: /qsim/release
+
+   - name: "Python Reference"
+     skip_translation: true
+     contents:
+       - title: "All Symbols"
+         path: /reference/python/qsimcirq/all_symbols
+       - include: /reference/python/qsimcirq/_toc.yaml
+
+   - name: "C++ Reference"
+     skip_translation: true
+     contents:
+     - title: "All Symbols"
+       path: /reference/cc/qsim
+     - include: /reference/cc/qsim/_doxygen.yaml
+
+- include: /_book/upper_tabs_right.yaml
+
+

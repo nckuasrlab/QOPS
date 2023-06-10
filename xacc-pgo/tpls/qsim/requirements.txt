@@ -1,0 +1,5 @@
+absl-py
+cirq-core
+numpy~=1.16
+pybind11
+typing_extensions
