@@ -6,6 +6,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("arg1")
 parser.add_argument("arg2")
+parser.add_argument("arg3", nargs="?", default="context")
 args = parser.parse_args()
 
 if args.arg1[-4:] == ".out" :
@@ -31,5 +32,8 @@ elif args.arg1 == "sim":
     
     os.chdir(os.path.expanduser("~/stateVector/src/correctness"))
     subprocess.run(["rm result.txt && touch result.txt"], shell=True);
-    subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py"], shell=True)
+    if args.arg3 == "context" :
+        subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py context"], shell=True)
+    elif args.arg3 == "counter" : 
+        subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py counter"], shell=True)
     os.chdir(os.path.expanduser("~/QOPS"))
