@@ -18,7 +18,7 @@ void PGO::apply(std::shared_ptr<CompositeInstruction> program,
   std::vector<std::vector<int>> prof_data;  // 2D vector
   std::vector<int> gate = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 22, 31, 32};
 
-  file_name = std::string(home_path) + "/stateVector/src/correctness/xxx.out";
+  file_name = std::string(home_path) + "/stateVector/src/correctness/xxx.out";  // countee-based profile data
   file.open(file_name); // open profile data
 
   if (file.is_open()){
@@ -38,10 +38,11 @@ void PGO::apply(std::shared_ptr<CompositeInstruction> program,
         prof_data.push_back(data_tmp);
     }
     for (int gate_idx : gate){
-        for(int i = 0; i < prof_data.size(); i++){
+        for (int i = 0; i < prof_data.size(); i++){
             t += prof_data[i][gate_idx];
         }
     }
+    file.close();
   }
   else{
     std::cout << "profiling data not found.\n";

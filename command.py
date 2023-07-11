@@ -4,17 +4,17 @@ import subprocess
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("arg1")
-parser.add_argument("arg2")
-parser.add_argument("arg3", nargs="?", default="context")
+parser.add_argument("operation")
+parser.add_argument("input_file")
+parser.add_argument("output_file_or_mode", nargs="?", default="context") # this argument would be the output file name or profile mode.
 args = parser.parse_args()
 
-if args.arg1[-4:] == ".out" :
-    subprocess.run(["qcor", "-o", args.arg1, args.arg2])
-    output_file = "./" + args.arg1
+if args.operation == "init" :
+    subprocess.run(["qcor", "-o", args.output_file_or_mode, args.input_file])
+    output_file = "./" + args.output_file_or_mode
     subprocess.run([output_file]);
-elif args.arg1 == "sim":
-    subprocess.run(["python3", "./qcor-code/qasm/transform.py", args.arg2])
+elif args.operation == "sim":
+    subprocess.run(["python3", "./qcor-code/qasm/transform.py", args.input_file])
     transform_circuit_file_name = "./output.txt"
     qfunc_file_name = os.path.expanduser("~/stateVector/src/correctness/qpu_function.py")
     with open(transform_circuit_file_name, "r") as circuit_file:
@@ -32,10 +32,10 @@ elif args.arg1 == "sim":
     
     os.chdir(os.path.expanduser("~/stateVector/src/correctness"))
     subprocess.run(["rm result.txt && touch result.txt"], shell=True);
-    if args.arg3 == "context" :
+    if args.output_file_or_mode == "context" :
         subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py context"], shell=True)
-    elif args.arg3 == "counter" : 
+    elif args.output_file_or_mode == "counter" : 
         subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py counter"], shell=True)
     os.chdir(os.path.expanduser("~/QOPS"))
-elif args.arg1 == "pgo" :
-    subprocess.run(["qcor", "-opt-pass", "pgo", args.arg2])
+elif args.operation == "pgo" :
+    subprocess.run(["qcor", "-opt-pass", "pgo", args.input_file])
