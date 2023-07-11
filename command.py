@@ -37,3 +37,5 @@ elif args.arg1 == "sim":
     elif args.arg3 == "counter" : 
         subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py counter"], shell=True)
     os.chdir(os.path.expanduser("~/QOPS"))
+elif args.arg1 == "pgo" :
+    subprocess.run(["qcor", "-opt-pass", "pgo", args.arg2])
