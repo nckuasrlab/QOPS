@@ -6,13 +6,12 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("operation")
 parser.add_argument("input_file")
-parser.add_argument("output_file_or_mode", nargs="?", default="context") # this argument would be the output file name or profile mode.
+parser.add_argument("profile_mode", nargs="?", default="context") # this argument would be the output file name or profile mode.
 args = parser.parse_args()
 
 if args.operation == "init" :
-    subprocess.run(["qcor", "-o", args.output_file_or_mode, args.input_file])
-    output_file = "./" + args.output_file_or_mode
-    subprocess.run([output_file]);
+    subprocess.run(["qcor", args.input_file])
+    subprocess.run(["./a.out"]);
 elif args.operation == "sim":
     subprocess.run(["python3", "./qcor-code/qasm/transform.py", args.input_file])
     transform_circuit_file_name = "./output.txt"
@@ -32,10 +31,13 @@ elif args.operation == "sim":
     
     os.chdir(os.path.expanduser("~/stateVector/src/correctness"))
     subprocess.run(["rm result.txt && touch result.txt"], shell=True);
-    if args.output_file_or_mode == "context" :
+    if args.profile_mode == "context" :
         subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py context"], shell=True)
-    elif args.output_file_or_mode == "counter" : 
+    elif args.profile_mode == "counter" : 
         subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py counter"], shell=True)
+    elif args.profile_mode == "normal" :
+        subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 qft.py normal"], shell=True)
     os.chdir(os.path.expanduser("~/QOPS"))
 elif args.operation == "pgo" :
     subprocess.run(["qcor", "-opt-pass", "pgo", args.input_file])
+    subprocess.run(["./a.out"])
