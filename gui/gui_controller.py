@@ -199,18 +199,14 @@ class main_window(QtWidgets.QMainWindow):
         if value != "":
             self.ui.progbar.setVisible(False)
             self.ui.profile_file_display.setText(value)
-            try:
-                self.ui.profile_file_display.cursorPositionChanged.disconnect()
-                self.ui.code_input_display.cursorPositionChanged.disconnect()
-            except:
-                pass
+            self.check_connect_and_disconnect()
             return
         self.pre_qasm()
         self.ui.profile_file_display.setText(self.qasm)
         self.set_bar_val(70)
-        os.remove("tmp.cpp")
-        self.ui.profile_file_display.cursorPositionChanged.connect(self.tracker)
+        output = self.ui.profile_file_display.cursorPositionChanged.connect(self.tracker)
         self.ui.code_input_display.cursorPositionChanged.connect(lambda: self.tracker(-1))
+        os.remove("tmp.cpp")
         os.remove("a.out")
         self.set_bar_val(100)
 
@@ -221,8 +217,6 @@ class main_window(QtWidgets.QMainWindow):
         str_separator = "\n"
         self.qasm = str_separator.join(self.qasm)
         store_file(self.qasm, qasm_file_name)
-        # with open(qasm_file_name, 'w') as file:
-        #    file.write(self.qasm)
 
     def add_file(self):
         options = QtWidgets.QFileDialog.Options()
@@ -244,8 +238,7 @@ class main_window(QtWidgets.QMainWindow):
         if sig_val != "":
             self.ui.progbar.setVisible(False)
             self.ui.profile_file_display.setText(sig_val)
-            self.ui.profile_file_display.cursorPositionChanged.disconnect()
-            self.ui.code_input_display.cursorPositionChanged.disconnect()
+            self.check_connect_and_disconnect()
             
     def prof_data_display(self):
         self.simulation("context", False)
@@ -253,7 +246,8 @@ class main_window(QtWidgets.QMainWindow):
         self.ui.profile_file_display.setTextBackgroundColor(QColor("white"))
         self.sim_thread.wait()
         buffer = read_file(os.path.expanduser("~/stateVector/src/correctness/xxx.out"))
-        self.ui.profile_file_display.setText(buffer);
+        self.ui.profile_file_display.setText(buffer)
+        self.check_connect_and_disconnect()
 
     def pgo(self, cpp_file):
         self.set_bar_val(0)
@@ -309,8 +303,6 @@ class main_window(QtWidgets.QMainWindow):
         self.svg_thread.start()
 
     def svg_to_qt(self): # called by thread
-        # with open("circ.svg", 'r') as file:
-        #    buffer = file.read()
         buffer = read_file("circ.svg")
         self.set_bar_val(70)
         img = buffer.encode('utf-8')
@@ -348,6 +340,13 @@ class main_window(QtWidgets.QMainWindow):
                     line = line[1:]
                     self.insert_color_text(line, "white", self.ui.pgo_right_display)
                     self.insert_color_text(line, "white", self.ui.pgo_left_display)
+
+    def check_connect_and_disconnect(self):
+        # check wether the signal is connected to function
+        # only check profile_file_display because they always link simultaneously
+        if self.ui.profile_file_display.receivers(self.ui.profile_file_display.cursorPositionChanged):
+            self.ui.profile_file_display.cursorPositionChanged.disconnect()
+            self.ui.code_input_display.cursorPositionChanged.disconnect()
 
     def insert_color_text(self, text, color, obj):
         cursor = obj.textCursor()
