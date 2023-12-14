@@ -94,7 +94,6 @@ class Inliner final : public ast::Replacer {
             decl.foreach_stmt(
                 [this, &tmp](auto& gate) { tmp.body.push_back(&gate); });
             tmp.ancillas.swap(current_ancillas);
-
             return std::nullopt;
         }
     }

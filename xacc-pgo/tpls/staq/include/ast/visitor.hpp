@@ -44,6 +44,7 @@ class ResetStmt;
 class IfStmt;
 class UGate;
 class CNOTGate;
+class CommentGate;
 class BarrierGate;
 class DeclaredGate;
 class GateDecl;
@@ -84,6 +85,7 @@ class Visitor {
     virtual void visit(UGate&) = 0;
     virtual void visit(CNOTGate&) = 0;
     virtual void visit(BarrierGate&) = 0;
+    virtual void visit(CommentGate&) = 0;
     virtual void visit(DeclaredGate&) = 0;
     // Declarations
     virtual void visit(GateDecl&) = 0;

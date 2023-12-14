@@ -51,7 +51,8 @@ class AllGateVisitor : public BaseInstructionVisitor,
                        public InstructionVisitor<IfStmt>,
                        public InstructionVisitor<XY>,
                        public InstructionVisitor<Reset>,
-                       public InstructionVisitor<RZZ> {
+                       public InstructionVisitor<RZZ>,
+                       public InstructionVisitor<CM>{
 public:
   void visit(RZZ &rzz) override {}
   void visit(Hadamard &h) override {}
@@ -115,6 +116,7 @@ public:
     visit(h2);
     visit(sdg);
   }
+  void visit(CM &Cm) override {}
   void visit(S &s) override {}
   void visit(CPhase &cp) override {}
 

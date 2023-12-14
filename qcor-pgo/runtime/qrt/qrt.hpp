@@ -72,6 +72,7 @@ public:
 
   // Common two-qubit gates.
   virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) = 0;
+  virtual void CM(const qubit &src_idx, const qubit &tgt_idx) = 0;
   virtual void cy(const qubit &src_idx, const qubit &tgt_idx) = 0;
   virtual void cz(const qubit &src_idx, const qubit &tgt_idx) = 0;
   virtual void ch(const qubit &src_idx, const qubit &tgt_idx) = 0;
@@ -188,6 +189,7 @@ void mz(qreg q);
 
 // Common two-qubit gates.
 void cnot(const qubit &src_idx, const qubit &tgt_idx);
+void CM(const qubit &src_idx, const qubit &tgt_idx);
 void cy(const qubit &src_idx, const qubit &tgt_idx);
 void cz(const qubit &src_idx, const qubit &tgt_idx);
 void ch(const qubit &src_idx, const qubit &tgt_idx);
@@ -199,6 +201,7 @@ void crz(const qubit &src_idx, const qubit &tgt_idx, const double theta);
 
 // Broadcast two registers
 void cnot(qreg src, qreg tgt);
+void CM(qreg src, qreg tgt);
 void cy(qreg src, qreg tgt);
 void cz(qreg src, qreg tgt);
 void ch(qreg src, qreg tgt);

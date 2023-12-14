@@ -65,6 +65,7 @@ class OpenQasmMLIRGenerator : public qcor::QuantumMLIRGenerator,
   void visit(ResetStmt &) override {}
   void visit(IfStmt &) override {}
   void visit(BarrierGate &) override {}
+  void visit(CommentGate &) override {}
   void visit(GateDecl &) override;
   void visit(OracleDecl &) override {}
   void visit(RegisterDecl &) override;
@@ -94,6 +95,7 @@ class CountGateDecls : public staq::ast::Visitor {
   void visit(ResetStmt &) override {}
   void visit(IfStmt &) override {}
   void visit(BarrierGate &) override {}
+  void visit(CommentGate &) override {}
   void visit(GateDecl &g) override;
   void visit(OracleDecl &) override {}
   void visit(RegisterDecl &) override {}

@@ -89,6 +89,9 @@ class Replacer : public Visitor {
     virtual std::optional<std::list<ptr<Gate>>> replace(BarrierGate&) {
         return std::nullopt;
     }
+    virtual std::optional<std::list<ptr<Gate>>> replace(CommentGate&) {
+        return std::nullopt;
+    }
     virtual std::optional<std::list<ptr<Gate>>> replace(DeclaredGate&) {
         return std::nullopt;
     }
@@ -250,6 +253,22 @@ class Replacer : public Visitor {
         replacement_gates_ = replace(gate);
     }
 
+    void visit(CommentGate& gate) override {
+        gate.ctrl().accept(*this);
+        if (replacement_var_) {
+            gate.set_ctrl(std::move(*replacement_var_));
+            replacement_var_ = std::nullopt;
+        }
+
+        gate.tgt().accept(*this);
+        if (replacement_var_) {
+            gate.set_tgt(std::move(*replacement_var_));
+            replacement_var_ = std::nullopt;
+        }
+
+        replacement_gates_ = replace(gate);
+    }
+
     void visit(DeclaredGate& gate) override {
         for (int i = 0; i < gate.num_cargs(); i++) {
             gate.carg(i).accept(*this);
@@ -302,7 +321,7 @@ class Replacer : public Visitor {
         auto it = prog.body().begin();
 
         while (it != prog.end()) {
-            (**it).accept(*this);
+            (**it).accept(*this); // visit gate
             if (replacement_stmts_) {
                 it = prog.body().erase(it);
                 prog.body().splice(it, std::move(*replacement_stmts_));
@@ -342,6 +361,9 @@ class GateReplacer final : public Replacer {
         return replace_gate(g);
     }
     std::optional<std::list<ptr<Gate>>> replace(BarrierGate& g) {
+        return replace_gate(g);
+    }
+    std::optional<std::list<ptr<Gate>>> replace(CommentGate& g) {
         return replace_gate(g);
     }
     std::optional<std::list<ptr<Gate>>> replace(DeclaredGate& g) {

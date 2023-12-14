@@ -221,6 +221,7 @@ class Parser {
                     // Parse quantum operations (<qop>)
                 case Token::Kind::identifier:
                 case Token::Kind::kw_cx:
+                case Token::Kind::kw_cm:
                 case Token::Kind::kw_measure:
                 case Token::Kind::kw_reset:
                 case Token::Kind::kw_u:
@@ -423,6 +424,7 @@ class Parser {
                 case Token::Kind::kw_dirty:
                 case Token::Kind::kw_ancilla:
                 case Token::Kind::kw_cx:
+                case Token::Kind::kw_cm:
                 case Token::Kind::kw_u:
                 case Token::Kind::identifier:
                 case Token::Kind::kw_barrier:
@@ -452,6 +454,7 @@ class Parser {
         switch (current_token_.kind()) {
             case Token::Kind::kw_cx:
             case Token::Kind::kw_u:
+            case Token::Kind::kw_cm:
             case Token::Kind::identifier:
                 return parse_gop();
 
@@ -499,6 +502,9 @@ class Parser {
 
             case Token::Kind::kw_cx:
                 return parse_cnot();
+
+            case Token::Kind::kw_cm:
+                return parse_comment();
 
             case Token::Kind::identifier:
                 return parse_gate_statement();
@@ -951,6 +957,18 @@ class Parser {
         consume_until(Token::Kind::semicolon);
 
         return ast::BarrierGate::create(pos, std::move(args));
+    }
+
+    ast::ptr<ast::Gate> parse_comment() { //copy from cnot
+        auto pos = current_token_.position();
+
+        expect_and_consume_token(Token::Kind::kw_cm);
+        auto ctrl = parse_argument();
+        expect_and_consume_token(Token::Kind::comma);
+        auto tgt = parse_argument();
+        consume_until(Token::Kind::semicolon);
+
+        return ast::CommentGate::create(pos, std::move(ctrl), std::move(tgt));
     }
 
     /**

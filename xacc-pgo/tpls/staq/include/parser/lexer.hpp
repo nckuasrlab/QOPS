@@ -273,7 +273,10 @@ class Lexer {
                     skip_char();
                     return Token(tok_start, Token::Kind::kw_cx, "CX");
                 }
-
+                else if (buf_->peek() == 'M') {
+                    skip_char();
+                    return Token(tok_start, Token::Kind::kw_cm, "CM");
+                }
                 skip_char();
                 std::cerr
                     << "Lexical error at " << tok_start

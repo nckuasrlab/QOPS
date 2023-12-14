@@ -82,6 +82,10 @@ class Traverse : public Visitor {
         for (int i = 0; i < gate.num_args(); i++)
             gate.arg(i).accept(*this);
     }
+    void visit(CommentGate& gate) override {
+        gate.ctrl().accept(*this);
+        gate.tgt().accept(*this);
+    }
     void visit(DeclaredGate& gate) override {
         for (int i = 0; i < gate.num_cargs(); i++)
             gate.carg(i).accept(*this);

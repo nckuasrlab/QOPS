@@ -151,6 +151,10 @@ class CirqOutputter final : public ast::Visitor {
     }
 
     void visit(ast::BarrierGate&) {}
+    
+    void visit(ast::CommentGate&) {
+        os_ << "commnet\n";
+    }
 
     void visit(ast::DeclaredGate& gate) {
         os_ << prefix_;

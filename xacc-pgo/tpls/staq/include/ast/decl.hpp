@@ -38,7 +38,7 @@ namespace ast {
 static const std::set<std::string_view> qelib_defs{
     "u3", "u2",   "u1",  "cx",  "id",  "u0",  "x",  "y",  "z",
     "h",  "s",    "sdg", "t",   "tdg", "rx",  "ry", "rz", "cz",
-    "cy", "swap", "ch",  "ccx", "crz", "cu1", "cu3"};
+    "cy", "swap", "ch",  "ccx", "crz", "cu1", "cu3", "cm"};
 
 /**
  * \brief Tests whether identifier is part of the standard openQASM qelib or not
@@ -147,8 +147,10 @@ class GateDecl final : public Stmt, public Decl {
      * \param f A void function taking a reference to a Gate
      */
     void foreach_stmt(std::function<void(Gate&)> f) {
+//            std::cout<<"decl.hpp foreach_stmt\n";
         for (auto it = body_.begin(); it != body_.end(); it++)
             f(**it);
+//        std::cout<<"decl.hpp foreach_stmt finished\n";
     }
 
     /**

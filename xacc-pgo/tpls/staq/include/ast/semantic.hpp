@@ -166,6 +166,10 @@ class SemanticChecker final : public Visitor {
                                                   std::nullopt);
         check_uniform(gate.args(), types);
     }
+    void visit(CommentGate& gate) { //copy from cx
+        check_uniform({gate.ctrl(), gate.tgt()},
+                      {BitType::Qubit, BitType::Qubit});
+    }
     void visit(DeclaredGate& gate) {
         auto entry = lookup_gate(gate.name());
 

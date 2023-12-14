@@ -134,8 +134,8 @@ public:
   }
 
   template <typename... Ts> void print(std::ostream &os) const {
-    // _internal_print_visitor<Ts...> v(os);
-    // visit(v);
+//     _internal_print_visitor<Ts...> v(os);
+//     visit(v);
   }
 
   template <class T> void insert(const std::string key, const T &_t) {
@@ -276,18 +276,18 @@ private:
     void operator()(const std::string &key, const T &t) { count++; }
   };
 
-  // template <typename... Ts>
-  // class _internal_print_visitor : public visitor_base<Ts...> {
-  // private:
-  //   std::ostream &ss;
+/*   template <typename... Ts> // comment
+   class _internal_print_visitor : public visitor_base<Ts...> {
+   private:
+     std::ostream &ss;
 
-  // public:
-  //   _internal_print_visitor(std::ostream &s) : ss(s) {}
+   public:
+     _internal_print_visitor(std::ostream &s) : ss(s) {}
 
-  //   template <typename T> void operator()(const std::string &key, const T &t) {
-  //     ss << key << ": " << t << "\n";
-  //   }
-  // };
+     template <typename T> void operator()(const std::string &key, const T &t) {
+       ss << key << ": " << t << "\n";
+     }
+   };*/
 
   template <class T, class HEAD, class... TAIL> struct try_visit {
     template <class U> static void apply(T &visitor, U &&element) {

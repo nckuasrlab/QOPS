@@ -56,6 +56,7 @@ public:
     auto u1 = std::make_shared<xacc::quantum::U1>();
     auto rphi = std::make_shared<xacc::quantum::Rphi>();
     auto xx = std::make_shared<xacc::quantum::XX>();
+    auto cm = std::make_shared<xacc::quantum::CM>();
 
     auto anneal = std::make_shared<xacc::quantum::AnnealingInstruction>();
 
@@ -96,6 +97,7 @@ public:
     context.RegisterService<xacc::Instruction>(u1);
     context.RegisterService<xacc::Instruction>(rphi);
     context.RegisterService<xacc::Instruction>(xx);
+    context.RegisterService<xacc::Instruction>(cm);
 
     context.RegisterService<xacc::Instruction>(ifstmt);
     context.RegisterService<xacc::Instruction>(anneal);

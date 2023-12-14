@@ -141,6 +141,22 @@ public:
   DEFINE_VISITABLE()
 };
 
+class CM : public Gate {
+public:
+  CM() : Gate("CM") {}
+  CM(std::vector<std::size_t> qbits) : Gate("CM", qbits) {}
+  CM(std::size_t srcqbit, std::size_t tgtqbit)
+      : CM(std::vector<std::size_t>{srcqbit, tgtqbit}) {}
+  CM(std::vector<std::size_t> qbits, std::vector<InstructionParameter> params) : Gate("CM", qbits, params) {}
+
+  const std::string description() const override { return ""; }
+  const int nRequiredBits() const override { return 2; }
+
+  DEFINE_CLONE(CM)
+  DEFINE_VISITABLE()
+};
+
+
 class AnnealingInstruction : public Gate {
 public:
   AnnealingInstruction()

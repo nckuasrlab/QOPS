@@ -32,7 +32,7 @@ static const std::map<std::string, std::string> staq_to_xacc{
     {"z", "Z"},   {"h", "H"},     {"s", "S"},       {"sdg", "Sdg"},
     {"t", "T"},   {"tdg", "Tdg"}, {"rx", "Rx"},     {"ry", "Ry"},
     {"rz", "Rz"}, {"cz", "CZ"},   {"cy", "CY"},     {"swap", "Swap"},
-    {"ch", "CH"}, {"crz", "CRZ"}, {"cu1", "CPhase"}};
+    {"ch", "CH"}, {"crz", "CRZ"}, {"cu1", "CPhase"}, {"comment", "Cm"}};
 
 using IRConstructor = std::function<InstPtr(DeclaredGate&)>;
 using StaqIRCtorMap = std::unordered_map<std::string, IRConstructor>;
@@ -146,6 +146,9 @@ public:
     ss << "CX(" << cx.ctrl().var() << "[" << cx.ctrl().offset().value() << "],"
        << cx.tgt().var() << "[" << cx.tgt().offset().value() << "]);\n";
   }
+  void visit(CommentGate &cm) override {
+    ss << "just comment\n";
+  }
   //   void visit(BarrierGate&) = 0;
   void visit(DeclaredGate &g) override {
 
@@ -213,8 +216,12 @@ public:
         cx.ctrl().offset().value(), cx.tgt().offset().value()));
   }
 
+  void visit(CommentGate &cm) override {
+    m_runtimeInsts.emplace_back(std::make_shared<xacc::quantum::CM>(
+        cm.ctrl().offset().value(), cm.tgt().offset().value()));
+  }
+
   void visit(DeclaredGate &g) override {
-    // Handle common gates:
     auto funcIter = staq_to_xacc_ir_ctor.find(g.name());
     if (funcIter != staq_to_xacc_ir_ctor.end()) {
       const auto &ctorFunc = funcIter->second;
@@ -236,7 +243,7 @@ public:
     }
   }
 
-  std::shared_ptr<IR> getIr() {
+  std::shared_ptr<IR> getIr() { // used in stap_compiler last return
     auto composite =
         xacc::getService<IRProvider>("quantum")->createComposite(m_kernelName);
     composite->setBufferNames({m_regName});
@@ -295,6 +302,7 @@ public:
   void visit(Identity &i) override;
   void visit(U &u) override;
   void visit(IfStmt &ifStmt) override;
+  void visit(CM &cm) override;
 };
 
 } // namespace internal_staq

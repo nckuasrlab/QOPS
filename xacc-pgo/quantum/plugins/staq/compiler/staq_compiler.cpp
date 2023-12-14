@@ -315,7 +315,6 @@ std::shared_ptr<IR> StaqCompiler::compile(const std::string &src,
   try {
     prog = parser::parse_string(_src);
         // transformations::inline_ast(*prog);
-
     transformations::desugar(*prog);
     transformations::synthesize_oracles(*prog);
   } catch (std::exception &e) {
@@ -347,7 +346,7 @@ std::shared_ptr<IR> StaqCompiler::compile(const std::string &src,
   transformations::inline_ast(
       *prog, {false, transformations::default_overrides, "anc"});
 
-  //   std::cout <<"PROG: " << *prog << "\n";
+    // std::cout <<"PROG: " << *prog << "\n";
   
   // Determine the number of qreqs
   internal_staq::CountQregs countQreq;
@@ -421,7 +420,7 @@ std::shared_ptr<IR> StaqCompiler::compile(const std::string &src,
     xx << ") {\n" << translate.ss.str() << "}";
     kernel = xx.str();
   }
-  // std::cout << "\n\nFinal:\n" << kernel << "\n";
+ //  std::cout << "\n\nFinal:\n" << kernel << "\n";
   return xasm->compile(kernel, acc);
 }
 
@@ -462,7 +461,7 @@ StaqCompiler::translate(std::shared_ptr<xacc::CompositeInstruction> function) {
           }
         }
       } else {
-        for (int i = 0; i < next.nRequiredBits(); i++) {
+        for (int i = 0; i < next.nRequiredBits(); i++) { // bufName = "qrg_nWlrB"
           auto bufName = next.getBufferName(i);
           int size = next.bits()[i] + 1;
           if (bufNamesToSize.count(bufName)) {
@@ -528,7 +527,7 @@ StaqCompiler::translate(std::shared_ptr<CompositeInstruction> program,
         next.accept(translate);
       }
     }
-    // std::cout << "HELLO:\n" << translate->ss.str() << "\n";
+   //  std::cout << "HELLO:\n" << translate->ss.str() << "\n";
     using namespace staq;
     auto prog = parser::parse_string(translate->ss.str());
     transformations::desugar(*prog);

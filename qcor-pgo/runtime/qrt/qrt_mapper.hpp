@@ -122,6 +122,7 @@ class qrt_mapper : public AllGateVisitor,
 
   // Two-qubit gates
   void visit(CNOT &cnot) override { addTwoQubitGate("cnot", cnot); }
+  void visit(CM &cm) override { addTwoQubitGate("CM", cm); };
   void visit(CY &cy) override { addTwoQubitGate("cy", cy); }
   void visit(CZ &cz) override { addTwoQubitGate("cz", cz); }
   void visit(Swap &s) override { addTwoQubitGate("swap", s); }

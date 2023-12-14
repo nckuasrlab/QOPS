@@ -77,7 +77,7 @@ class NISQ : public ::quantum::QuantumRuntime,
 
   void two_qubit_inst(const std::string &name, const qubit &qidx1,
                       const qubit &qidx2, std::vector<double> parameters = {}) {
-    auto inst = provider->createInstruction(
+    auto inst = provider->createInstruction( //jump to xacc/provider/QuantumIRProvider
         name, std::vector<std::size_t>{qidx1.second, qidx2.second});
     inst->setBufferNames({qidx1.first, qidx2.first});
     for (int i = 0; i < parameters.size(); i++) {
@@ -168,6 +168,10 @@ class NISQ : public ::quantum::QuantumRuntime,
 
   void cnot(const qubit &src_idx, const qubit &tgt_idx) override {
     two_qubit_inst("CNOT", src_idx, tgt_idx);
+  }
+
+  void CM(const qubit &src_idx, const qubit &tgt_idx) override {
+    two_qubit_inst("CM", src_idx, tgt_idx);
   }
 
   void cy(const qubit &src_idx, const qubit &tgt_idx) override {
