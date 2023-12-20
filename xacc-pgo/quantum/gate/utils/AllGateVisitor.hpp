@@ -52,7 +52,7 @@ class AllGateVisitor : public BaseInstructionVisitor,
                        public InstructionVisitor<XY>,
                        public InstructionVisitor<Reset>,
                        public InstructionVisitor<RZZ>,
-                       public InstructionVisitor<CM>{
+                       public InstructionVisitor<CM> {
 public:
   void visit(RZZ &rzz) override {}
   void visit(Hadamard &h) override {}

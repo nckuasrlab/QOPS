@@ -130,7 +130,7 @@ void QCORSyntaxHandler::GetReplacement(
   std::string src_to_prepend;
   auto new_src = qcor::run_token_collector(PP, Toks, src_to_prepend,
                                            kernel_name, program_arg_types,
-                                           program_parameters, bufferNames); // jump to token_collector_util.cpp
+                                           program_parameters, bufferNames);
 
   if (!src_to_prepend.empty()) OS << src_to_prepend;
 

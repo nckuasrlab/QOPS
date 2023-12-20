@@ -219,7 +219,7 @@ void StaqTokenCollector::collect(clang::Preprocessor &PP,
   // std::cout << "FROM STAQ:\n" << sss.str() << "\n";
 
   auto compiler = xacc::getCompiler("staq");
-  auto inst = compiler->compile(sss.str())->getComposites()[0]; // inst is CompositeInstruction
+  auto inst = compiler->compile(sss.str())->getComposites()[0];
   // std::cout << inst->toString() << "\n";
 
   // Map this CompositeInstruction to QRT calls
@@ -227,7 +227,7 @@ void StaqTokenCollector::collect(clang::Preprocessor &PP,
   xacc::InstructionIterator iter(inst);
   while (iter.hasNext()) {
     auto next = iter.next();
-    next->accept(visitor); // call addOneQubitGate() or addTwoQubitGate()
+    next->accept(visitor);
   }
   if (hasOracle) {
     ss << "auto anc = qalloc(" << 1000 << ");\n";

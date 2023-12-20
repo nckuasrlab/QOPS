@@ -4,7 +4,7 @@ from PyQt5.QtGui import QTextCharFormat, QColor, QTextCursor
 from gui_ui import Ui_MainWindow
 from text_track import *
 from svg_mouse import *
-from svg_qasm import *
+from svg_qasm import svg_qasm
 from svg_cpp import svg_cpp
 import subprocess
 import os
@@ -213,7 +213,7 @@ class main_window(QtWidgets.QMainWindow):
     def pre_qasm(self): # handle comment string in qasm file
         qasm_file_name = get_newest_qasm()
         self.qasm = read_file(qasm_file_name)
-        self.qasm_map, self.qasm = preprocess(self.source, self.qasm)
+        self.qasm_map, self.qasm = map_source_and_qasm(self.source, self.qasm)
         str_separator = "\n"
         self.qasm = str_separator.join(self.qasm)
         store_file(self.qasm, qasm_file_name)

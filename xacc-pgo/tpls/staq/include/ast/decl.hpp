@@ -147,10 +147,8 @@ class GateDecl final : public Stmt, public Decl {
      * \param f A void function taking a reference to a Gate
      */
     void foreach_stmt(std::function<void(Gate&)> f) {
-//            std::cout<<"decl.hpp foreach_stmt\n";
         for (auto it = body_.begin(); it != body_.end(); it++)
             f(**it);
-//        std::cout<<"decl.hpp foreach_stmt finished\n";
     }
 
     /**

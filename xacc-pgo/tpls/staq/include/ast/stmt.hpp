@@ -434,7 +434,7 @@ class CommentGate final : public Gate {
 
   public:
     /**
-     * \brief Constructs a CNOT gate
+     * \brief Constructs a Comment gate
      *
      * \param pos The source position
      * \param ctrl Rvalue reference to the control argument

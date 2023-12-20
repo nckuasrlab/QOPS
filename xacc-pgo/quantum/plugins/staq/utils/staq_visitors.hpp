@@ -243,7 +243,7 @@ public:
     }
   }
 
-  std::shared_ptr<IR> getIr() { // used in stap_compiler last return
+  std::shared_ptr<IR> getIr() {
     auto composite =
         xacc::getService<IRProvider>("quantum")->createComposite(m_kernelName);
     composite->setBufferNames({m_regName});

@@ -2,7 +2,7 @@ import svgwrite
 import os
 from svg_core import *
 
-def preprocess(cpp_source): # delete irrelevant code
+def preprocess_delete_irrelevant(cpp_source): # delete irrelevant code
     begin = cpp_source.find('qalloc(')
     end = cpp_source.find(')', begin)
     gate_num = int(cpp_source[begin+7:end])

@@ -131,10 +131,6 @@ template <class W, class B> void JsonVisitor<W, B>::visit(Measure &cn) {
   baseGateInst(dynamic_cast<Gate &>(cn));
 }
 
-/*template <class W, class B> void JsonVisitor<W, B>::visit(Cm &cm) {
-  baseGateInst(dynamic_cast<Gate &>(cm));
-}*/
-
 template <class W, class B> void JsonVisitor<W, B>::visit(U &u) {
   baseGateInst(dynamic_cast<Gate &>(u));
 }

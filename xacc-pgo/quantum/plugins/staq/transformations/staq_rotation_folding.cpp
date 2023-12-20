@@ -25,7 +25,8 @@ using namespace staq::ast;
 
 void RotationFolding::apply(std::shared_ptr<CompositeInstruction> program,
                             const std::shared_ptr<Accelerator> accelerator,
-                            const HeterogeneousMap &options) { // pgo.cpp call this aaply
+                            const HeterogeneousMap &options) {
+
   // map to openqasm
   auto staq = xacc::getCompiler("staq");
   auto src = staq->translate(program);

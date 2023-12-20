@@ -48,7 +48,7 @@ static const std::string std_include =
     "gate u2(phi,lambda) q { U(pi/2,phi,lambda) q; }\n"
     "gate u1(lambda) q { U(0,0,lambda) q; }\n"
     "gate cx c,t { CX c,t; }\n"
-    "gate id a { U(0,0,0) a;}\n"
+    "gate id a { U(0,0,0) a; }\n"
     "gate u0(gamma) q { U(0,0,0) q; }\n"
     "gate x a { u3(pi,0,pi) a; }\n"
     "gate y a { u3(pi,pi/2,pi/2) a; }\n"

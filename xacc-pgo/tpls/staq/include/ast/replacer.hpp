@@ -321,7 +321,7 @@ class Replacer : public Visitor {
         auto it = prog.body().begin();
 
         while (it != prog.end()) {
-            (**it).accept(*this); // visit gate
+            (**it).accept(*this);
             if (replacement_stmts_) {
                 it = prog.body().erase(it);
                 prog.body().splice(it, std::move(*replacement_stmts_));

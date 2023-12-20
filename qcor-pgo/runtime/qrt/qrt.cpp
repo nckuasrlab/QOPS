@@ -217,7 +217,6 @@ void cnot(const qubit &src_idx, const qubit &tgt_idx) {
 }
 
 void CM(const qubit &src_idx, const qubit &tgt_idx) {
- // std::cout<<"qrt.cpp CM()\n";
   qrt_impl->CM(src_idx, tgt_idx);
 }
 

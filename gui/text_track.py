@@ -1,4 +1,4 @@
-def preprocess(source, qasm): # mapping source and qasm string line by line
+def map_source_and_qasm(source, qasm): # mapping source and qasm string line by line
     source = source.splitlines()
     qasm = qasm.splitlines()
     source = find_qpu_func(source)
