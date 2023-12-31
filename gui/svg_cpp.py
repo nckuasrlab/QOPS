@@ -24,7 +24,7 @@ def preprocess_delete_irrelevant(cpp_source): # delete irrelevant code
     return gate_num, data
 
 def svg_cpp(cpp_source):
-    gate_cnt, data = preprocess(cpp_source)
+    gate_cnt, data = preprocess_delete_irrelevant(cpp_source)
     prof_data = read_file()
     svg_size_width = len(data)*150+150
     svg_size_height = gate_cnt*165
