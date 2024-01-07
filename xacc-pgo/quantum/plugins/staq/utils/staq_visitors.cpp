@@ -88,6 +88,9 @@ void XACCToStaqOpenQasm::visit(CH &ch) {
   ss << "ch " << (ch.getBufferNames().empty() ? "q" : ch.getBufferName(0))
      << "[" << ch.bits()[0] << "], " << (ch.getBufferNames().empty() ? "q" : ch.getBufferName(1)) << "[" << ch.bits()[1] << "];\n";
 }
+void XACCToStaqOpenQasm::visit(CM &cm) {
+  ss << "// comment\n";
+}
 void XACCToStaqOpenQasm::visit(S &s) {
   ss << "s " << (s.getBufferNames().empty() ? "q" : s.getBufferName(0))
      << s.bits() << ";\n";

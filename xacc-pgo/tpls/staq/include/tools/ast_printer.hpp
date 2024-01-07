@@ -137,6 +137,15 @@ class ASTPrinter final : public ast::Visitor {
         prefix_.resize(prefix_.length() - 2);
     }
 
+    void visit(ast::CommentGate& gate) { //copy from barrier
+        os_ << prefix_ << "|- CommentGate\n";
+
+        prefix_ += "  ";
+        gate.ctrl().accept(*this);
+        gate.tgt().accept(*this);
+        prefix_.resize(prefix_.length() - 2);
+    }
+
     void visit(ast::DeclaredGate& gate) {
         os_ << prefix_ << "|- Declared(" << gate.name() << ")\n";
 

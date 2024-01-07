@@ -78,6 +78,7 @@ class Token {
         kw_barrier,
         kw_creg,
         kw_cx,
+        kw_cm,
         kw_gate,
         kw_if,
         kw_measure,
@@ -190,6 +191,9 @@ class Token {
                 break;
             case Kind::kw_cx:
                 os << "CX";
+                break;
+            case Kind::kw_cm:
+                os << "CM";
                 break;
             case Kind::kw_gate:
                 os << "GATE";
@@ -364,6 +368,7 @@ static const std::unordered_map<std::string, Token::Kind> keywords{
     {"barrier", Token::Kind::kw_barrier},
     {"creg", Token::Kind::kw_creg},
     {"CX", Token::Kind::kw_cx},
+    {"CM", Token::Kind::kw_cm},
     {"gate", Token::Kind::kw_gate},
     {"if", Token::Kind::kw_if},
     {"measure", Token::Kind::kw_measure},

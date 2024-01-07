@@ -13,7 +13,7 @@ if args.operation == "init" :
     subprocess.run(["qcor", args.input_file])
     subprocess.run(["./a.out"]);
 elif args.operation == "sim":
-    subprocess.run(["python3", "./qcor-code/qasm/transform.py", args.input_file])
+    subprocess.run(["python3", os.path.expanduser("~/QOPS/qcor-code/qasm/transform.py"), args.input_file])
     transform_circuit_file_name = "./output.txt"
     qfunc_file_name = os.path.expanduser("~/stateVector/src/correctness/qpu_function.py")
     with open(transform_circuit_file_name, "r") as circuit_file:

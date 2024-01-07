@@ -104,6 +104,15 @@ class RotationOptimizer final : public ast::Visitor {
     void visit(ast::BarrierGate& gate) {
         push_uninterp(Gatelib::Uninterp({gate.args()}));
     }
+    void visit(ast::CommentGate& gate) { //copy from cnot
+        auto ctrl = gate.ctrl();
+        auto tgt = gate.tgt();
+        if (mergeable_) {
+            current_clifford_ *= Gatelib::Clifford::cnot(ctrl, tgt); // i think it should be fine if i dont change to commentGate
+        } else {
+            push_uninterp(Gatelib::Uninterp({ctrl, tgt}));
+        }
+    }
     void visit(ast::DeclaredGate& gate) {
         auto name = gate.name();
 

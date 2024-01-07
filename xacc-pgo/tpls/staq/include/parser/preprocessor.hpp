@@ -61,18 +61,19 @@ static const std::string std_include =
     "gate rx(theta) a { u3(theta, -pi/2,pi/2) a; }\n"
     "gate ry(theta) a { u3(theta,0,0) a; }\n"
     "gate rz(phi) a { u1(phi) a; }\n"
-    "gate cz a,b { h b; cx a,b; h b; }\n"
-    "gate cy a,b { sdg b; cx a,b; s b; }\n"
+    "gate cm a,b { CM a,b; }\n"
+    "gate cz a,b { h b; cx a,b; h b; cm a,b; }\n"
+    "gate cy a,b { sdg b; cx a,b; s b; cm a,b; }\n"
     "gate swap a,b { cx a,b; cx b,a; cx a,b; }\n"
     "gate ch a,b { h b; sdg b;cx a,b;h b; t b;cx a,b;t b; h b; s b; x b; s "
-    "a;}\n"
+    "a; cm a,b; }\n"
     "gate ccx a,b,c{ h c; cx b,c; tdg c; cx a,c; t c; cx b,c; tdg c; cx a,c; t "
-    "b; t c; h c; cx a,b; t a; tdg b; cx a,b;}\n"
-    "gate crz(lambda) a,b{ u1(lambda/2) b; cx a,b; u1(-lambda/2) b; cx a,b;}\n"
+    "b; t c; h c; cx a,b; t a; tdg b; cx a,b; cm a,b; }\n"
+    "gate crz(lambda) a,b{ u1(lambda/2) b; cx a,b; u1(-lambda/2) b; cx a,b; cm a,b; }\n"
     "gate cu1(lambda) a,b{ u1(lambda/2) a; cx a,b; u1(-lambda/2) b; cx a,b; "
-    "u1(lambda/2) b;}\n"
+    "u1(lambda/2) b; cm a,b; }\n"
     "gate cu3(theta,phi,lambda) c,t { u1((lambda-phi)/2) t; cx c,t; "
-    "u3(-theta/2,0,-(phi+lambda)/2) t;  cx c,t;  u3(theta/2,phi,0) t;}\n";
+    "u3(-theta/2,0,-(phi+lambda)/2) t;  cx c,t;  u3(theta/2,phi,0) t; cm c,t;}\n";
 
 /**
  * \class staq::parser::Preprocessor

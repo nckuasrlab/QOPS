@@ -170,6 +170,10 @@ class NISQ : public ::quantum::QuantumRuntime,
     two_qubit_inst("CNOT", src_idx, tgt_idx);
   }
 
+  void CM(const qubit &src_idx, const qubit &tgt_idx) override {
+    two_qubit_inst("CM", src_idx, tgt_idx);
+  }
+
   void cy(const qubit &src_idx, const qubit &tgt_idx) override {
     two_qubit_inst("CY", src_idx, tgt_idx);
   }

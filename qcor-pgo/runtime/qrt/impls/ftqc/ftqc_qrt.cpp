@@ -96,6 +96,9 @@ public:
   virtual void cnot(const qubit &src_idx, const qubit &tgt_idx) override {
     applyGate("CNOT", {src_idx, tgt_idx});
   }
+  virtual void CM(const qubit &src_idx, const qubit &tgt_idx) override {
+    applyGate("CM", {src_idx, tgt_idx});
+  }
   virtual void cy(const qubit &src_idx, const qubit &tgt_idx) override {
     applyGate("CY", {src_idx, tgt_idx});
   }

@@ -113,6 +113,30 @@ class Simplifier final : public ast::Visitor {
         last_[ctrl] = {"cx", {ctrl, tgt}, gate.uid()};
         last_[tgt] = {"cx", {ctrl, tgt}, gate.uid()};
     }
+    void visit(ast::CommentGate& gate) {
+        auto ctrl = gate.ctrl();
+        auto tgt = gate.tgt();
+
+        if (mergeable_) {
+            auto [name1, args1, uid1] = last_[ctrl];
+            auto [name2, args2, uid2] = last_[tgt];
+
+            if (uid1 == uid2 && name1 == "cm" &&
+                args1 == std::vector<ast::VarAccess>({ctrl, tgt})) {
+                erasures_[uid1] = std::move(std::list<ast::ptr<ast::Gate>>());
+                erasures_[gate.uid()] =
+                    std::move(std::list<ast::ptr<ast::Gate>>());
+
+                last_.erase(ctrl);
+                last_.erase(tgt);
+
+                return;
+            }
+        }
+
+        last_[ctrl] = {"cm", {ctrl, tgt}, gate.uid()};
+        last_[tgt] = {"cm", {ctrl, tgt}, gate.uid()};
+    }
     void visit(ast::BarrierGate& gate) {
         gate.foreach_arg([this, &gate](auto& arg) {
             last_[arg] = {"barrier", gate.args(), gate.uid()};

@@ -35,6 +35,9 @@ void PGO::apply(std::shared_ptr<CompositeInstruction> program,
             line.erase(0, pos+1);
             pos = line.find(" ");
         }
+        num_tmp = line.substr(0, line.size()); // handle last column
+        data_tmp.push_back(std::stoi(num_tmp));
+
         prof_data.push_back(data_tmp);
     }
     for (int gate_idx : gate){
@@ -49,10 +52,10 @@ void PGO::apply(std::shared_ptr<CompositeInstruction> program,
   }
 
   if(t > 10){
+    std::cout << "pgo open\n"; 
     auto opt = xacc::getIRTransformation("rotation-folding");
     opt->apply(program, nullptr);
   }
-  
 }
 } // namespace quantum
 } // namespace xacc

@@ -428,6 +428,67 @@ class CNOTGate final : public Gate {
     }
 };
 
+class CommentGate final : public Gate {
+    VarAccess ctrl_; ///< control qubit|qreg
+    VarAccess tgt_;  ///< target qubit|qreg
+
+  public:
+    /**
+     * \brief Constructs a Comment gate
+     *
+     * \param pos The source position
+     * \param ctrl Rvalue reference to the control argument
+     * \param tgt Rvalue reference to the target argument
+     */
+    CommentGate(parser::Position pos, VarAccess&& ctrl, VarAccess&& tgt)
+        : Gate(pos), ctrl_(std::move(ctrl)), tgt_(std::move(tgt)) {}
+
+    /**
+     * \brief Protected heap-allocated construction
+     */
+    static ptr<CommentGate> create(parser::Position pos, VarAccess&& ctrl,
+                                VarAccess&& tgt) {
+        return std::make_unique<CommentGate>(pos, std::move(ctrl), std::move(tgt));
+    }
+
+    /**
+     * \brief Get the control argument
+     *
+     * \return Reference to the quantum argument
+     */
+    VarAccess& ctrl() { return ctrl_; }
+
+    /**
+     * \brief Get the target argument
+     *
+     * \return Reference to the quantum argument
+     */
+    VarAccess& tgt() { return tgt_; }
+
+    /**
+     * \brief Set the control argument
+     *
+     * \param ctrl The new argument
+     */
+    void set_ctrl(const VarAccess& ctrl) { ctrl_ = ctrl; }
+
+    /**
+     * \brief Set the target argument
+     *
+     * \param tgt The new argument
+     */
+    void set_tgt(const VarAccess& tgt) { tgt_ = tgt; }
+
+    void accept(Visitor& visitor) override { visitor.visit(*this); }
+    std::ostream& pretty_print(std::ostream& os, bool) const override {
+        os << "CM " << ctrl_ << "," << tgt_ << ";\n";
+        return os;
+    }
+    CommentGate* clone() const override {
+        return new CommentGate(pos_, VarAccess(ctrl_), VarAccess(tgt_));
+    }
+};
+
 /**
  * \class staq::ast::BarrierGate
  * \brief Class for barrier gates

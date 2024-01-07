@@ -216,6 +216,10 @@ void cnot(const qubit &src_idx, const qubit &tgt_idx) {
   qrt_impl->cnot(src_idx, tgt_idx);
 }
 
+void CM(const qubit &src_idx, const qubit &tgt_idx) {
+  qrt_impl->CM(src_idx, tgt_idx);
+}
+
 void cy(const qubit &src_idx, const qubit &tgt_idx) {
   qrt_impl->cy(src_idx, tgt_idx);
 }
