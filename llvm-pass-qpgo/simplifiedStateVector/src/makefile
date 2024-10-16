@@ -1,10 +1,10 @@
-all: qSim.out
+all: quokka
 CC:=gcc
 INCLUDE:=.
 CFLAGS:=-g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 OMPFLAGES:=-fopenmp
 
-qSim.out: main.o common.o gate.o
+quokka: main.o common.o gate.o
 	$(CC) $(CFLAGS) $(OMPFLAGES) $^ -o $@ -lm
 # -lm for math.h
 
@@ -33,5 +33,5 @@ gate.o: gate.c common.h gate.h
 # 	$(CC) -c $(CFLAGS) ini.c
 
 clean:
-	rm -f qSim.out *.o
+	rm -f quokka *.o
 

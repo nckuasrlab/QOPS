@@ -35,10 +35,10 @@ circuit=qpu_function()
 
 create_circuit(circuit,cir_path)
 if args.base == "context" :
-    os.system(f"../qSim_context.out -i {ini_path} -c {cir_path} >> ./result.txt")
+    os.system(f"../quokka_context.out -i {ini_path} -c {cir_path} >> ./result.txt")
 elif args.base == "counter" :
-    os.system(f"../qSim_counter.out -i {ini_path} -c {cir_path} >> ./result.txt")
+    os.system(f"../quokka_counter.out -i {ini_path} -c {cir_path} >> ./result.txt")
 elif args.base == "normal" :
-    os.system(f"../qSim_normal.out -i {ini_path} -c {cir_path} >> ./result.txt")
+    os.system(f"../quokka_normal.out -i {ini_path} -c {cir_path} >> ./result.txt")
 
-os.system(f"python3 ../test_by_qiskit.py cir_test ../path/set7.txt  4 1 1 1 >> ./result.txt")
+# os.system(f"python3 ../test_by_qiskit.py cir_test ../path/set7.txt  4 1 1 1 >> ./result.txt")
