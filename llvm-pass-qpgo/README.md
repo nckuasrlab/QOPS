@@ -5,6 +5,11 @@ Two types of probes are implemented for the Quantum Profile-Guided Optimization
 1. Counter-based: increase counter for each meta function
 2. Context-based: dump arguments and timestamp of function for each meta function
 
+## Requirements
+
++ QOPS should be cloned into `~/QOPS`.
++ LLVM should be installed at `~/.llvm`.
+
 ## Usage
 
 + Commands beginning with `$` are commands entered by the user; otherwise, they are screen output (insignificant information is ignored by `...`)
@@ -24,6 +29,8 @@ $ ninja # or 'cmake --build .'
 
 ## Compile the simulator and insert context-based probes
 
++ Note: change `simplifiedStateVector` to `../stateVector` (needs `cp pgo.md ../stateVector`) for a full-featured quantum circuit simulation
+
 ```bash
 $ cd $QPGO_HOME
 $ cd simplifiedStateVector/src/
@@ -34,7 +41,7 @@ make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET
 ...
 ```
 
-## Run the simulator and get the profile data
+## Run the simulator and get the context-based profile data
 
 ```bash
 $ time make -f pgo.mk run
@@ -82,7 +89,7 @@ make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET
 ...
 ```
 
-## Run the simulator and get the profile data
+## Run the simulator and get the counter-based profile data
 
 ```bash
 $ time make -f pgo.mk run
@@ -105,4 +112,3 @@ $ time make -f pgo.mk run FILE=$(date +%H%M%S%Y%m%d).out
 LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=13104020230330.out ./qSim.out
 ...
 ```
-

@@ -1,6 +1,14 @@
-# GUI program about profile data
+# qviz-gui: Illuminating Quantum Profile-Guided Optimization via Interactive Source-Level Mapping Visualizations
+
+GUI program about profile data
 
 ## Prerequisite
+
+```bash
+$ sudo apt-get install libxcb-xinerama0
+$ pip install PyQt5==5.15.4
+$ sudo apt-get install qttools5-dev-tools qttools5-dev
+```
 
 + QOPS should be cloned to `~/QOPS`.
 + LLVM should be installed to `~/.llvm`.
@@ -36,12 +44,6 @@ $ python3 command.py sim xxx.qasm context # context-based simulation
 $ python3 command.py sim xxx.qasm normal # normal simulation 
 ```
 
-## PyQt Installation and version
-
-```bash
-pip install PtQt5==5.15.4
-```
-
 ## Files discription
 
 + `gui_start.py`: launcher to this GUI program.
@@ -53,3 +55,7 @@ pip install PtQt5==5.15.4
 + `svg_qasm.py`: draw svg with qasm file and profile data.
 + `svg_mouse.py`: read svg file and add to QT, also connect with mouse click action.
 + `text_track.py`: processing and mapping qasm and cpp source file for hyperlink + utilization.
+
+## Citation
+
+Yu-Hui Wu, Po-Hsuan Huang, Chia-Heng Tu and Shih-Hao Hung. 2024. Illuminating Quantum Profile-Guided Optimization via Interactive Source-Level Mapping Visualizations. The 29th Workshop on Compiler Techniques and System Software for High-Performance and Embedded in Computing (CTHPC 2024), Taipei, Taiwan, May 30-31, 2024.
