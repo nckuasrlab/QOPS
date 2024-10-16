@@ -10,10 +10,6 @@ Two types of probes are implemented for the Quantum Profile-Guided Optimization
 + QOPS should be cloned into `~/QOPS`.
 + LLVM should be installed at `~/.llvm`.
 
-## Usage
-
-+ Commands beginning with `$` are commands entered by the user; otherwise, they are screen output (insignificant information is ignored by `...`)
-
 ## Build the QPGO LLVM pass
 
 ```bash
@@ -26,7 +22,11 @@ $ ninja # or 'cmake --build .'
 ...
 ```
 
-## Compile the simulator and insert context-based probes
+## Usage
+
++ Commands beginning with `$` are commands entered by the user; otherwise, they are screen output (insignificant information is ignored by `...`)
+
+### Compile the simulator and insert context-based probes
 
 ```bash
 $ cd $QPGO_HOME
@@ -38,7 +38,7 @@ make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET
 ...
 ```
 
-## Run the simulator and get the context-based profile data
+### Run the simulator and get the context-based profile data
 
 ```bash
 $ time make -f pgo.mk run
@@ -74,7 +74,7 @@ $ cat default.profdata
 264094611198262
 ```
 
-## Compile the simulator and insert counter-based probes
+### Compile the simulator and insert counter-based probes
 
 ```bash
 $ cd $QPGO_HOME
@@ -86,7 +86,7 @@ make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET
 ...
 ```
 
-## Run the simulator and get the counter-based profile data
+### Run the simulator and get the counter-based profile data
 
 ```bash
 $ time make -f pgo.mk run
@@ -110,9 +110,9 @@ LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=
 ...
 ```
 
-## Note
+## Important Notes
 
-+ Change `simplifiedStateVector` to `../Quokka` (needs `cp pgo.md ../Quokka/src`) for a full-featured quantum circuit simulation
++ Change `simplifiedStateVector` to `../Quokka` (needs `cp ./simplifiedStateVector/src/pgo.mk ../Quokka/src`) for a full-featured quantum circuit simulation
 + If you need to use qviz-gui, rename the compiled binaries:
   + `make clean && make 2>|compiler_output.out && mv quokka{,_normal.out}`
   + `make clean && make -f pgo.mk MODE=context 2>|compiler_output.out && mv quokka{,_context.out}`
