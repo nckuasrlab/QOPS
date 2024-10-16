@@ -27,7 +27,8 @@ $ ninja
 $ ninja install
 ```
 
-+ Copy driver to simulator's src folder by `cp simulator_driver.py ../Quokka`
++ Copy driver to simulator's src folder by `cp simulator_driver.py ../Quokka/src/correctness`
++ Configure qubit settings in `simulator_driver.py`
 
 ## GUI usage
 

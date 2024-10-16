@@ -17,7 +17,6 @@ Two types of probes are implemented for the Quantum Profile-Guided Optimization
 ## Build the QPGO LLVM pass
 
 ```bash
-$ git clone https://github.com/aben20807/llvm-pass-qpgo.git
 $ cd llvm-pass-qpgo
 $ export QPGO_HOME=$(pwd) # Optional for convenient path switching
 $ mkdir build && cd build
@@ -28,8 +27,6 @@ $ ninja # or 'cmake --build .'
 ```
 
 ## Compile the simulator and insert context-based probes
-
-+ Note: change `simplifiedStateVector` to `../Quokka` (needs `cp pgo.md ../Quokka`) for a full-featured quantum circuit simulation
 
 ```bash
 $ cd $QPGO_HOME
@@ -45,7 +42,7 @@ make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET
 
 ```bash
 $ time make -f pgo.mk run
-LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=default.profdata ./qSim.out
+LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=default.profdata ./quokka
 0
 3
 13
@@ -109,6 +106,14 @@ For example: using the datetime as the file name
 
 ```bash
 $ time make -f pgo.mk run FILE=$(date +%H%M%S%Y%m%d).out
-LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=13104020230330.out ./qSim.out
+LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=13104020230330.out ./quokka
 ...
 ```
+
+## Note
+
++ Change `simplifiedStateVector` to `../Quokka` (needs `cp pgo.md ../Quokka/src`) for a full-featured quantum circuit simulation
++ If you need to use qviz-gui, rename the compiled binaries:
+  + `make clean && make 2>|compiler_output.out && mv quokka{,_normal.out}`
+  + `make clean && make -f pgo.mk MODE=context 2>|compiler_output.out && mv quokka{,_context.out}`
+  + `make clean && make -f pgo.mk MODE=counter 2>|compiler_output.out && mv quokka{,_counter.out}`
