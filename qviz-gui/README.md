@@ -27,6 +27,8 @@ $ ninja
 $ ninja install
 ```
 
++ Copy driver to simulator's src folder by `cp simulator_driver.py ../Quokka`
+
 ## GUI usage
 
 ```bash

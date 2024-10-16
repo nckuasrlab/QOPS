@@ -29,7 +29,7 @@ $ ninja # or 'cmake --build .'
 
 ## Compile the simulator and insert context-based probes
 
-+ Note: change `simplifiedStateVector` to `../stateVector` (needs `cp pgo.md ../stateVector`) for a full-featured quantum circuit simulation
++ Note: change `simplifiedStateVector` to `../Quokka` (needs `cp pgo.md ../Quokka`) for a full-featured quantum circuit simulation
 
 ```bash
 $ cd $QPGO_HOME

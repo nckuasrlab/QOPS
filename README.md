@@ -6,15 +6,17 @@ QOPS is a quantum compiler framework that enables profile-guided optimization (P
 
 + qcor-pgo: quantum compiler frontend (qir-alliance/qcor f685743), [MIT license](https://github.com/nckuasrlab/QOPS/blob/main/qcor-pgo/LICENSE)
 + xacc-pgo: quantum compiler backend (eclipse/xacc c7c4c795), dual licensed - [Eclipse Public License](https://github.com/nckuasrlab/QOPS/blob/main/xacc-pgo/LICENSE.EPL) and [Eclipse Distribution License](https://github.com/nckuasrlab/QOPS/blob/main/xacc-pgo/LICENSE.EDL)
-+ stateVector: quantum circuit simulator, GPL-3.0 license
++ Quokka: storage-based quantum circuit simulator (drazermega7203/Quokka 64457d5), [GPL-3.0 license](https://github.com/nckuasrlab/QOPS/blob/main/Quokka/LICENSE)
 + llvm-pass-qpgo: Clang/LLVM instrumenter for quantum circuit simulator, [BSD-3-Clause license](https://github.com/nckuasrlab/QOPS/blob/main/llvm-pass-qpgo/LICENSE)
 + qviz-gui: interactive quantum performance analyzer and debugger, [GPL-3.0 license](https://github.com/nckuasrlab/QOPS/blob/main/qviz-gui/LICENSE)
 + qcor-code: example quantum programs, [BSD-3-Clause license](https://github.com/nckuasrlab/QOPS/blob/main/qcor-code/LICENSE)
 
 ## Requirements
 
-+ Follow [AIDE-QC - Build the LLVM-CSP Fork](https://aide-qc.github.io/deploy/getting_started/build_from_source/#a-idllvmcspa-build-the-llvm-csp-fork) to build LLVM and install it at `~/.llvm/`
-+ Follow [AIDE-QC - Build Everything from Source](https://aide-qc.github.io/deploy/getting_started/build_from_source/) to build XACC and QCOR from source
++ Ubuntu 20.04 LTS
++ Clone QOPS to `~/QOPS`
++ Follow [AIDE-QC - Build the LLVM-CSP Fork](https://aide-qc.github.io/deploy/getting_started/build_from_source/#a-idllvmcspa-build-the-llvm-csp-fork) to clone, build, and install LLVM at `~/.llvm/`
++ Follow [AIDE-QC - Build Everything from Source](https://aide-qc.github.io/deploy/getting_started/build_from_source/) to build XACC ([xacc-pgo](https://github.com/nckuasrlab/QOPS/blob/main/xacc-pgo)) and QCOR ([qcor-pgo](https://github.com/nckuasrlab/QOPS/blob/main/qcor-pgo)) from source
 
 ## Citation
 
