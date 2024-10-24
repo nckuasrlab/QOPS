@@ -1,0 +1,3 @@
+1.txt, test all gate (14), 
+2.txt, test single gate combination (only single qubit gates), success
+3.txt, test single gate pass thorugh two-qubit gate then combination (consist with single qubite gate and two qubit gate), success

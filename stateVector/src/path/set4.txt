@@ -1,0 +1,4 @@
+/mnt/nvme/card0/0/state1
+/mnt/nvme/card1/0/state2
+/mnt/nvme/card0/1/state3
+/mnt/nvme/card1/1/state4

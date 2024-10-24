@@ -1,0 +1,5 @@
+#middle >= 1
+global-global
+
+Buffer >= 2*chunk_size for each thread at one qubit gate
+Buffer >= 4*chunk_size for each thread at two qubit gate

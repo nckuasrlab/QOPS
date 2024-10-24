@@ -1,0 +1,63 @@
+
+
+CX5.py
+4/16 cases
+ctrl/targ   global  thread  middle  local
+global      check                   check
+thread
+middle
+local       check                   check
+
+CX6.py
+8/16 cases
+ctrl/targ   global  thread  middle  local
+global      done    check   check   done
+thread      check
+middle      check
+local       done                    done
+
+
+CX7.py
+13/16 cases
+ctrl/targ   global  thread  middle  local
+global      done    done    done    done
+thread      done    check   check   check
+middle      done    check
+local       done    check           done
+
+
+CX8.py
+16/16 cases
+ctrl/targ   global  thread  middle  local
+global      done    done    done    done
+thread      done    done    done    done
+middle      done    done    check   check
+local       done    done    check   done
+
+CX9.py
+gate_func view
+ctrl/targ   global  thread  middle  local
+global      x       x       x       x
+thread      x       x       x       x
+middle      x       x       x       x
+local       x2      x2      x2      x2
+
+inner_loop view
+ctrl/targ   global  thread  middle  local
+global      2       2       2       1
+thread      2       2       2       1
+middle      2       2       2       1
+local       2       2       2       1
+
+combine into clean structure.
+ready for general Control_Target gate.
+compress read->gate->write into intermediate function.
+from this table we can see the devision would be effective start from checking if is Local.
+
+CX10.py
+case number
+ctrl/targ   global  thread  middle  local
+global      2       5       7       3
+thread      6       9       12      10  
+middle      8       13               
+local       4       11              1
