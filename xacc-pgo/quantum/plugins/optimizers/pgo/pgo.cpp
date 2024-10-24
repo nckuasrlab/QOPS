@@ -18,7 +18,7 @@ void PGO::apply(std::shared_ptr<CompositeInstruction> program,
   std::vector<std::vector<int>> prof_data;  // 2D vector
   std::vector<int> gate = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 20, 21, 22, 31, 32};
 
-  file_name = std::string(home_path) + "/Quokka/src/correctness/xxx.out";  // counter-based profile data
+  file_name = std::string(home_path) + "/stateVector/src/correctness/xxx.out";  // counter-based profile data
   file.open(file_name); // open profile data
 
   if (file.is_open()){

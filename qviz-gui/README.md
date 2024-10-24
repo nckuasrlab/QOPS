@@ -27,7 +27,7 @@ $ ninja
 $ ninja install
 ```
 
-+ Copy driver to simulator's src folder by `cp simulator_driver.py ../Quokka/src/correctness`
++ Copy driver to simulator's src folder by `cp simulator_driver.py ~/stateVector/src/correctness`
 + Configure qubit settings in `simulator_driver.py`
 + Check "Important Notes" in README of llvm-pass-qpgo
 

@@ -42,7 +42,7 @@ make -f makefile CC='~/.llvm/bin/clang' CFLAGS='-O3 -D_GNU_SOURCE -D_FILE_OFFSET
 
 ```bash
 $ time make -f pgo.mk run
-LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=default.profdata ./quokka
+LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=default.profdata ./qSim
 0
 3
 13
@@ -106,14 +106,14 @@ For example: using the datetime as the file name
 
 ```bash
 $ time make -f pgo.mk run FILE=$(date +%H%M%S%Y%m%d).out
-LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=13104020230330.out ./quokka
+LD_LIBRARY_PATH=D_LIBRARY_PATH:/home/nckucsieserver/.llvm/lib QPGO_PROFILE_FILE=13104020230330.out ./qSim
 ...
 ```
 
 ## Important Notes
 
-+ Change `simplifiedStateVector` to `../Quokka` (needs `cp ./simplifiedStateVector/src/pgo.mk ../Quokka/src`) for a full-featured quantum circuit simulation
++ Change `simplifiedStateVector` to `~/stateVector` (needs `cp ./simplifiedStateVector/src/pgo.mk ~/stateVector/src`) for a full-featured quantum circuit simulation
 + If you need to use qviz-gui, rename the compiled binaries:
-  + `make clean && make 2>|compiler_output.out && mv quokka{,_normal.out}`
-  + `make clean && make -f pgo.mk MODE=context 2>|compiler_output.out && mv quokka{,_context.out}`
-  + `make clean && make -f pgo.mk MODE=counter 2>|compiler_output.out && mv quokka{,_counter.out}`
+  + `make clean && make 2>|compiler_output.out && mv qSim{,_normal.out}`
+  + `make clean && make -f pgo.mk MODE=context 2>|compiler_output.out && mv qSim{,_context.out}`
+  + `make clean && make -f pgo.mk MODE=counter 2>|compiler_output.out && mv qSim{,_counter.out}`
