@@ -1,0 +1,10 @@
+__pycache__/*
+exe/*
+res/*
+ini/*
+experiments/*
+state/*
+test/*
+tmp/*
+*.out
+*.o

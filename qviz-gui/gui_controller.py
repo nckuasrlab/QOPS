@@ -245,7 +245,7 @@ class main_window(QtWidgets.QMainWindow):
         self.ui.profile_file_display.clear()
         self.ui.profile_file_display.setTextBackgroundColor(QColor("white"))
         self.sim_thread.wait()
-        buffer = read_file(os.path.expanduser("~/Quokka/src/correctness/xxx.out"))
+        buffer = read_file(os.path.expanduser("~/stateVector/src/correctness/xxx.out"))
         self.ui.profile_file_display.setText(buffer)
         self.check_connect_and_disconnect()
 

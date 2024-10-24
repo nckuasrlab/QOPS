@@ -1,0 +1,63 @@
+#  gate
+
+# 1 Qubit Gate:
+Instruction Format:
+[op = 0|1|2|3|4|5] 0 1 0 [target_qubit]
+[op = 6] 0 1 1 [target_qubit] [angle] [-angle]
+[op = 7] 0 1 4 [target_qubit] [real_matrix] [imag_matrix]
+
+op Gate
+---------
+00 H
+01 S
+02 T
+03 X
+04 Y
+05 Z
+06 Phase(*)
+07 U1 (Unitary 1-qubit gate)
+
+# 2 Qubit Gate:
+Instruction Format:
+[op = 8|9|10] 1 1 0 [control_qubit] [target_qubit]
+[op = 11] 1 1 1 [control_qubit] [target_qubit] [angle] [-angle]
+[op = 12] 1 1 4 [control_qubit] [target_qubit] [real_matrix] [imag_matrix]
+[op = 13] 0 2 0 [target_qubit_1] [target_qubit_2]
+
+op Gate
+---------
+08 CX
+09 CY
+10 CZ
+11 CPhase
+12 CU1 (Control-Unitary 1-qubit gate)
+13 SWAP
+#14 Toffoli
+
+# Utilities:
+Instruction Format:
+20 Measure one qubit
+    20 3 1 2 [src_set] [dst_set] [shots] [target_qubit] 0 0 0 0
+    src_set:複製state的來源set
+    dst_set:複製state的目的set，同時也作為測量時的目標state
+    shots:次數
+    
+21 Measure multi qubits
+    21 3 0 [num_qubit] [src_set] [dst_set] [shots] [targ_qubits] [targ_qubits]
+    num_qubit:measure的qubits個數
+    targ_qubits:目標qubits，以空格分隔
+    其餘同上
+
+22 Copy
+    22 2 0 0 [src_set] [dst_set]
+    src_set:複製state的來源set
+    dst_set:複製state的目的set
+
+31 U2 (Unitary 2-qubit gate)
+32 U3 (Unitary 3-qubit gate)
+
+===========================================
+circuit file format
+#ops
+#opcode #ctrl #targ #matrix [ctrls] [targs] [real_matrix] [imag_matrix]
+*

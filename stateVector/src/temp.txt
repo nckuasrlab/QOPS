@@ -1,0 +1,6 @@
+>> ./res/N$N-F$F-S$ST-CT$CT.out
+
+[todo][done]
+for running multiple experiments, we define N, NGQB, NLQB outside of the main header file.
+in later update, we'll make this option inside the input file maybe.
+

@@ -14,7 +14,7 @@ gcc:
 	$(MAKE) -f makefile CC='gcc' CFLAGS='$(SHARED_CFLAGS)'
 
 run:
-	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=$(FILE) ./quokka
+	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=$(FILE) ./qSim
 
 emit:
 	$(MAKE) -f makefile CC='$(CC)' CFLAGS='$(CLANG_PGO_CFLAGS) -S -emit-llvm'

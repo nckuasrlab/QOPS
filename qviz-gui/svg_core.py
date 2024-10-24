@@ -26,7 +26,7 @@ GATE_OPS = {
 INV_GATE_OPS = {v: k for k, v in GATE_OPS.items()}
 
 def read_file():
-    with open(os.path.expanduser("~/Quokka/src/correctness/xxx.out")) as fin:
+    with open(os.path.expanduser("~/stateVector/src/correctness/xxx.out")) as fin:
         data = [[int(di) for di in line.split()] for line in fin]
     return data
 

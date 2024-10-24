@@ -1,0 +1,8 @@
+/mnt/nvme/card0/0/state1
+/mnt/nvme/card0/1/state2
+/mnt/nvme/card0/2/state3
+/mnt/nvme/card0/3/state4
+/mnt/nvme/card1/0/state5
+/mnt/nvme/card1/1/state6
+/mnt/nvme/card1/2/state7
+/mnt/nvme/card1/3/state8

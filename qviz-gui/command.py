@@ -15,7 +15,7 @@ if args.operation == "init" :
 elif args.operation == "sim":
     subprocess.run(["python3", os.path.expanduser("~/QOPS/qcor-code/qasm/transform.py"), args.input_file])
     transform_circuit_file_name = "./output.txt"
-    qfunc_file_name = os.path.expanduser("~/Quokka/src/correctness/qpu_function.py")
+    qfunc_file_name = os.path.expanduser("~/stateVector/src/correctness/qpu_function.py")
     with open(transform_circuit_file_name, "r") as circuit_file:
         circuit_file_lines = circuit_file.readlines() # read output.txt
     
@@ -29,7 +29,7 @@ elif args.operation == "sim":
     with open(qfunc_file_name, "w") as qfunc_file :
         qfunc_file.writelines(qfunc_file_lines)
     
-    os.chdir(os.path.expanduser("~/Quokka/src/correctness"))
+    os.chdir(os.path.expanduser("~/stateVector/src/correctness"))
     subprocess.run(["rm result.txt && touch result.txt"], shell=True);
     if args.profile_mode == "context" :
         subprocess.run(["LD_LIBRARY_PATH=$LD_LIBRARY_PATH:~/.llvm/lib QPGO_PROFILE_FILE=xxx.out python3 simulator_driver.py context"], shell=True)
