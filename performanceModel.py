@@ -122,7 +122,7 @@ if __name__ == '__main__':
         model = RandomForestRegressor(n_estimators=500)
         model.fit(x_train, y_train)
         y_test_predict = model.predict(x_test)
-        print(mean_absolute_percentage_error(y_test, y_test_predict))
+        print("model error rate: " + str(mean_absolute_percentage_error(y_test, y_test_predict)))
 
         # store model and scaler
         with open("./model/gate_model.pkl", "wb") as f:
