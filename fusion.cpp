@@ -33,6 +33,10 @@ int targetQubitCounter(string gateType){
         return 2;
     else if(gateType == "DTHREE")
         return 3;
+    else if(gateType == "DFOUR")
+        return 4;
+    else if(gateType == "DFIVE")
+        return 5;
     return 0;
 }
 
@@ -217,6 +221,10 @@ double cost(string gateType, int fusionSize, int targetQubit){
             return gateTime[13*Qubits+targetQubit];
         else if(gateType == "DTHREE")
             return gateTime[14*Qubits+targetQubit];
+        else if(gateType == "DFOUR")
+            return gateTime[15*Qubits+targetQubit];
+        else if(gateType == "DFIVE")
+            return gateTime[16*Qubits+targetQubit];
     }
     else{
         if(fusionSize == 2)
@@ -696,6 +704,7 @@ int main(int argc, char *argv[]){
             circuit.push_back(newGate);
         }
         ofstream tmpOutputFile("diagonal.txt");
+        // add more if else if max qubit is larger than 5
         for(int i = 0; i < circuit.size(); ++i){
             if(circuit[i].line != "")
                 tmpOutputFile<<circuit[i].line<<endl;
@@ -706,6 +715,10 @@ int main(int argc, char *argv[]){
                     tmpOutputFile<<"DTWO";
                 else if(circuit[i].targetQubit.size() == 3)
                     tmpOutputFile<<"DTHREE";
+                else if(circuit[i].targetQubit.size() == 4)
+                    tmpOutputFile<<"DFOUR";
+                else if(circuit[i].targetQubit.size() == 5)
+                    tmpOutputFile<<"DFIVE";
                 for(int j = 0; j < circuit[i].targetQubit.size(); ++j)
                     tmpOutputFile<<" "<<to_string(circuit[i].targetQubit[j]);
                 for(int j = 0; j < pow(2, circuit[i].targetQubit.size()); ++j)
@@ -776,7 +789,7 @@ int main(int argc, char *argv[]){
     }
     inputFile.close();
     constructFusionListTime = (double)(clock() - tStart)/CLOCKS_PER_SEC;
-    cout<<constructFusionListTime<<endl;
+    cout<<"constructFusionListTime: "<<constructFusionListTime<<endl;
     tStart = clock();
 
     // do reorder
@@ -896,6 +909,6 @@ int main(int argc, char *argv[]){
 
     // some result
     double otherTime = (double)(clock() - tStart)/CLOCKS_PER_SEC;
-    cout<<otherTime<<endl;
-    cout<<otherTime+constructFusionListTime<<endl;
+    cout<<"otherTime: "<<otherTime<<endl;
+    cout<<"total fusion time: "<<otherTime+constructFusionListTime<<endl;
 }

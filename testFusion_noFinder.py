@@ -6,7 +6,10 @@ max_fusion_qubits = 3
 chunk_size = 18
 
 def genQiskitFusion(fileName, total_qubit, mode):
-    output_qiskit_file = open("./qiskitFusionCircuit/nf_"+fileName, 'w')
+    if mode == "static_qiskit":
+        output_qiskit_file = open("./qiskitFusionCircuit/cnf_"+fileName, 'w')
+    else:
+        output_qiskit_file = open("./qiskitFusionCircuit/nf_"+fileName, 'w')
     gate_number = 0
 
     out = subprocess.run(["python3", "./QiskitFusion/QiskitFusion.py",  "./circuit/"+fileName, str(total_qubit), mode], capture_output=True, text=True)
@@ -67,37 +70,46 @@ if __name__ == '__main__':
         
         # gen circuit
         # origin
-        subprocess.run(["./finder", "./circuit/"+fileName, "./subCircuit/"+fileName, str(chunk_size)], capture_output=True, text=True)
+        subprocess.run(["../finder/finder", "./circuit/"+fileName, "./subCircuit/"+fileName, str(chunk_size)], capture_output=True, text=True)
         
-        # qiskit fusion
+        # static Qiskit
         result = genQiskitFusion(fileName, total_qubit, "static_qiskit")
+        print("static Qiskit")
         print("gate number:", result[0])
         print("fusion time:", result[1])
-        subprocess.run(["./finder", "./qiskitFusionCircuit/nf_"+fileName, "./qiskitFusionCircuit/nf_"+fileName, str(chunk_size)], capture_output=True)
+        subprocess.run(["../finder/finder", "./qiskitFusionCircuit/cnf_"+fileName, "./qiskitFusionCircuit/cnf_"+fileName, str(chunk_size)], capture_output=True)
+        
+        # dynamic Qiskit
+        result = genQiskitFusion(fileName, total_qubit, "dynamic_qiskit")
+        print("dynamic Qiskit")
+        print("gate number:", result[0])
+        print("fusion time:", result[1])
+        subprocess.run(["../finder/finder", "./qiskitFusionCircuit/nf_"+fileName, "./qiskitFusionCircuit/nf_"+fileName, str(chunk_size)], capture_output=True)
         
         # static DFGC
         output = subprocess.run(["./fusion", "./circuit/"+fileName, "./fusionCircuit/cnf_"+fileName, str(max_fusion_qubits), str(total_qubit), "3"], capture_output=True, text=True)
+        print("static DFGC")
         f = open("./fusionCircuit/cnf_"+fileName, "r")
         with open("./fusionCircuit/cnf_"+fileName, 'r') as file:
             line_count = sum(1 for line in file)
             print("gate number:", line_count)
         print("fusion time:", output.stdout.split()[-1])
-        subprocess.run(["./finder", "./fusionCircuit/cnf_"+fileName, "./fusionCircuit/cnf_"+fileName, str(chunk_size)], capture_output=True)
+        subprocess.run(["../finder/finder", "./fusionCircuit/cnf_"+fileName, "./fusionCircuit/cnf_"+fileName, str(chunk_size)], capture_output=True)
         
-        #dynamic DFGC
-        time_start = perf_counter()
+        # dynamic DFGC
         output = subprocess.run(["./fusion", "./circuit/"+fileName, "./fusionCircuit/nf_"+fileName, str(max_fusion_qubits), str(total_qubit), "4"], capture_output=True, text=True)
+        print("dynamic DFGC")
         with open("./fusionCircuit/nf_"+fileName, 'r') as file:
             line_count = sum(1 for line in file)
             print("gate number:", line_count)
         print("fusion time:", output.stdout.split()[-1])
-        subprocess.run(["./finder", "./fusionCircuit/nf_"+fileName, "./fusionCircuit/nf_"+fileName, str(chunk_size)], capture_output=True)
+        subprocess.run(["../finder/finder", "./fusionCircuit/nf_"+fileName, "./fusionCircuit/nf_"+fileName, str(chunk_size)], capture_output=True)
 
         # set ini file
         f = open("sub_cpu.ini", "w")
         f.write("[system]\ntotal_qbit=" + str(total_qubit) + "\nfile_qbit=6\nchunk_qbit=" + str(chunk_size) + "\nrunner_type=MEM\nis_subcircuit=1")
         f.close()
-
+        
         # origin
         time = 0
         for i in range(times):
@@ -105,21 +117,28 @@ if __name__ == '__main__':
             time = time + float(output.stdout.split()[-1].split("s")[0])
         print("origin: ", time/times)
 
-        # qiskit fusion
+        # static Qiskit
+        time = 0
+        for i in range(times):
+            output = subprocess.run(["../cpu/Quokka", "-i", "sub_cpu.ini", "-c", "./qiskitFusionCircuit/cnf_"+fileName], capture_output=True, text=True)
+            time = time + float(output.stdout.split()[-1].split("s")[0])
+        print("static Qiskit: ", time/times)
+        
+        # dynamic Qiskit
         time = 0
         for i in range(times):
             output = subprocess.run(["../cpu/Quokka", "-i", "sub_cpu.ini", "-c", "./qiskitFusionCircuit/nf_"+fileName], capture_output=True, text=True)
             time = time + float(output.stdout.split()[-1].split("s")[0])
-        print("Qiskit fusion: ", time/times)
+        print("dynamic Qiskit: ", time/times)
 
-        # our method static
+        # static DFGC
         time = 0
         for i in range(times):
             output = subprocess.run(["../cpu/Quokka", "-i", "sub_cpu.ini", "-c", "./fusionCircuit/cnf_"+fileName], capture_output=True, text=True)
             time = time + float(output.stdout.split()[-1].split("s")[0])
-        print("DFGC constant: ", time/times)
+        print("static DFGC: ", time/times)
         
-        # our method dynamic
+        # dynamic DFGC
         time = 0
         for i in range(times):
             output = subprocess.run(["../cpu/Quokka", "-i", "sub_cpu.ini", "-c", "./fusionCircuit/nf_"+fileName], capture_output=True, text=True)
