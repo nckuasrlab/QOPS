@@ -5,7 +5,6 @@ from math import pow
 from qiskit_aer import AerSimulator
 from qiskit.circuit.library import UnitaryGate, DiagonalGate
 import time
-from viztracer import VizTracer
 
 def unitary_matrix(number):
     matrix = []
@@ -189,7 +188,6 @@ def exe_circuit(fileName:str, total_qubit, open_fusion, max_fusion_qubits, get_i
     return simulation_time
 
 if __name__ == '__main__':
-    tracer = VizTracer()
     max_fusion_qubits = 3
     total_qubit = 32
     fileNameList = ["sc", "vc", "hs", "qv", "bv", "qft", "qaoa", "ising"]
