@@ -61,7 +61,7 @@ def gen_microbenchmark(TIMES, TOTAL_QUBIT, CHUNK_SIZE, CHUNK_START, TEST_SIZE, R
                 f.close()
 
                 set_ini_file(total_qbit, FILE_QUBIT, size, RUNNER_TYPE)
-                output = subprocess.run(["../cpu/Quokka", "-i", "sub_cpu.ini", "-c", circuit_name], capture_output=True, text=True)
+                output = subprocess.run(["./cpu/Quokka", "-i", "sub_cpu.ini", "-c", circuit_name], capture_output=True, text=True)
                 # ms
                 data = float(output.stdout.split("\n")[-2].split("s")[0])/TIMES*1000
                 f_log.write(gate + ", " + str(total_qbit) + ", " + str(size) + ", " + str(data) +"\n")

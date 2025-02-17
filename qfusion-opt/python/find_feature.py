@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest, f_regression
 
 def set_ini_file(total_qbit, FILE_QUBIT, size, RUNNER_TYPE):
-    f = open("sub_cpu.ini", "w")
+    f = open("./sub_cpu.ini", "w")
     if RUNNER_TYPE == "MEM":
         f.write("[system]\ntotal_qbit=" + str(total_qbit) + "\nfile_qbit=" + str(FILE_QUBIT) + "\nchunk_qbit=" + str(size) + "\nrunner_type=MEM\nis_subcircuit=1")
     elif RUNNER_TYPE == "IO":
@@ -38,7 +38,7 @@ def microbenchmark_one_qubit_gate(FILE_QUBIT, CHUNK_SIZE, CHUNK_START, TIMES, TO
                 set_ini_file(total_qbit, FILE_QUBIT, size, RUNNER_TYPE)
                 for target in range(size):
                     circuit_name = "./txt/" + gate + str(target) + ".txt"
-                    output = subprocess.run(["../cpu/Quokka", "-i", "sub_cpu.ini", "-c", circuit_name], capture_output=True, text=True)
+                    output = subprocess.run(["./cpu/Quokka", "-i", "sub_cpu.ini", "-c", circuit_name], capture_output=True, text=True)
                     # ms
                     data = float(output.stdout.split("\n")[-2].split("s")[0])/TIMES*1000
                     f_log.write(gate + ", " + str(target) + ", " + str(total_qbit) + ", " + str(size) + ", " + str(data) +"\n")
@@ -76,7 +76,7 @@ def microbenchmark_two_qubit_gate(FILE_QUBIT, CHUNK_SIZE, CHUNK_START, TIMES, TO
                     for target in range(size):
                         if target != control:
                             circuit_name = "./txt/" + gate + "_" + str(control) + "_" + str(target) + ".txt"
-                            output = subprocess.run(["../cpu/Quokka", "-i", "sub_cpu.ini", "-c", circuit_name], capture_output=True, text=True)
+                            output = subprocess.run(["./cpu/Quokka", "-i", "sub_cpu.ini", "-c", circuit_name], capture_output=True, text=True)
                             # ms
                             data = float(output.stdout.split("\n")[-2].split("s")[0])/TIMES*1000
                             f_log.write(gate + ", " + str(control) + ", " + str(target) + ", " + str(total_qbit) + ", " + str(size) + ", " + str(data) + "\n")
