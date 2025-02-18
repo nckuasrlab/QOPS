@@ -95,7 +95,7 @@ def gen_microbenchmark(TIMES, TOTAL_QUBIT, TEST_SIZE, gate_list):
                 job = simulator.run(circuit)
                 res = job.result()
                 # ms
-                data = float(res.metadata['time_taken_execute'])/TIMES*1000
+                data = float(res.metadata['time_taken_execute']) / TIMES * 1000
                 f_log.write(gate + ", " + str(total_qubit) + ", " + str(target_qubit_1) + ", " + str(data) +"\n")
                 f_log.flush()
     f_log.close()
@@ -135,7 +135,7 @@ if __name__ == '__main__':
         df_microbenchmark = pd.get_dummies(df_microbenchmark, columns=['gate_type'])
         x = df_microbenchmark.drop(labels=['execution_time'], axis=1)
         y = df_microbenchmark['execution_time']
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = 0.2)
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2)
         sc = StandardScaler()
         x_train = sc.fit_transform(x_train)
         x_test = sc.transform(x_test)
@@ -169,5 +169,5 @@ if __name__ == '__main__':
                 df_input['gate_type'] = pd.Categorical(df_input['gate_type'], categories=gate_list)
                 df_input = pd.get_dummies(df_input, columns=['gate_type'])
                 df_input = sc.transform(df_input)
-                f_exe.write(str(model.predict(df_input)[0])+"\n")
+                f_exe.write(str(model.predict(df_input)[0]) + "\n")
         f_exe.close()

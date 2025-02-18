@@ -6,11 +6,11 @@ from qiskit_aer import AerSimulator
 from qiskit.circuit.library import UnitaryGate, DiagonalGate
 import time
 
-def unitary_matrix(number):
+def unitary_matrix(num_qubits):
     matrix = []
-    for i in range(int(pow(2, number))):
+    for i in range(int(pow(2, num_qubits))):
         row = []
-        for j in range(int(pow(2, number))):
+        for j in range(int(pow(2, num_qubits))):
             if i == j:
                 row.append(1+0.j)
             else:
@@ -18,9 +18,9 @@ def unitary_matrix(number):
         matrix.append(row)
     return matrix
 
-def diagonal_matrix(number):
+def diagonal_matrix(num_qubits):
     matrix = []
-    for i in range(int(pow(2, number))):
+    for i in range(int(pow(2, num_qubits))):
         matrix.append(1)
     return matrix    
 
@@ -35,56 +35,56 @@ D3 = DiagonalGate(diagonal_matrix(3))
 D2 = DiagonalGate(diagonal_matrix(2))
 D1 = DiagonalGate(diagonal_matrix(1))
 
-def genQiskitFusion(fileName, total_qubit, mode):
-    time_overhead = subprocess.run(["python3", "./QiskitFusion/QiskitFusion.py", "./circuit/" + fileName, str(total_qubit), mode], capture_output=True, text=True)
+def gen_qiskit_fusion(file_name, total_qubit, mode):
+    time_overhead = subprocess.run(["python3", "./QiskitFusion/QiskitFusion.py", "./circuit/" + file_name, str(total_qubit), mode], capture_output=True, text=True)
     out = os.system("mv ./1.txt ./qiskitFusionCircuit/GBG_tmp.txt >/dev/null 2>&1")
     if mode == "dynamic_qiskit":
-        output_qiskit_file = open("./qiskitFusionCircuit/GBG_" + fileName, 'w')
+        output_qiskit_file = open("./qiskitFusionCircuit/GBG_" + file_name, 'w')
     elif mode == "static_qiskit":
-        output_qiskit_file = open("./qiskitFusionCircuit/c_GBG_" + fileName, 'w')
-    if(out == 0):
+        output_qiskit_file = open("./qiskitFusionCircuit/c_GBG_" + file_name, 'w')
+    if out == 0:
         tmp_file = open("./qiskitFusionCircuit/GBG_tmp.txt", "r")
         lines = tmp_file.readlines()
         tmp_file.close()
         for line in lines:
             line = line.split()
             if line[0] == "unitary-5":
-                output_qiskit_file.write("U4 " + line[1] + " " +line[2] + " " +line[3] + " " +line[4] + " " +line[5])
-                for i in range(int(pow(2, 5)*pow(2, 5))):
+                output_qiskit_file.write("U4 " + line[1] + " " + line[2] + " " + line[3] + " " + line[4] + " " + line[5])
+                for i in range(int(pow(2, 5) * pow(2, 5))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
             elif line[0] == "unitary-4":
-                output_qiskit_file.write("U4 " + line[1] + " " +line[2] + " " +line[3] + " " +line[4])
-                for i in range(int(pow(2, 4)*pow(2, 4))):
+                output_qiskit_file.write("U4 " + line[1] + " " + line[2] + " " + line[3] + " " + line[4])
+                for i in range(int(pow(2, 4) * pow(2, 4))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
             elif line[0] == "unitary-3":
-                output_qiskit_file.write("U3 " + line[1] + " " +line[2] + " " +line[3])
-                for i in range(int(pow(2, 3)*pow(2, 3))):
+                output_qiskit_file.write("U3 " + line[1] + " " + line[2] + " " + line[3])
+                for i in range(int(pow(2, 3) * pow(2, 3))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
             elif line[0] == "unitary-2":
-                output_qiskit_file.write("U2 " + line[1] + " " +line[2])
-                for i in range(int(pow(2, 2)*pow(2, 2))):
+                output_qiskit_file.write("U2 " + line[1] + " " + line[2])
+                for i in range(int(pow(2, 2) * pow(2, 2))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
             elif line[0] == "diagonal-5":
-                output_qiskit_file.write("D5 " + line[1] + " " +line[2] + " " +line[3] + " " +line[4] + " " +line[5])
+                output_qiskit_file.write("D5 " + line[1] + " " + line[2] + " " + line[3] + " " + line[4] + " " + line[5])
                 for i in range(int(pow(2, 5))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
             elif line[0] == "diagonal-4":
-                output_qiskit_file.write("D4 " + line[1] + " " +line[2] + " " +line[3] + " " +line[4])
+                output_qiskit_file.write("D4 " + line[1] + " " + line[2] + " " + line[3] + " " + line[4])
                 for i in range(int(pow(2, 4))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
             elif line[0] == "diagonal-3":
-                output_qiskit_file.write("D3 " + line[1] + " " +line[2] + " " +line[3])
+                output_qiskit_file.write("D3 " + line[1] + " " + line[2] + " " + line[3])
                 for i in range(int(pow(2, 3))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
             elif line[0] == "diagonal-2":
-                output_qiskit_file.write("D2 " + line[1] + " " +line[2])
+                output_qiskit_file.write("D2 " + line[1] + " " + line[2])
                 for i in range(int(pow(2, 2))):
                     output_qiskit_file.write(" 3.141596")
                 output_qiskit_file.write("\n")
@@ -92,7 +92,7 @@ def genQiskitFusion(fileName, total_qubit, mode):
                 output_qiskit_file.write("CZ " + line[1] + " " + line[2] + "\n")
                 output_qiskit_file.write("")
             elif line[0] == "rzz-2":
-                output_qiskit_file.write("RZZ " + line[1] + " " +line[2] + " 3.141596\n")
+                output_qiskit_file.write("RZZ " + line[1] + " " + line[2] + " 3.141596\n")
             elif line[0] == "h-1":
                 output_qiskit_file.write("H " + line[1] + " \n")
     else:
@@ -105,9 +105,9 @@ def genQiskitFusion(fileName, total_qubit, mode):
     output_qiskit_file.close()
     return time_overhead.stdout
 
-def exe_circuit(fileName:str, total_qubit, open_fusion, max_fusion_qubits, get_info):
+def exe_circuit(file_name: str, total_qubit, open_fusion, max_fusion_qubits, get_info):
     circuit = QuantumCircuit(total_qubit)
-    fusion_file = open(fileName, "r")
+    fusion_file = open(file_name, "r")
     lines = fusion_file.readlines()
     fusion_file.close()
     line_count = 0
@@ -174,12 +174,12 @@ def exe_circuit(fileName:str, total_qubit, open_fusion, max_fusion_qubits, get_i
     # print(f"simulation time: {simulation_time} s")
 
     qiskit_result = res.results[0].metadata['fusion']
-    if(open_fusion == True and get_info == True):
+    if open_fusion == True and get_info == True:
         print("qiskit fusion with diagonal fusion, fusion time: " + str(qiskit_result["time_taken"]))
-        print("qiskit fusion with diagonal fusion, gate number: " + str(len(qiskit_result["output_ops"])-total_qubit))
-        with open("./qiskitFusionCircuit/L_GBG_" + fileName.split("/")[-1], 'w') as f:
+        print("qiskit fusion with diagonal fusion, gate number: " + str(len(qiskit_result["output_ops"]) - total_qubit))
+        with open("./qiskitFusionCircuit/L_GBG_" + file_name.split("/")[-1], 'w') as f:
             for gate in qiskit_result["output_ops"]:
-                if(gate["name"] == "measure"):
+                if gate["name"] == "measure":
                     continue
                 f.write(gate["name"] + str(len(gate["qubits"])) + " ")
                 for qubit in gate["qubits"]:
@@ -190,30 +190,30 @@ def exe_circuit(fileName:str, total_qubit, open_fusion, max_fusion_qubits, get_i
 if __name__ == '__main__':
     max_fusion_qubits = 3
     total_qubit = 32
-    fileNameList = ["sc", "vc", "hs", "qv", "bv", "qft", "qaoa", "ising"]
+    file_name_list = ["sc", "vc", "hs", "qv", "bv", "qft", "qaoa", "ising"]
     
-    for i, fileName in enumerate(fileNameList):
-        fileName = fileName + str(total_qubit) + ".txt"
+    for i, file_name in enumerate(file_name_list):
+        file_name = file_name + str(total_qubit) + ".txt"
         print("==================================================================")
-        print(fileName)
+        print(file_name)
 
         # origin
-        print(exe_circuit("./circuit/"+fileName, total_qubit, True, max_fusion_qubits, False))
+        print(exe_circuit("./circuit/" + file_name, total_qubit, True, max_fusion_qubits, False))
         
         # static Qiskit
-        print("static Qiskit: ", genQiskitFusion(fileName, total_qubit, "static_qiskit"), end="")
-        print(exe_circuit("./qiskitFusionCircuit/c_GBG_"+fileName, total_qubit, True, max_fusion_qubits, False))
+        print("static Qiskit: ", gen_qiskit_fusion(file_name, total_qubit, "static_qiskit"), end="")
+        print(exe_circuit("./qiskitFusionCircuit/c_GBG_" + file_name, total_qubit, True, max_fusion_qubits, False))
 
         # dynamic Qiskit
-        print("dynamic Qiskit: ", genQiskitFusion(fileName, total_qubit, "dynamic_qiskit"), end="")
-        print(exe_circuit("./qiskitFusionCircuit/GBG_"+fileName, total_qubit, True, max_fusion_qubits, False))
+        print("dynamic Qiskit: ", gen_qiskit_fusion(file_name, total_qubit, "dynamic_qiskit"), end="")
+        print(exe_circuit("./qiskitFusionCircuit/GBG_" + file_name, total_qubit, True, max_fusion_qubits, False))
 
         # static DFGC
-        result = subprocess.run(["./fusion", "./circuit/"+fileName, "./fusionCircuit/c_GBG_"+fileName, str(max_fusion_qubits), str(total_qubit), "5"], capture_output=True, text=True)
+        result = subprocess.run(["./fusion", "./circuit/" + file_name, "./fusionCircuit/c_GBG_" + file_name, str(max_fusion_qubits), str(total_qubit), "5"], capture_output=True, text=True)
         print("static DFGC time: ", result.stdout.split()[-1])
-        print(exe_circuit("./fusionCircuit/c_GBG_"+fileName, total_qubit, True, max_fusion_qubits, False))
+        print(exe_circuit("./fusionCircuit/c_GBG_" + file_name, total_qubit, True, max_fusion_qubits, False))
 
         # dynamic DFGC
-        result = subprocess.run(["./fusion", "./circuit/"+fileName, "./fusionCircuit/GBG_"+fileName, str(max_fusion_qubits), str(total_qubit), "8"], capture_output=True, text=True)
+        result = subprocess.run(["./fusion", "./circuit/" + file_name, "./fusionCircuit/GBG_" + file_name, str(max_fusion_qubits), str(total_qubit), "8"], capture_output=True, text=True)
         print("dynamic DFGC time: ", result.stdout.split()[-1])
-        print(exe_circuit("./fusionCircuit/GBG_"+fileName, total_qubit, True, max_fusion_qubits, False))
+        print(exe_circuit("./fusionCircuit/GBG_" + file_name, total_qubit, True, max_fusion_qubits, False))
