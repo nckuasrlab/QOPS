@@ -111,7 +111,6 @@ if __name__ == '__main__':
         time = 0
         for i in range(times):
             output = subprocess.run(["./cpu/Quokka", "-i", "sub_cpu.ini", "-c", "./subCircuit/" + file_name], capture_output=True, text=True)
-            print(i, output, "\n")
             time = time + float(output.stdout.split()[-1].split("s")[0])
         print("origin: ", time / times)
         # static Qiskit

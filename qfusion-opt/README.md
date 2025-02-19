@@ -91,8 +91,8 @@ $ ./cpu/Quokka -i sub_cpu.ini -c [circuit_file]
 ### Example
 
 ```bash
-$ python3 env_init.py
-$ python3 performance_model.py 32 18
+$ python3 python/env_init.py
+$ python3 python/performance_model.py 32 18
 $ ./fusion ./circuit/sc24.txt ./fusionCircuit/sc24.txt 3 24 3
 $ finder/finder ./fusionCircuit/sc24.txt out.txt 18
 $ cpu/Quokka -i sub_cpu.ini -c out.txt
