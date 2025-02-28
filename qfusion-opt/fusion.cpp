@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <float.h>
@@ -801,8 +802,8 @@ int main(int argc, char *argv[]) {
             << endl;
         return 1;
     }
-    double constructFusionListTime = 0;
-    clock_t tStart = clock();
+    auto total_time_start = std::chrono::steady_clock::now();
+    std::unordered_map<std::string, double> timers;
 
     string inputFileName = argv[1];
     string outputFileName = argv[2];
@@ -824,6 +825,7 @@ int main(int argc, char *argv[]) {
     }
 
     // reorder
+    auto time_start = std::chrono::steady_clock::now();
     ifstream inputFile(inputFileName);
     vector<gateLine> circuit;
     for (string line; getline(inputFile, line);) {
@@ -864,8 +866,12 @@ int main(int argc, char *argv[]) {
     ofstream outputFile("diagonal.txt");
     outputFile << newCircuit;
     outputFile.close();
+    auto time_end = std::chrono::steady_clock::now();
+    timers["reorder"] =
+        std::chrono::duration<double>(time_end - time_start).count();
 
     // diagonal fusion
+    time_start = std::chrono::steady_clock::now();
     if (method > 4 && method != 7) {
         ifstream tmpInputFile("diagonal.txt");
         circuit.clear();
@@ -964,16 +970,19 @@ int main(int argc, char *argv[]) {
         }
         tmpOutputFile.close();
     }
+    time_end = std::chrono::steady_clock::now();
+    timers["diagonal"] =
+        std::chrono::duration<double>(time_end - time_start).count();
 
     vector<vector<fusionGate>> fusionGateList;
+    time_start = std::chrono::steady_clock::now();
     GetPGFS(fusionGateList);
-
-    constructFusionListTime =
-        static_cast<double>(clock() - tStart) / CLOCKS_PER_SEC;
-    cout << "constructFusionListTime: " << constructFusionListTime << endl;
-    tStart = clock();
+    time_end = std::chrono::steady_clock::now();
+    timers["GetPGFS"] =
+        std::chrono::duration<double>(time_end - time_start).count();
 
     // do reorder
+    time_start = std::chrono::steady_clock::now();
     for (size_t fusionQubits = 1; fusionQubits < maxFusionQuibits;
          ++fusionQubits) {
         vector<fusionGate> NQubitFusionList;
@@ -1020,12 +1029,26 @@ int main(int argc, char *argv[]) {
             NQubitFusionList[index].fusionGateSI.fusionIndex = index;
         fusionGateList[fusionQubits] = NQubitFusionList;
     }
+    time_end = std::chrono::steady_clock::now();
+    timers["reorder2"] =
+        std::chrono::duration<double>(time_end - time_start).count();
 
+    time_start = std::chrono::steady_clock::now();
     GetOptimalGFS(outputFileName, fusionGateList);
+    time_end = std::chrono::steady_clock::now();
+    timers["GetOptimalGFS"] =
+        std::chrono::duration<double>(time_end - time_start).count();
+    auto total_time_end = std::chrono::steady_clock::now();
+    timers["total"] =
+        std::chrono::duration<double>(total_time_end - total_time_start)
+            .count();
 
     // some result
-    double otherTime = static_cast<double>(clock() - tStart) / CLOCKS_PER_SEC;
-    cout << "otherTime: " << otherTime << endl;
-    cout << "total fusion time: " << otherTime + constructFusionListTime
-         << endl;
+    vector time_keys{"reorder", "diagonal", "reorder2", "GetPGFS",
+                     "GetOptimalGFS"};
+    for (const auto &key : time_keys) {
+        cout << timers[key] << ", ";
+    }
+    cout << timers["total"] << endl;
+    return 0;
 }
