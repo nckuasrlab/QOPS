@@ -652,6 +652,12 @@ int main(int argc, char *argv[]) {
 
     if (method == 4 || method == 6 || method == 7 || method == 8) {
         ifstream gateTimeFile("./log/gate_exe_time.csv");
+        if (!gateTimeFile) {
+            std::cerr << "Error: Could not open the file "
+                         "(./log/gate_exe_time.csv)!\n";
+            std::cerr << "Please run python/performance_model.py first\n";
+            return 1;
+        }
         for (string line; getline(gateTimeFile, line);)
             gateTime.push_back(stod(line));
     }
