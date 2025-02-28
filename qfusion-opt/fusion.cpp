@@ -696,7 +696,6 @@ inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList) {
         }
         fusionGateList.push_back(NQubitFusionList);
     }
-    // return fusionGateList;
 }
 
 inline void

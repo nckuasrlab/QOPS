@@ -12,7 +12,7 @@ $ mkdir fusionCircuit model qiskitFusionCircuit subCircuit txt
 
 ```bash
 $ conda config --set channel_priority disabled
-$  conda env create --name qfusion-opt --file requirements.yml
+$ conda env create --name qfusion-opt --file requirements.yml
 $ conda activate qfusion-opt
 ```
 
