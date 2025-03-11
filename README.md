@@ -10,6 +10,8 @@ QOPS is a quantum compiler framework that enables profile-guided optimization (P
 + llvm-pass-qpgo: Clang/LLVM instrumenter for quantum circuit simulator, [BSD-3-Clause license](https://github.com/nckuasrlab/QOPS/blob/main/llvm-pass-qpgo/LICENSE)
 + qviz-gui: interactive quantum performance analyzer and debugger, [GPL-3.0 license](https://github.com/nckuasrlab/QOPS/blob/main/qviz-gui/LICENSE)
 + qcor-code: example quantum programs, [BSD-3-Clause license](https://github.com/nckuasrlab/QOPS/blob/main/qcor-code/LICENSE)
++ qfusion-opt
+  + qiskit-aer: a high performance simulator for quantum circuits written in Qiskit ([b77f005; tag:0.14.2](https://github.com/Qiskit/qiskit-aer/tree/b77f00578101d449ae9489a4ab164a7d11dcd1b3)), Apache-2.0 license
 
 ## Requirements
 
