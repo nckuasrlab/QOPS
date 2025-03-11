@@ -23,6 +23,7 @@
 #include "simulators/unitary/unitary_state.hpp"
 #include "transpile/circuitopt.hpp"
 #include <string>
+#include <iomanip>
 
 namespace AER {
 namespace Transpile {
