@@ -5,7 +5,7 @@
 1. Create all the directory we need.
 
 ```bash
-$ mkdir fusionCircuit model qiskitFusionCircuit subCircuit txt
+$ mkdir -p fusionCircuit model qiskitFusionCircuit subCircuit txt
 ```
 
 2. Install requirements in python virtual environment.(conda)

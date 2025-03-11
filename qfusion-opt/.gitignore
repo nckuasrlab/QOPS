@@ -2,4 +2,12 @@ tmp/
 .env
 *.txt
 *.pkl
+
+__pycache__/
+*.pyc
+
 fusion
+dynamic_qiskit.out
+static_qiskit.out
+qobj.json
+qiskit-aer/src/transpile/fusion_backup.hpp

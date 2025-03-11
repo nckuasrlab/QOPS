@@ -727,6 +727,14 @@ bool DiagonalFusion::aggregate_operations(oplist_t &ops, const int fusion_start,
   return true;
 }
 
+std::string get_env_variable(const std::string& var_name) {
+  const char* var_value_cstr = std::getenv(var_name.c_str());
+  if (var_value_cstr == nullptr) {
+      throw std::runtime_error("Environment variable '" + var_name + "' not found.");
+  }
+  return std::string(var_value_cstr);
+}
+
 class Fusion : public CircuitOptimization {
 public:
   // constructor
@@ -758,7 +766,7 @@ public:
                                 ExperimentResult &result) const override;
 
   // Qubit threshold for activating fusion pass
-  uint_t max_qubit = 3;
+  uint_t max_qubit = stoi(get_env_variable("FUSION_MAX_QUBIT"));
   uint_t threshold = 14;
 
   bool verbose = false;
@@ -778,10 +786,8 @@ private:
                         const std::shared_ptr<Fuser> &fuser,
                         const FusionMethod &method) const;
 
-// #ifdef DEBUG
+#ifdef DEBUG
   void dump(const Circuit &circuit) const {
-    std::ofstream outputFile;
-    outputFile.open("fused_circuit_qiskit.txt");
     auto &ops = circuit.ops;
     for (uint_t op_idx = 0; op_idx < ops.size(); ++op_idx) {
       std::cout << std::setw(3) << op_idx << ": ";
@@ -791,15 +797,11 @@ private:
       } else {
         std::cout << std::setw(15) << ops[op_idx].name << "-"
                   << ops[op_idx].qubits.size() << ": ";
-        if(ops[op_idx].name != "measure")
-          outputFile<<ops[op_idx].name<<"-"<<ops[op_idx].qubits.size()<<" ";
         if (ops[op_idx].qubits.size() > 0) {
           auto qubits = ops[op_idx].qubits;
           std::sort(qubits.begin(), qubits.end());
           int pos = 0;
           for (int j = 0; j < qubits.size(); ++j) {
-            if(ops[op_idx].name != "measure")
-              outputFile<<qubits[j]<<" ";
             int q_pos = 1 + qubits[j] * 2;
             for (int k = 0; k < (q_pos - pos); ++k) {
               std::cout << " ";
@@ -810,12 +812,53 @@ private:
         }
       }
       std::cout << std::endl;
-      if(ops[op_idx].name != "measure")
-        outputFile<<std::endl;
     }
-    outputFile.close();
   }
-// #endif
+#endif
+
+  void output_fused_circuit(const Circuit &circuit) const {
+    std::string fused_circuit_filename = get_env_variable("FUSED_CIRCUIT_FILENAME");
+    std::ofstream fused_circuit_file(fused_circuit_filename);
+    auto &ops = circuit.ops;
+    for (uint_t op_idx = 0; op_idx < ops.size(); ++op_idx) {
+      if(ops[op_idx].name == "measure") {
+        continue;
+      }
+      std::cout << std::setw(3) << op_idx << ": ";
+      if (ops[op_idx].type == optype_t::nop) {
+        std::cout << std::setw(15) << "nop"
+                  << ": ";
+      } else {
+        std::cout << std::setw(15) << ops[op_idx].name << "-"
+                  << ops[op_idx].qubits.size() << ": ";
+        fused_circuit_file << ops[op_idx].name << "-" << ops[op_idx].qubits.size() << " ";
+        if (ops[op_idx].qubits.size() > 0) {
+          auto qubits = ops[op_idx].qubits;
+          std::sort(qubits.begin(), qubits.end());
+          int pos = 0;
+          for (int j = 0; j < qubits.size(); ++j) {
+            fused_circuit_file << qubits[j] << " ";
+            int q_pos = 1 + qubits[j] * 2;
+            for (int k = 0; k < (q_pos - pos); ++k) {
+              std::cout << " ";
+            }
+            pos = q_pos + 1;
+            std::cout << "X";
+          }
+        }
+        if (ops[op_idx].mats.size() > 0) {
+          std::cout << " ";
+          for (const auto &param : ops[op_idx].mats) {
+            std::cout << param << " ";
+            fused_circuit_file << param << " ";
+          }
+        }
+        std::cout << std::endl;
+        fused_circuit_file << "\n";
+      }
+    }
+    fused_circuit_file.close();
+  }
 
 private:
   std::vector<std::shared_ptr<Fuser>> fusers;
@@ -941,7 +984,7 @@ void Fusion::optimize_circuit(Circuit &circ, Noise::NoiseModel &noise,
 // #ifdef DEBUG
     // std::cout << fuser->name() << std::endl;
     if(fuser->name() == "cost_base")
-      dump(circ);
+    output_fused_circuit(circ);
 // #endif
   }
   result.metadata.add(applied, "fusion", "applied");
