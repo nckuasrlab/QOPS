@@ -368,7 +368,7 @@ private:
                    const uint_t until) const;
 
   double estimate_cost(const oplist_t &ops, const uint_t from,
-                       const uint_t until, const std::vector<double> gateTime) const;
+                       const uint_t until, const std::vector<double> dynamic_gate_time) const;
 
   void add_fusion_qubits(reg_t &fusion_qubits, const op_t &op) const;
 
@@ -727,6 +727,14 @@ bool DiagonalFusion::aggregate_operations(oplist_t &ops, const int fusion_start,
   return true;
 }
 
+std::string get_env_variable(const std::string& var_name) {
+  const char* var_value_cstr = std::getenv(var_name.c_str());
+  if (var_value_cstr == nullptr) {
+      throw std::runtime_error("Environment variable '" + var_name + "' not found.");
+  }
+  return std::string(var_value_cstr);
+}
+
 class Fusion : public CircuitOptimization {
 public:
   // constructor
@@ -897,7 +905,7 @@ void Fusion::optimize_circuit(Circuit &circ, Noise::NoiseModel &noise,
   std::cout << "original" << std::endl;
   dump(circ);
 #endif
-  
+
   // Start timer
   using clock_t = std::chrono::high_resolution_clock;
   auto timer_start = clock_t::now();
@@ -973,11 +981,12 @@ void Fusion::optimize_circuit(Circuit &circ, Noise::NoiseModel &noise,
       circ.set_params();
     }
 
-// #ifdef DEBUG
-    // std::cout << fuser->name() << std::endl;
+#ifdef DEBUG
+    std::cout << fuser->name() << std::endl;
+    dump(circ);
+#endif
     if(fuser->name() == "cost_base")
-    output_fused_circuit(circ);
-// #endif
+      output_fused_circuit(circ);
   }
   result.metadata.add(applied, "fusion", "applied");
   if (applied && verbose)
@@ -988,7 +997,7 @@ void Fusion::optimize_circuit(Circuit &circ, Noise::NoiseModel &noise,
       std::chrono::duration<double>(timer_stop - timer_start).count(), "fusion",
       "time_taken");
   std::cout<<std::chrono::duration<double>(timer_stop - timer_start).count();
-  exit(0);
+  exit(0); // finish fusion optimization exit without running the simulation
 }
 
 void Fusion::optimize_circuit(Circuit &circ, const Noise::NoiseModel &noise,
@@ -1052,12 +1061,17 @@ bool CostBasedFusion::aggregate_operations(oplist_t &ops,
                                            const FusionMethod &method) const {
   if (!active)
     return false;
-  
+
   // Load gate exe time log
-  std::vector<double> gateTime;
-  std::ifstream gateTimeFile("./log/gate_exe_time.csv");
-  for(std::string line; getline(gateTimeFile, line);)
-    gateTime.push_back(stod(line));
+  std::vector<double> dynamic_gate_time;
+  std::string dynamic_cost_filename = get_env_variable("DYNAMIC_COST_FILENAME");
+  std::ifstream dynamic_cost_file(dynamic_cost_filename);
+  if (!dynamic_cost_file.is_open()) {
+    std::cerr << "Error: File '" << dynamic_cost_filename
+              << "' does not exist or cannot be opened.\n";
+  }
+  for(std::string line; getline(dynamic_cost_file, line);)
+    dynamic_gate_time.push_back(stod(line));
 
   // costs[i]: estimated cost to execute from 0-th to i-th in original.ops
   std::vector<double> costs;
@@ -1092,7 +1106,7 @@ bool CostBasedFusion::aggregate_operations(oplist_t &ops,
         // calculate a new cost of (i-th) by adding
         double estimated_cost =
             estimate_cost(ops, (uint_t)j,
-                          i, gateTime) // fusion gate from j-th to i-th, and
+                          i, dynamic_gate_time) // fusion gate from j-th to i-th, and
             + (j <= fusion_start ? 0.0 : costs[j - 1 - fusion_start]);
         // cost of (j-1)-th
 
@@ -1157,7 +1171,7 @@ bool CostBasedFusion::is_diagonal(const std::vector<op_t> &ops,
 double CostBasedFusion::estimate_cost(const std::vector<op_t> &ops,
                                       const uint_t from,
                                       const uint_t until,
-                                      const std::vector<double> gateTime) const {
+                                      const std::vector<double> dynamic_gate_time) const {
   if (is_diagonal(ops, from, until))
     return 1.0;
 
@@ -1165,54 +1179,32 @@ double CostBasedFusion::estimate_cost(const std::vector<op_t> &ops,
   for (uint_t i = from; i <= until; ++i)
     add_fusion_qubits(fusion_qubits, ops[i]);
 
-  int Qubits = int(gateTime.size()/15);
+  int Qubits = int(dynamic_gate_time.size()/15);
   if(ops[from].name == "h")
-      return gateTime[0*Qubits+from];
+      return dynamic_gate_time[0*Qubits+from];
   else if(ops[from].name == "x")
-      return gateTime[1*Qubits+from];
+      return dynamic_gate_time[1*Qubits+from];
   else if(ops[from].name == "rx")
-      return gateTime[2*Qubits+from];
+      return dynamic_gate_time[2*Qubits+from];
   else if(ops[from].name == "ry")
-      return gateTime[3*Qubits+from];
+      return dynamic_gate_time[3*Qubits+from];
   else if(ops[from].name == "rz")
-      return gateTime[4*Qubits+from];
+      return dynamic_gate_time[4*Qubits+from];
   else if(ops[from].name == "u")
-      return gateTime[5*Qubits+from];
+      return dynamic_gate_time[5*Qubits+from];
   else if(ops[from].name == "cx")
-      return gateTime[6*Qubits+from];
+      return dynamic_gate_time[6*Qubits+from];
   else if(ops[from].name == "cz")
-      return gateTime[7*Qubits+from];
+      return dynamic_gate_time[7*Qubits+from];
   else if(ops[from].name == "cp")
-      return gateTime[8*Qubits+from];
+      return dynamic_gate_time[8*Qubits+from];
   else if(ops[from].name == "rzz")
-      return gateTime[9*Qubits+from];
+      return dynamic_gate_time[9*Qubits+from];
 
   if(fusion_qubits.size() == 2)
-      return gateTime[10*Qubits+from];
+      return dynamic_gate_time[10*Qubits+from];
   else if(fusion_qubits.size() == 3)
-      return gateTime[11*Qubits+from];
-  
-  // auto configured_cost = costs_[fusion_qubits.size() - 1];
-  // if (configured_cost > 0)
-  //   return configured_cost;
-
-  // if (is_avx2_supported()) {
-  //   switch (fusion_qubits.size()) {
-  //   case 1:
-  //     // [[ falling through :) ]]
-  //   case 2:
-  //     return 1.0;
-  //   case 3:
-  //     return 1.1;
-  //   case 4:
-  //     return 3;
-  //   default:
-  //     return pow(cost_factor,
-  //                (double)std::max(fusion_qubits.size() - 2, size_t(1)));
-  //   }
-  // }
-  // return pow(cost_factor,
-  //            (double)std::max(fusion_qubits.size() - 1, size_t(1)));
+      return dynamic_gate_time[11*Qubits+from];
 }
 
 void CostBasedFusion::add_fusion_qubits(reg_t &fusion_qubits,
