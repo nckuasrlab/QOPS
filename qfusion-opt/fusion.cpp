@@ -822,7 +822,7 @@ int main(int argc, char *argv[]) {
         if (!gateTimeFile) {
             std::cerr << "Error: Could not open the file "
                          "(./log/gate_exe_time.csv)!\n";
-            std::cerr << "Please run python/performance_model.py first\n";
+            std::cerr << "Please run python/performance_model_{SIMULATOR}.py first\n";
             return 1;
         }
         for (std::string line; getline(gateTimeFile, line);)

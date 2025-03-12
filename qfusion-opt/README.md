@@ -65,9 +65,9 @@ If `RUN_MICROBENCHMARK=1`, generate microbenchmark(`./log/microbenchmark_result.
 
 ```bash
 # If `MODE=0` in `.env` file.
-$ python3 python/performance_model.py [input_gate_type] [total_qubit] [chunk_size]
+$ python3 python/performance_model_quokka.py [input_gate_type] [total_qubit] [chunk_size]
 # If `MODE=1` in `.env` file.
-$ python3 python/performance_model.py [total_qubit] [chunk_size]
+$ python3 python/performance_model_quokka.py [total_qubit] [chunk_size]
 ```
 
 4. Fusion algorithm
@@ -116,7 +116,7 @@ $ ./cpu/Quokka -i sub_cpu.ini -c [circuit_file]
 
 ```bash
 $ python3 python/env_init.py
-$ python3 python/performance_model.py 32 18
+$ python3 python/performance_model_quokka.py 32 18
 $ ./fusion ./circuit/sc24.txt ./fusionCircuit/sc24.txt 3 24 3
 $ finder/finder ./fusionCircuit/sc24.txt out.txt 18
 $ cpu/Quokka -i sub_cpu.ini -c out.txt
