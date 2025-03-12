@@ -1,8 +1,8 @@
 QISKIT_AER_ROOT=../qiskit-aer
 
-.PHONY: all gen_build_dir clean
+.PHONY: all gen_build_dir finally clean
 
-all: static_qiskit.out dynamic_qiskit.out
+all: static_qiskit.out dynamic_qiskit.out finally
 
 
 gen_build_dir:
@@ -10,21 +10,22 @@ gen_build_dir:
 
 
 static_qiskit.out: static_qiskit.hpp gen_build_dir
-	@mv ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp ${QISKIT_AER_ROOT}/src/transpile/fusion_backup.hpp # Backup
-	@cp $< ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp
-	@cd ${QISKIT_AER_ROOT}/build/ && cmake .. -DDISABLE_CONAN=ON
-	@cd ${QISKIT_AER_ROOT}/build/ && cmake --build . --config Release -- -j8 2>| compile.log
+	@cp $< ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp # patch the fusion.hpp
+	@cd ${QISKIT_AER_ROOT}/build/ && cmake .. -DDISABLE_CONAN=ON && \
+		cmake --build . --config Release -- -j8 2>| compile.log
 	@mv ${QISKIT_AER_ROOT}/build/Release/qasm_simulator ./$@
-	@mv ${QISKIT_AER_ROOT}/src/transpile/fusion_backup.hpp ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp # Recover
 
 
 dynamic_qiskit.out: dynamic_qiskit.hpp gen_build_dir
-	@mv ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp ${QISKIT_AER_ROOT}/src/transpile/fusion_backup.hpp # Backup
-	@cp $< ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp
-	@cd ${QISKIT_AER_ROOT}/build/ && cmake .. -DDISABLE_CONAN=ON
-	@cd ${QISKIT_AER_ROOT}/build/ && cmake --build . --config Release -- -j8 2>| compile.log
+	@cp $< ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp  # patch the fusion.hpp
+	@cd ${QISKIT_AER_ROOT}/build/ && cmake .. -DDISABLE_CONAN=ON && \
+		cmake --build . --config Release -- -j8 2>| compile.log
 	@mv ${QISKIT_AER_ROOT}/build/Release/qasm_simulator ./$@
-	@mv ${QISKIT_AER_ROOT}/src/transpile/fusion_backup.hpp ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp # Recover
+
+
+finally:
+	@cp ./fusion.hpp ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp # Recover
+
 
 clean:
 	@if [ -e "${QISKIT_AER_ROOT}/src/transpile/fusion_backup.hpp" ]; then \

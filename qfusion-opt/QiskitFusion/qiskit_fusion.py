@@ -1,6 +1,7 @@
+import argparse
 import json
+import os
 import subprocess
-import sys
 import warnings
 from pathlib import Path
 
@@ -12,7 +13,7 @@ warnings.filterwarnings(
 )  # Ignore DeprecationWarning of qiskit.compiler.assembler.assemble()
 
 
-def build_circuit(file_name, qubit):
+def parse_circuit(file_name, qubit):
     circuits = []
     circuit = QuantumCircuit(qubit)
 
@@ -50,26 +51,81 @@ def build_circuit(file_name, qubit):
     return circuits
 
 
-if __name__ == "__main__":
-    mode = sys.argv[3]
+def get_args():
+    parser = argparse.ArgumentParser(
+        description="Qiskit Fusion Script",
+        prog="python qiskit_fusion.py",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument("circuit_filename", type=str, help="Path to the circuit file")
+    parser.add_argument("num_qubits", type=int, help="Number of qubits")
+    parser.add_argument(
+        "fusion_mode",
+        type=str,
+        choices=["dynamic_qiskit", "static_qiskit"],
+        help="Fusion mode",
+    )
+    parser.add_argument(
+        "-m",
+        "--fusion_max_qubit",
+        type=int,
+        metavar="NUM",
+        help="Maximum number of qubits for fusion",
+        default=3,
+    )
+    parser.add_argument(
+        "-d",
+        "--dynamic_cost_filename",
+        type=str,
+        metavar="PATH",
+        help="Dynamic cost filename",
+        default="../log/gate_exe_time.csv",
+    )
+    parser.add_argument(
+        "-o",
+        "--output_filename",
+        type=str,
+        metavar="PATH",
+        required=True,
+        help="Output filename for the fused circuit",
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    args = get_args()
+    print(args)
     current_dir = Path(__file__).parent
-    circuit = build_circuit(sys.argv[1], int(sys.argv[2]))
+    circuit = parse_circuit(args.circuit_filename, args.num_qubits)
     qobj = assemble(transpile(circuit))
     with open(current_dir / "qobj.json", "wt") as fp:
         json.dump(qobj.to_dict(), fp)
-    if mode == "dynamic_qiskit":
-        result = subprocess.run(
-            [(current_dir / "dynamic_qiskit.out"), (current_dir / "qobj.json")],
-            capture_output=True,
-            text=True,
-        )
-    elif mode == "static_qiskit":
-        result = subprocess.run(
-            [(current_dir / "static_qiskit.out"), (current_dir / "qobj.json")],
-            capture_output=True,
-            text=True,
-        )
+
+    # Get a copy of the current environment and insert new environment variables
+    modified_env = os.environ.copy()
+    modified_env["FUSION_MAX_QUBIT"] = f"{args.fusion_max_qubit}"
+    modified_env["FUSED_CIRCUIT_FILENAME"] = f"{args.output_filename}"
+    if args.fusion_mode == "dynamic_qiskit":
+        modified_env["DYNAMIC_COST_FILENAME"] = f"{args.dynamic_cost_filename}"
+
+    result = subprocess.run(
+        [
+            (current_dir / f"{args.fusion_mode}.out"),
+            (current_dir / "qobj.json"),
+        ],
+        env=modified_env,
+        capture_output=True,
+        text=True,
+    )
+
     if result.returncode != 0:
         print("ERROR:", result.returncode)
         print(result.stdout)
-    print(f"{mode} fusion time: {result.stdout.split("\n")[-1]}")
+        print(result.stderr)
+    else:
+        print(f"{args.fusion_mode} fusion time: ", result.stdout.split("\n")[-1])
+
+
+if __name__ == "__main__":
+    main()
