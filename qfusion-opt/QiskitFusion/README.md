@@ -22,6 +22,7 @@ $ git diff --no-index fusion.hpp dynamic_qiskit.hpp
 ## Build
 
 ```bash
+sudo apt install nlohmann-json3-dev libspdlog-dev nlohmann-json3-dev
 cd /path/to/QiskitFusion/
 make
 ```
