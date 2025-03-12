@@ -7,7 +7,7 @@
 + `dynamic_qiskit.hpp`: The patched version for dynamic fusion, which reads runtime costs from a given path (`DYNAMIC_COST_FILENAME`). It also outputs the circuit to `FUSED_CIRCUIT_FILENAME`. The maximum number of qubits for fusion can be set by `FUSION_MAX_QUBIT`.
     + Note: `DYNAMIC_COST_FILENAME` may need to be modified for different simulators.
 + `Makefile`: used to build different binaries from different fusion strategies.
-+ `qiskit_fusion.py`: A wrapper for the qiskit fusion binary. Use following options to config mentioned variables in .hpp files.
++ `qiskit_fusion.py`: A wrapper for the qiskit fusion binary. Use the following options to configure the mentioned variables in .hpp files. `dynamic_qiskit.out` and `static_qiskit.out` should be generated first.
     + `--fusion_max_qubit`: `FUSION_MAX_QUBIT`
     + `--dynamic_cost_filename`: `DYNAMIC_COST_FILENAME`
     + `--output_filename`: `FUSED_CIRCUIT_FILENAME`
@@ -22,9 +22,11 @@ $ git diff --no-index fusion.hpp dynamic_qiskit.hpp
 ## Build
 
 ```bash
-sudo apt install nlohmann-json3-dev libspdlog-dev nlohmann-json3-dev
-cd /path/to/QiskitFusion/
-make
+$ sudo apt install nlohmann-json3-dev libspdlog-dev nlohmann-json3-dev
+$ cd /path/to/QiskitFusion/
+$ make
+$ ls *.out
+dynamic_qiskit.out  static_qiskit.out
 ```
 
 ## Usage

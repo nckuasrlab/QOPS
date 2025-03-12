@@ -846,11 +846,26 @@ private:
             std::cout << "X";
           }
         }
-        if (ops[op_idx].mats.size() > 0) {
-          std::cout << " ";
-          for (const auto &param : ops[op_idx].mats) {
-            std::cout << param << " ";
-            fused_circuit_file << param << " ";
+        if (ops[op_idx].mats.size() > 0) { // print matrix for fused unitary gates
+          for (const auto &mat : ops[op_idx].mats) {
+            for (int i = 0; i < mat.GetRows(); i++) {
+              for (int j = 0; j < mat.GetColumns(); j++) {
+                fused_circuit_file << mat(i, j).real() << " " << mat(i, j).imag() << " ";
+              }
+            }
+          }
+        }
+        if (ops[op_idx].name == "diagonal") { // print params for diagonal gates
+          for (const auto &param : ops[op_idx].params) {
+            fused_circuit_file << param.real() << " " << param.imag() << " ";
+          }
+        } else if (ops[op_idx].params.size() > 0) { // print params for other gates, e.g., cp, rz, etc.
+          for (const auto &param : ops[op_idx].params) {
+            fused_circuit_file << param.real() << " ";
+            if (param.imag() != 0) {
+              std::cerr << "param's imaginary part is non-zero: " << param.imag() << std::endl;
+              exit(1);
+            }
           }
         }
         std::cout << std::endl;
@@ -1181,30 +1196,34 @@ double CostBasedFusion::estimate_cost(const std::vector<op_t> &ops,
 
   int Qubits = int(dynamic_gate_time.size()/15);
   if(ops[from].name == "h")
-      return dynamic_gate_time[0*Qubits+from];
+    return dynamic_gate_time[0*Qubits+from];
   else if(ops[from].name == "x")
-      return dynamic_gate_time[1*Qubits+from];
+    return dynamic_gate_time[1*Qubits+from];
   else if(ops[from].name == "rx")
-      return dynamic_gate_time[2*Qubits+from];
+    return dynamic_gate_time[2*Qubits+from];
   else if(ops[from].name == "ry")
-      return dynamic_gate_time[3*Qubits+from];
+    return dynamic_gate_time[3*Qubits+from];
   else if(ops[from].name == "rz")
-      return dynamic_gate_time[4*Qubits+from];
+    return dynamic_gate_time[4*Qubits+from];
   else if(ops[from].name == "u")
-      return dynamic_gate_time[5*Qubits+from];
+    return dynamic_gate_time[5*Qubits+from];
   else if(ops[from].name == "cx")
-      return dynamic_gate_time[6*Qubits+from];
+    return dynamic_gate_time[6*Qubits+from];
   else if(ops[from].name == "cz")
-      return dynamic_gate_time[7*Qubits+from];
+    return dynamic_gate_time[7*Qubits+from];
   else if(ops[from].name == "cp")
-      return dynamic_gate_time[8*Qubits+from];
+    return dynamic_gate_time[8*Qubits+from];
   else if(ops[from].name == "rzz")
-      return dynamic_gate_time[9*Qubits+from];
+    return dynamic_gate_time[9*Qubits+from];
 
   if(fusion_qubits.size() == 2)
-      return dynamic_gate_time[10*Qubits+from];
+    return dynamic_gate_time[10*Qubits+from];
   else if(fusion_qubits.size() == 3)
-      return dynamic_gate_time[11*Qubits+from];
+    return dynamic_gate_time[11*Qubits+from];
+  else { // FIXME: 4- and 5-qubit gates are not supported
+    return pow(cost_factor,
+              (double)std::max(fusion_qubits.size() - 2, size_t(1)));
+  }
 }
 
 void CostBasedFusion::add_fusion_qubits(reg_t &fusion_qubits,

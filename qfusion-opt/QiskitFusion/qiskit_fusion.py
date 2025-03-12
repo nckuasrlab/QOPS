@@ -13,14 +13,20 @@ warnings.filterwarnings(
 )  # Ignore DeprecationWarning of qiskit.compiler.assembler.assemble()
 
 
-def parse_circuit(file_name, qubit):
-    circuits = []
+def parse_circuit(circuit_filename, qubit):
+    """
+    The input format of circuits is provieded by Quokka.
+    This function parses the circuit file and returns a QuantumCircuit object.
+    """
     circuit = QuantumCircuit(qubit)
 
-    f = open(file_name, "r")
+    f = open(circuit_filename, "r")
     lines = f.readlines()
+    f.close()
 
     for line in lines:
+        if len(line.strip()) == 0:
+            continue
         line = line.split()
         gate = line[0]
         q1 = int(line[1])
@@ -45,10 +51,11 @@ def parse_circuit(file_name, qubit):
             circuit.cp(float(line[3]), q1, int(line[2]))
         elif gate == "U1":
             circuit.u(float(line[2]), float(line[3]), float(line[4]), q1)
+        else:
+            raise ValueError(f"Unknown gate: {gate}")
 
     circuit.measure_all()
-    circuits.append(circuit)
-    return circuits
+    return circuit
 
 
 def get_args():
@@ -124,7 +131,8 @@ def main():
         print(result.stdout)
         print(result.stderr)
     else:
-        print(f"{args.fusion_mode} fusion time: ", result.stdout.split("\n")[-1])
+        fusion_time = result.stdout.split("\n")[-1]
+        print(f"{args.fusion_mode} fusion time (s):\n{fusion_time}")
 
 
 if __name__ == "__main__":
