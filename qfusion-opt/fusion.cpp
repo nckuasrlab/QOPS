@@ -955,15 +955,15 @@ int main(int argc, char *argv[]) {
                 tmpOutputFile << circuit[i].line << "\n";
             else if (circuit[i].gateType == "D") {
                 if (circuit[i].targetQubit.size() == 1)
-                    tmpOutputFile << "DONE";
+                    tmpOutputFile << "D1";
                 else if (circuit[i].targetQubit.size() == 2)
-                    tmpOutputFile << "DTWO";
+                    tmpOutputFile << "D2";
                 else if (circuit[i].targetQubit.size() == 3)
-                    tmpOutputFile << "DTHREE";
+                    tmpOutputFile << "D3";
                 else if (circuit[i].targetQubit.size() == 4)
-                    tmpOutputFile << "DFOUR";
+                    tmpOutputFile << "D4";
                 else if (circuit[i].targetQubit.size() == 5)
-                    tmpOutputFile << "DFIVE";
+                    tmpOutputFile << "D5";
                 for (size_t j = 0; j < circuit[i].targetQubit.size(); ++j)
                     tmpOutputFile << " "
                                   << std::to_string(circuit[i].targetQubit[j]);
