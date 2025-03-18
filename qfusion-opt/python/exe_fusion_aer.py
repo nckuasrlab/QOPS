@@ -57,48 +57,16 @@ def gen_qiskit_fusion(filename, total_qubit, fusion_method):
             "-d",
             "./log/gate_exe_time.csv",
             "-o",
-            "./qiskitFusionCircuit/fused_tmp.txt",
+            f"./qiskitFusionCircuit/fused_{fusion_method}_{filename}",
         ],
         capture_output=True,
         text=True,
-    )
-    output_qiskit_file = open(
-        f"./qiskitFusionCircuit/fused_{fusion_method}_{filename}", "w"
     )
     if fusion_process.returncode != 0:
         print("ERROR:", fusion_process.returncode)
         print(fusion_process.stdout)
         print(fusion_process.stderr)
         sys.exit(1)
-    else:
-        tmp_file = open("./qiskitFusionCircuit/fused_tmp.txt", "r")
-        lines = tmp_file.readlines()
-        tmp_file.close()
-        for line in lines:
-            line = line.split()
-            if line[0].startswith("unitary"):
-                qubit = int(line[0].split("-")[1])
-                assert (
-                    len(line[(qubit + 1) :]) == int(pow(2, qubit) * pow(2, qubit)) * 2
-                )
-                output_qiskit_file.write(f"U{qubit} {" ".join(line[1:])}\n")
-            elif line[0].startswith("diagonal"):
-                qubit = int(line[0].split("-")[1])
-                assert len(line[(qubit + 1) :]) == pow(2, qubit) * 2
-                output_qiskit_file.write(f"D{qubit} {" ".join(line[1:])}\n")
-            elif line[0] == "cz-2":
-                output_qiskit_file.write("CZ " + line[1] + " " + line[2] + "\n")
-                output_qiskit_file.write("")
-            elif line[0] == "rzz-2":
-                output_qiskit_file.write(
-                    "RZZ " + line[1] + " " + line[2] + " " + line[3] + "\n"
-                )
-            elif line[0] == "h-1":
-                output_qiskit_file.write("H " + line[1] + " \n")
-            else:
-                raise Exception(f"{line[0]} is not supported ({line})")
-
-    output_qiskit_file.close()
     return fusion_process.stdout
 
 
@@ -197,7 +165,6 @@ def load_circuit(filename: str, total_qubit: int) -> QuantumCircuit:
 
     circuit.measure_all()
     print("gate number:", line_count)
-
     return circuit
 
 

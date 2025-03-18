@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import warnings
 from pathlib import Path
 
@@ -130,6 +131,7 @@ def main():
         print("ERROR:", result.returncode)
         print(result.stdout)
         print(result.stderr)
+        sys.exit(1)
     else:
         fusion_time = result.stdout.split("\n")[-1]
         print(f"{args.fusion_mode} fusion time (s):\n{fusion_time}")

@@ -816,6 +816,39 @@ private:
   }
 #endif
 
+  std::string gate_mapping(const std::string &name) const {
+    static const std::map<std::string, std::string> gate_map = {
+      {"h-1", "H"},
+      {"x-1", "X"},
+      {"y-1", "Y"},
+      {"z-1", "Z"},
+      {"rx-1", "RX"},
+      {"ry-1", "RY"},
+      {"rz-1", "RZ"},
+      {"cx-2", "CX"},
+      {"cz-2", "CZ"},
+      {"cp-2", "CP"},
+      {"swap-2", "SWAP"},
+      {"rzz-2", "RZZ"},
+      {"unitary-1", "U1"},
+      {"unitary-2", "U2"},
+      {"unitary-3", "U3"},
+      {"unitary-4", "U4"},
+      {"unitary-5", "U5"},
+      {"diagonal-1", "D1"},
+      {"diagonal-2", "D2"},
+      {"diagonal-3", "D3"},
+      {"diagonal-4", "D4"},
+      {"diagonal-5", "D5"},
+    };
+    if (gate_map.find(name) != gate_map.end()) {
+      return gate_map.at(name);
+    } else {
+      std::cerr << "Gate " << name << " not supported yet" << std::endl;
+      exit(1);
+    }
+  }
+
   void output_fused_circuit(const Circuit &circuit) const {
     std::string fused_circuit_filename = get_env_variable("FUSED_CIRCUIT_FILENAME");
     std::ofstream fused_circuit_file(fused_circuit_filename);
@@ -831,7 +864,7 @@ private:
       } else {
         std::cout << std::setw(15) << ops[op_idx].name << "-"
                   << ops[op_idx].qubits.size() << ": ";
-        fused_circuit_file << ops[op_idx].name << "-" << ops[op_idx].qubits.size() << " ";
+        fused_circuit_file << gate_mapping(ops[op_idx].name + "-" + std::to_string(ops[op_idx].qubits.size())) << " ";
         if (ops[op_idx].qubits.size() > 0) {
           auto qubits = ops[op_idx].qubits;
           std::sort(qubits.begin(), qubits.end());
@@ -846,7 +879,7 @@ private:
             std::cout << "X";
           }
         }
-        if (ops[op_idx].mats.size() > 0) { // print matrix for fused unitary gates
+        if (ops[op_idx].name == "unitary") { // print matrix for fused unitary gates
           for (const auto &mat : ops[op_idx].mats) {
             for (int i = 0; i < mat.GetRows(); i++) {
               for (int j = 0; j < mat.GetColumns(); j++) {
