@@ -1,3 +1,9 @@
+"""
+This code compares the performance of the identity matrix and a random unitary matrix within Qiskit Aer. 
+The results indicate that the identity matrix executes approximately two to three times faster than 
+a random unitary matrix.
+"""
+
 import random
 from itertools import repeat
 

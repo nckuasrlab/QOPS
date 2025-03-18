@@ -4,23 +4,10 @@ import sys
 from math import pow
 
 import numpy as np
-from qiskit import QuantumCircuit, transpile
+from qiskit import QuantumCircuit
 from qiskit.circuit.library import DiagonalGate, UnitaryGate
 from qiskit_aer import AerSimulator
 from scipy.linalg import polar
-
-
-def unitary_matrix(num_qubits):
-    matrix = []
-    for i in range(int(pow(2, num_qubits))):
-        row = []
-        for j in range(int(pow(2, num_qubits))):
-            if i == j:
-                row.append(1 + 0.0j)
-            else:
-                row.append(0)
-        matrix.append(row)
-    return matrix
 
 
 def diagonal_matrix(num_qubits):
@@ -58,11 +45,6 @@ def read_unitary_matrix(num_qubits, matrix_1d):
     return U
 
 
-U5 = UnitaryGate(unitary_matrix(5))
-U4 = UnitaryGate(unitary_matrix(4))
-U3 = UnitaryGate(unitary_matrix(3))
-U2 = UnitaryGate(unitary_matrix(2))
-U1 = UnitaryGate(unitary_matrix(1))
 D5 = DiagonalGate(diagonal_matrix(5))
 D4 = DiagonalGate(diagonal_matrix(4))
 D3 = DiagonalGate(diagonal_matrix(3))
@@ -193,9 +175,6 @@ def load_circuit(filename: str, total_qubit: int) -> QuantumCircuit:
             circuit.append(
                 UnitaryGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
             )
-            # circuit.append(
-            #     U3, [int(line[q]) for q in range(1, gate_qubit + 1)]
-            # )
         elif line[0] == "U4":
             gate_qubit = 4
             mat = read_unitary_matrix(gate_qubit, line[(gate_qubit + 1) :])

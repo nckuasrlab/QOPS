@@ -11,3 +11,9 @@ dynamic_qiskit.out
 static_qiskit.out
 qobj.json
 qiskit-aer/src/transpile/fusion_backup.hpp
+
+fusionCircuit/
+model/
+qiskitFusionCircuit/
+subCircuit/
+txt/
