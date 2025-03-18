@@ -10,13 +10,6 @@ from qiskit_aer import AerSimulator
 from scipy.linalg import polar
 
 
-def diagonal_matrix(num_qubits):
-    matrix = []
-    for i in range(int(pow(2, num_qubits))):
-        matrix.append(1)
-    return matrix
-
-
 def print_matrix(matrix):
     """Prints a square NumPy matrix with 3 decimal places."""
     rows, cols = matrix.shape
@@ -45,11 +38,12 @@ def read_unitary_matrix(num_qubits, matrix_1d):
     return U
 
 
-D5 = DiagonalGate(diagonal_matrix(5))
-D4 = DiagonalGate(diagonal_matrix(4))
-D3 = DiagonalGate(diagonal_matrix(3))
-D2 = DiagonalGate(diagonal_matrix(2))
-D1 = DiagonalGate(diagonal_matrix(1))
+def read_diagonal_matrix(num_qubits, matrix_1d):
+    dim = int(pow(2, num_qubits))
+    matrix = []
+    for i in range(0, dim * 2, 2):
+        matrix.append(float(matrix_1d[i]) + float(matrix_1d[i + 1]) * 1j)
+    return matrix
 
 
 def gen_qiskit_fusion(filename, total_qubit, fusion_method):
@@ -82,53 +76,16 @@ def gen_qiskit_fusion(filename, total_qubit, fusion_method):
         tmp_file.close()
         for line in lines:
             line = line.split()
-            if line[0] == "unitary-5":
-                assert len(line[(5 + 1) :]) == int(pow(2, 5) * pow(2, 5)) * 2
-                output_qiskit_file.write(f"U5 {" ".join(line[1:])}\n")
-            elif line[0] == "unitary-4":
-                assert len(line[(4 + 1) :]) == int(pow(2, 4) * pow(2, 4)) * 2
-                output_qiskit_file.write(f"U4 {" ".join(line[1:])}\n")
-            elif line[0] == "unitary-3":
-                assert len(line[(3 + 1) :]) == int(pow(2, 3) * pow(2, 3)) * 2
-                output_qiskit_file.write(f"U3 {" ".join(line[1:])}\n")
-            elif line[0] == "unitary-2":
-                assert len(line[(2 + 1) :]) == int(pow(2, 2) * pow(2, 2)) * 2
-                output_qiskit_file.write(f"U2 {" ".join(line[1:])}\n")
-            elif line[0] == "diagonal-5":
-                output_qiskit_file.write(
-                    "D5 "
-                    + line[1]
-                    + " "
-                    + line[2]
-                    + " "
-                    + line[3]
-                    + " "
-                    + line[4]
-                    + " "
-                    + line[5]
+            if line[0].startswith("unitary"):
+                qubit = int(line[0].split("-")[1])
+                assert (
+                    len(line[(qubit + 1) :]) == int(pow(2, qubit) * pow(2, qubit)) * 2
                 )
-                for i in range(int(pow(2, 5))):
-                    output_qiskit_file.write(" 3.141596")
-                output_qiskit_file.write("\n")
-            elif line[0] == "diagonal-4":
-                output_qiskit_file.write(
-                    "D4 " + line[1] + " " + line[2] + " " + line[3] + " " + line[4]
-                )
-                for i in range(int(pow(2, 4))):
-                    output_qiskit_file.write(" 3.141596")
-                output_qiskit_file.write("\n")
-            elif line[0] == "diagonal-3":
-                output_qiskit_file.write(
-                    "D3 " + line[1] + " " + line[2] + " " + line[3]
-                )
-                for i in range(int(pow(2, 3))):
-                    output_qiskit_file.write(" 3.141596")
-                output_qiskit_file.write("\n")
-            elif line[0] == "diagonal-2":
-                output_qiskit_file.write("D2 " + line[1] + " " + line[2])
-                for i in range(int(pow(2, 2))):
-                    output_qiskit_file.write(" 3.141596")
-                output_qiskit_file.write("\n")
+                output_qiskit_file.write(f"U{qubit} {" ".join(line[1:])}\n")
+            elif line[0].startswith("diagonal"):
+                qubit = int(line[0].split("-")[1])
+                assert len(line[(qubit + 1) :]) == pow(2, qubit) * 2
+                output_qiskit_file.write(f"D{qubit} {" ".join(line[1:])}\n")
             elif line[0] == "cz-2":
                 output_qiskit_file.write("CZ " + line[1] + " " + line[2] + "\n")
                 output_qiskit_file.write("")
@@ -188,27 +145,34 @@ def load_circuit(filename: str, total_qubit: int) -> QuantumCircuit:
                 UnitaryGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
             )
         elif line[0] == "D1":
-            circuit.append(D1, [int(line[1])])
-        elif line[0] == "D2":
-            circuit.append(D2, [int(line[1]), int(line[2])])
-        elif line[0] == "D3":
-            circuit.append(D3, [int(line[1]), int(line[2]), int(line[3])])
-        elif line[0] == "D4":
+            gate_qubit = 1
+            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
             circuit.append(
-                D4,
-                [int(line[1]), int(line[2]), int(line[3]), int(line[4]), int(line[5])],
+                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
+            )
+        elif line[0] == "D2":
+            gate_qubit = 2
+            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
+            circuit.append(
+                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
+            )
+        elif line[0] == "D3":
+            gate_qubit = 3
+            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
+            circuit.append(
+                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
+            )
+        elif line[0] == "D4":
+            gate_qubit = 4
+            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
+            circuit.append(
+                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
             )
         elif line[0] == "D5":
+            gate_qubit = 5
+            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
             circuit.append(
-                D5,
-                [
-                    int(line[1]),
-                    int(line[2]),
-                    int(line[3]),
-                    int(line[4]),
-                    int(line[5]),
-                    int(line[6]),
-                ],
+                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
             )
         elif line[0] == "CP":
             circuit.cp(float(line[3]), int(line[1]), int(line[2]))
