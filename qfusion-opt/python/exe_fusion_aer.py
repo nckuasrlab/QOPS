@@ -91,7 +91,7 @@ def gen_qiskit_fusion(filename, total_qubit, fusion_method):
                 output_qiskit_file.write("")
             elif line[0] == "rzz-2":
                 output_qiskit_file.write(
-                    "RZZ " + line[1] + " " + line[2] + " 3.141596\n"
+                    "RZZ " + line[1] + " " + line[2] + " " + line[3] + "\n"
                 )
             elif line[0] == "h-1":
                 output_qiskit_file.write("H " + line[1] + " \n")
@@ -240,14 +240,14 @@ def exe_circuit(
             "qiskit fusion with diagonal fusion, gate number: "
             + str(len(qiskit_result["output_ops"]) - total_qubit)
         )
-        with open(log_filename, "a") as f:
+        with open(log_filename, "a") as logfile:
             for gate in qiskit_result["output_ops"]:
                 if gate["name"] == "measure":
                     continue
-                f.write(gate["name"] + str(len(gate["qubits"])) + " ")
+                logfile.write(f"{gate['name']}-{len(gate['qubits'])} ")
                 for qubit in gate["qubits"]:
-                    f.write(str(qubit) + " ")
-                f.write("\n")
+                    logfile.write(str(qubit) + " ")
+                logfile.write("\n")
     return simulation_time
 
 
@@ -276,7 +276,7 @@ if __name__ == "__main__":
     mfq = 3  # max_fusion_qubits
     total_qubit = 24
     filename_list = ["sc", "vc", "hs", "qv", "bv", "qft", "qaoa", "ising"]
-    # filename_list = ["qft"]
+    # filename_list = ["qaoa"]
 
     os.makedirs("./qiskitFusionCircuit", exist_ok=True)
 
