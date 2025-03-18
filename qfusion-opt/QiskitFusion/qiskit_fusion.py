@@ -134,7 +134,7 @@ def main():
         sys.exit(1)
     else:
         fusion_time = result.stdout.split("\n")[-1]
-        print(f"{args.fusion_mode} fusion time (s):\n{fusion_time}")
+        print(f"{args.fusion_mode} fusion time (s):\n{fusion_time}", end="")
 
 
 if __name__ == "__main__":

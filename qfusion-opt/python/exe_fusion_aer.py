@@ -1,6 +1,8 @@
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
+from itertools import repeat
 from math import pow
 
 import numpy as np
@@ -46,7 +48,7 @@ def read_diagonal_matrix(num_qubits, matrix_1d):
     return matrix
 
 
-def gen_qiskit_fusion(filename, total_qubit, fusion_method):
+def gen_qiskit_fusion(filename, total_qubit, fusion_method) -> float:
     fusion_process = subprocess.run(
         [
             "python",
@@ -67,7 +69,9 @@ def gen_qiskit_fusion(filename, total_qubit, fusion_method):
         print(fusion_process.stdout)
         print(fusion_process.stderr)
         sys.exit(1)
-    return fusion_process.stdout
+
+    fusion_time = float(fusion_process.stdout.split("\n")[-1])
+    return fusion_time
 
 
 def load_circuit(filename: str, total_qubit: int) -> QuantumCircuit:
@@ -164,17 +168,32 @@ def load_circuit(filename: str, total_qubit: int) -> QuantumCircuit:
             raise Exception(f"{line[0]} is not supported ({line})")
 
     circuit.measure_all()
-    print("gate number:", line_count)
     return circuit
 
 
-def exe_circuit(
+@dataclass
+class ExecResult:
+    simulation_time: float
+    internal_fusio_applied: bool
+    internal_fusion_time: float
+    internal_fused_gate_num: int
+
+    def __str__(self):
+        return (
+            f"{self.simulation_time}, "
+            f"{self.internal_fusio_applied}, "
+            f"{self.internal_fusion_time}, "
+            f"{self.internal_fused_gate_num}"
+        )
+
+
+def exec_circuit(
     circuit: QuantumCircuit,
     fusion_method: str,
     max_fusion_qubits: int,
     open_fusion: bool,
     get_info: bool,
-):
+) -> ExecResult:
     simulator = AerSimulator(
         method="statevector",
         seed_simulator=0,
@@ -182,40 +201,39 @@ def exe_circuit(
         fusion_verbose=open_fusion,
         fusion_max_qubit=max_fusion_qubits,
     )
-
-    # t1 = time.perf_counter_ns()
     res = simulator.run(circuit).result()
-    # t2 = time.perf_counter_ns()
-    # print(f"Elapsed time: {(t2-t1)/1e9} s")
-    # sample_time = res.results[0].metadata["sample_measure_time"]
-    # print(f"Sample time: {sample_time} s")
-    simulation_time = res.results[0].metadata["time_taken"]
-    # print(f"simulation time: {simulation_time} s")
 
-    qiskit_result = res.results[0].metadata["fusion"]
+    # dump execution log
     log_filename = (
         f"./qiskitFusionCircuit/aer_{fusion_method}_{os.path.basename(filename)}.log"
     )
     with open(log_filename, "w") as f:
         f.write(str(res) + "\n")
-    if open_fusion and get_info and qiskit_result["applied"]:
-        print(
-            "qiskit fusion with diagonal fusion, fusion time: "
-            + str(qiskit_result["time_taken"])
-        )
-        print(
-            "qiskit fusion with diagonal fusion, gate number: "
-            + str(len(qiskit_result["output_ops"]) - total_qubit)
-        )
+
+    # dump fusion log
+    fusion_result = res.results[0].metadata["fusion"]
+    internal_fusio_applied = open_fusion and fusion_result["applied"]
+    internal_fusion_time = 0
+    internal_fused_gate_num = 0
+    if open_fusion and get_info and internal_fusio_applied:
+        internal_fusion_time = float(fusion_result["time_taken"])
+        internal_fused_gate_num = len(fusion_result["output_ops"]) - total_qubit
         with open(log_filename, "a") as logfile:
-            for gate in qiskit_result["output_ops"]:
+            for gate in fusion_result["output_ops"]:
                 if gate["name"] == "measure":
                     continue
                 logfile.write(f"{gate['name']}-{len(gate['qubits'])} ")
                 for qubit in gate["qubits"]:
                     logfile.write(str(qubit) + " ")
                 logfile.write("\n")
-    return simulation_time
+
+    simulation_time = float(res.results[0].metadata["time_taken"])
+    return ExecResult(
+        simulation_time,
+        internal_fusio_applied,
+        internal_fusion_time,
+        internal_fused_gate_num,
+    )
 
 
 def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
@@ -224,6 +242,7 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     simulator = AerSimulator(
         method="statevector",
         seed_simulator=0,
+        fusion_enable=False,
     )
     res1 = simulator.run(circ1, shots=shots).result().get_counts()
     res2 = simulator.run(circ2, shots=shots).result().get_counts()
@@ -235,43 +254,77 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     # Compute total variation distance (TVD)
     all_keys = set(prob1.keys()).union(set(prob2.keys()))
     tvd = sum(abs(prob1.get(k, 0) - prob2.get(k, 0)) for k in all_keys) / 2
-    print(f"TVD: {tvd:.4f}; {'' if tvd < tol else 'NOT '}Equivalent.")
+    # print(f"TVD: {tvd:.4f}; {'' if tvd < tol else 'NOT '}Equivalent.")
     return tvd < tol
 
 
 if __name__ == "__main__":
     mfq = 3  # max_fusion_qubits
     total_qubit = 24
-    filename_list = ["sc", "vc", "hs", "qv", "bv", "qft", "qaoa", "ising"]
-    # filename_list = ["qaoa"]
+    # benchmarks = ["sc", "vc", "hs", "qv", "bv", "qft", "qaoa", "ising"]
+    benchmarks = ["sc", "vc"]
 
     os.makedirs("./qiskitFusionCircuit", exist_ok=True)
 
-    for i, filename in enumerate(filename_list):
-        filename = filename + str(total_qubit) + ".txt"
+    for benchmark in benchmarks:
+        filename = benchmark + str(total_qubit) + ".txt"
         print("==================================================================")
         print(filename)
+        experiment_logfile = open(
+            f"./qiskitFusionCircuit/experiment_{benchmark}{total_qubit}.log", "w"
+        )
 
         # disable
+        fm = "disable"
+        print(f"\n{fm}: ")
+        experiment_logfile.write(f"{fm}:\n")
         qc0 = load_circuit("./circuit/" + filename, total_qubit)
-        print(exe_circuit(qc0, "disable", mfq, False, True))
+        for _ in repeat(None, 3):
+            exec_result = exec_circuit(qc0, fm, mfq, False, True)  # warmup
+        for _ in repeat(None, 10):
+            exec_result = exec_circuit(qc0, fm, mfq, False, True)
+            experiment_logfile.write(str(exec_result) + "\n")
+
         # origin
+        fm = "origin"
+        print(f"\n{fm}: ")
+        experiment_logfile.write(f"{fm}:\n")
         qc1 = load_circuit("./circuit/" + filename, total_qubit)
-        print(exe_circuit(qc1, "origin", mfq, True, True))
+        for _ in repeat(None, 3):
+            exec_result = exec_circuit(qc1, fm, mfq, True, True)  # warmup
+        for _ in repeat(None, 10):
+            exec_result = exec_circuit(qc1, fm, mfq, True, True)
+            experiment_logfile.write(str(exec_result) + "\n")
 
         # static Qiskit
         fm = "static_qiskit"
-        print(f"\n{fm}: ", gen_qiskit_fusion(filename, total_qubit, fm), end="")
+        print(f"\n{fm}: ")
+        experiment_logfile.write(f"{fm}:\n")
+        fusion_time = gen_qiskit_fusion(filename, total_qubit, fm)
+        experiment_logfile.write(str(fusion_time) + "\n")
         qc2 = load_circuit(f"./qiskitFusionCircuit/fused_{fm}_{filename}", total_qubit)
-        print(exe_circuit(qc2, fm, mfq, True, True))
-        circuits_equivalent_by_samples(qc1, qc2)
+        if not circuits_equivalent_by_samples(qc1, qc2):
+            print(f"ERROR: {fm} circuits not equivalent")
+        for _ in repeat(None, 3):
+            exec_result = exec_circuit(qc2, fm, mfq, True, True)  # warmup
+        for _ in repeat(None, 10):
+            exec_result = exec_circuit(qc2, fm, mfq, True, True)
+            experiment_logfile.write(str(exec_result) + "\n")
 
         # dynamic Qiskit
         fm = "dynamic_qiskit"
-        print(f"\n{fm}: ", gen_qiskit_fusion(filename, total_qubit, fm), end="")
+        print(f"\n{fm}: ")
+        experiment_logfile.write(f"{fm}:\n")
+        fusion_time = gen_qiskit_fusion(filename, total_qubit, fm)
+        experiment_logfile.write(str(fusion_time) + "\n")
         qc3 = load_circuit(f"./qiskitFusionCircuit/fused_{fm}_{filename}", total_qubit)
-        print(exe_circuit(qc3, fm, mfq, True, True))
-        circuits_equivalent_by_samples(qc1, qc3)
+        if not circuits_equivalent_by_samples(qc1, qc3):
+            print(f"ERROR: {fm} circuits not equivalent")
+        for _ in repeat(None, 3):
+            exec_result = exec_circuit(qc3, fm, mfq, True, True)  # warmup
+        for _ in repeat(None, 10):
+            exec_result = exec_circuit(qc3, fm, mfq, True, True)
+            experiment_logfile.write(str(exec_result) + "\n")
 
         # static DFGC
         # result = subprocess.run(
@@ -288,7 +341,7 @@ if __name__ == "__main__":
         # )
         # print("static DFGC time: ", result.stdout.split()[-1])
         # print(
-        #     exe_circuit(
+        #     exec_circuit(
         #         "./fusionCircuit/fused_q_s_" + filename,
         #         total_qubit,
         #         True,
@@ -312,7 +365,7 @@ if __name__ == "__main__":
         # )
         # print("dynamic DFGC time: ", result.stdout.split()[-1])
         # print(
-        #     exe_circuit(
+        #     exec_circuit(
         #         "./fusionCircuit/fused_q_d_" + filename,
         #         total_qubit,
         #         True,
@@ -320,3 +373,4 @@ if __name__ == "__main__":
         #         False,
         #     )
         # )
+        experiment_logfile.close()
