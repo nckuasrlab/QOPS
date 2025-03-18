@@ -850,18 +850,18 @@ private:
           for (const auto &mat : ops[op_idx].mats) {
             for (int i = 0; i < mat.GetRows(); i++) {
               for (int j = 0; j < mat.GetColumns(); j++) {
-                fused_circuit_file << mat(i, j).real() << " " << mat(i, j).imag() << " ";
+                fused_circuit_file << std::setprecision(15) << mat(i, j).real() << " " << mat(i, j).imag() << " ";
               }
             }
           }
         }
         if (ops[op_idx].name == "diagonal") { // print params for diagonal gates
           for (const auto &param : ops[op_idx].params) {
-            fused_circuit_file << param.real() << " " << param.imag() << " ";
+            fused_circuit_file << std::setprecision(15) << param.real() << " " << param.imag() << " ";
           }
         } else if (ops[op_idx].params.size() > 0) { // print params for other gates, e.g., cp, rz, etc.
           for (const auto &param : ops[op_idx].params) {
-            fused_circuit_file << param.real() << " ";
+            fused_circuit_file << std::setprecision(15) << param.real() << " ";
             if (param.imag() != 0) {
               std::cerr << "param's imaginary part is non-zero: " << param.imag() << std::endl;
               exit(1);
