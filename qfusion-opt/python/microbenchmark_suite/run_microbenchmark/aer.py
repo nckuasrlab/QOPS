@@ -71,7 +71,7 @@ def gen_microbenchmark(
     f_log = open(microbenchmark_result_file, "a")
     for gate in gate_list:
         for total_qubit in range(total_qubit_min, total_qubit_max + 1, 2):
-            for target_qubit_1 in range(total_qubit):
+            for target_qubit_1 in range(0, total_qubit, 4):
                 circuit = QuantumCircuit(total_qubit)
                 sample_pool = [i for i in range(total_qubit) if i != target_qubit_1]
                 other_qubit = random.sample(sample_pool, 4)

@@ -34,6 +34,8 @@ gate_type_U2 31608.323270706
 $ python python/microbenchmark_suite/run_microbenchmark/quokka.py --simulator_binary=../Quokka/cpu/Quokka
 
 $ python python/microbenchmark_suite/run_microbenchmark/aer.py
+Namespace(num_repeat_runs=100, total_qubit_min=24, total_qubit_max=32, microbenchmark_result_file='./log/microbenchmark_result_aer.csv')
+Total time: 27118.383654820966
 ```
 
 ## 3. train_perf_model
