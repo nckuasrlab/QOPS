@@ -25,6 +25,48 @@
 #include <string>
 #include <iomanip>
 
+#define GATE_TABLE \
+  GATE_ENTRY("h-1", H) \
+  GATE_ENTRY("x-1", X) \
+  GATE_ENTRY("rx-1", RX) \
+  GATE_ENTRY("ry-1", RY) \
+  GATE_ENTRY("rz-1", RZ) \
+  GATE_ENTRY("unitary-1", U1) \
+  GATE_ENTRY("cx-2", CX) \
+  GATE_ENTRY("cz-2", CZ) \
+  GATE_ENTRY("cp-2", CP) \
+  GATE_ENTRY("rzz-2", RZZ) \
+  GATE_ENTRY("unitary-2", U2) \
+  GATE_ENTRY("unitary-3", U3) \
+  GATE_ENTRY("unitary-4", U4) \
+  GATE_ENTRY("unitary-5", U5) \
+  GATE_ENTRY("diagonal-1", D1) \
+  GATE_ENTRY("diagonal-2", D2) \
+  GATE_ENTRY("diagonal-3", D3) \
+  GATE_ENTRY("diagonal-4", D4) \
+  GATE_ENTRY("diagonal-5", D5) \
+  GATE_ENTRY("y-1", Y) \
+  GATE_ENTRY("z-1", Z) \
+  GATE_ENTRY("swap-2", SWAP)
+
+// #define GATE_ENTRY(aer_gate, quokka_gate) quokka_gate,
+// typedef enum { GATE_TABLE } gate_type_t;
+// #undef GATE_ENTRY
+
+#define GATE_ENTRY(aer_gate, quokka_gate) {aer_gate, #quokka_gate},
+std::string aer_gate_to_quokka_gate(const std::string &str) {
+  static const struct {
+    const char *aer_gate_name;
+    const char *quokka_gate_name;
+  } conversion[] = {GATE_TABLE};
+  for (int j = 0; j < sizeof(conversion) / sizeof(conversion[0]); ++j)
+    if (str == conversion[j].aer_gate_name)
+      return conversion[j].quokka_gate_name;
+  std::cerr << "no such gate " << str << std::endl;
+  return "notfound";
+}
+#undef GATE_ENTRY
+
 namespace AER {
 namespace Transpile {
 
@@ -368,7 +410,7 @@ private:
                    const uint_t until) const;
 
   double estimate_cost(const oplist_t &ops, const uint_t from,
-                       const uint_t until, const std::vector<double> dynamic_gate_time) const;
+                       const uint_t until, const std::map<std::string, std::vector<double>> dynamic_gate_time) const;
 
   void add_fusion_qubits(reg_t &fusion_qubits, const op_t &op) const;
 
@@ -864,7 +906,7 @@ private:
       } else {
         std::cout << std::setw(15) << ops[op_idx].name << "-"
                   << ops[op_idx].qubits.size() << ": ";
-        fused_circuit_file << gate_mapping(ops[op_idx].name + "-" + std::to_string(ops[op_idx].qubits.size())) << " ";
+        fused_circuit_file << aer_gate_to_quokka_gate(ops[op_idx].name + "-" + std::to_string(ops[op_idx].qubits.size())) << " ";
         if (ops[op_idx].qubits.size() > 0) {
           auto qubits = ops[op_idx].qubits;
           std::sort(qubits.begin(), qubits.end());
@@ -1111,15 +1153,21 @@ bool CostBasedFusion::aggregate_operations(oplist_t &ops,
     return false;
 
   // Load gate exe time log
-  std::vector<double> dynamic_gate_time;
+  std::map<std::string, std::vector<double>> dynamic_gate_time;
   std::string dynamic_cost_filename = get_env_variable("DYNAMIC_COST_FILENAME");
   std::ifstream dynamic_cost_file(dynamic_cost_filename);
   if (!dynamic_cost_file.is_open()) {
     std::cerr << "Error: File '" << dynamic_cost_filename
               << "' does not exist or cannot be opened.\n";
   }
-  for(std::string line; getline(dynamic_cost_file, line);)
-    dynamic_gate_time.push_back(stod(line));
+  for(std::string line; getline(dynamic_cost_file, line);) {
+    std::stringstream ss(line);
+    std::string gate, target_qubit, time;
+    getline(ss, gate, ',');
+    getline(ss, target_qubit, ',');
+    getline(ss, time, ',');
+    dynamic_gate_time[gate].push_back(stod(time));
+  }
 
   // costs[i]: estimated cost to execute from 0-th to i-th in original.ops
   std::vector<double> costs;
@@ -1219,44 +1267,24 @@ bool CostBasedFusion::is_diagonal(const std::vector<op_t> &ops,
 double CostBasedFusion::estimate_cost(const std::vector<op_t> &ops,
                                       const uint_t from,
                                       const uint_t until,
-                                      const std::vector<double> dynamic_gate_time) const {
-  if (is_diagonal(ops, from, until))
-    return 1.0;
+                                      const std::map<std::string, std::vector<double>> dynamic_gate_time) const {
+  // if (is_diagonal(ops, from, until))
+  //   return 1.0;
 
   reg_t fusion_qubits;
+  const int gate_list_num = 19;
   for (uint_t i = from; i <= until; ++i)
     add_fusion_qubits(fusion_qubits, ops[i]);
-
-  int Qubits = int(dynamic_gate_time.size()/15);
-  if(ops[from].name == "h")
-    return dynamic_gate_time[0*Qubits+from];
-  else if(ops[from].name == "x")
-    return dynamic_gate_time[1*Qubits+from];
-  else if(ops[from].name == "rx")
-    return dynamic_gate_time[2*Qubits+from];
-  else if(ops[from].name == "ry")
-    return dynamic_gate_time[3*Qubits+from];
-  else if(ops[from].name == "rz")
-    return dynamic_gate_time[4*Qubits+from];
-  else if(ops[from].name == "u")
-    return dynamic_gate_time[5*Qubits+from];
-  else if(ops[from].name == "cx")
-    return dynamic_gate_time[6*Qubits+from];
-  else if(ops[from].name == "cz")
-    return dynamic_gate_time[7*Qubits+from];
-  else if(ops[from].name == "cp")
-    return dynamic_gate_time[8*Qubits+from];
-  else if(ops[from].name == "rzz")
-    return dynamic_gate_time[9*Qubits+from];
-
-  if(fusion_qubits.size() == 2)
-    return dynamic_gate_time[10*Qubits+from];
-  else if(fusion_qubits.size() == 3)
-    return dynamic_gate_time[11*Qubits+from];
-  else { // FIXME: 4- and 5-qubit gates are not supported
-    return pow(cost_factor,
-              (double)std::max(fusion_qubits.size() - 2, size_t(1)));
+  const int total_qubit_in_cost = int(dynamic_gate_time.size()/gate_list_num);
+  std::string gate = aer_gate_to_quokka_gate(ops[from].name 
+    + "-" + std::to_string(ops[from].qubits.size()));
+  int cost = pow(cost_factor,
+    (double)std::max(fusion_qubits.size() - 2, size_t(1)));
+  if (gate != "notfound") {
+    cost = dynamic_gate_time.at(gate)[ops[from].qubits[0]];
   }
+  // std::cout << gate << ": " << cost << std::endl;
+  return cost;
 }
 
 void CostBasedFusion::add_fusion_qubits(reg_t &fusion_qubits,
