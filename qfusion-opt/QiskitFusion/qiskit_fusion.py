@@ -87,7 +87,7 @@ def get_args():
         type=str,
         metavar="PATH",
         help="Dynamic cost filename",
-        default="../log/gate_exe_time.csv",
+        default="../log/gate_exe_time_aer.csv",
     )
     parser.add_argument(
         "-o",
@@ -96,6 +96,12 @@ def get_args():
         metavar="PATH",
         required=True,
         help="Output filename for the fused circuit",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Verbose mode",
     )
 
     return parser.parse_args()
@@ -133,6 +139,9 @@ def main():
         print(result.stderr)
         sys.exit(1)
     else:
+        if args.verbose:
+            print(result.stdout)
+            print(result.stderr)
         fusion_time = result.stdout.split("\n")[-1]
         print(f"{args.fusion_mode} fusion time (s):\n{fusion_time}", end="")
 

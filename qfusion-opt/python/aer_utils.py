@@ -213,7 +213,7 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     simulator = AerSimulator(
         method="statevector",
         seed_simulator=0,
-        fusion_enable=False,
+        fusion_enable=True,
     )
     res1 = simulator.run(circ1, shots=shots).result().get_counts()
     res2 = simulator.run(circ2, shots=shots).result().get_counts()

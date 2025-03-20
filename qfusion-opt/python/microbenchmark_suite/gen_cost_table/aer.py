@@ -36,7 +36,7 @@ def get_args():
         "--output_file",
         help="Output file (default: %(default)s)",
         metavar="FILE",
-        default="./log/gate_exe_time.csv",
+        default="./log/gate_exe_time_aer.csv",
     )
 
     # --- Subparser for the 'predict' mode ---
@@ -75,7 +75,7 @@ def main():
                 )
                 df_input = pd.get_dummies(df_input, columns=["gate_type"])
                 df_input = sc.transform(df_input)
-                f_exe.write(str(model.predict(df_input)[0]) + "\n")
+                f_exe.write(f"{gate},{target_qubit},{model.predict(df_input)[0]}\n")
         f_exe.close()
 
     elif args.mode == "predict":
