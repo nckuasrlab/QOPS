@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from math import pow
 
 import numpy as np
+import scipy.linalg
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import DiagonalGate, UnitaryGate
 from qiskit_aer import AerSimulator
@@ -44,7 +45,33 @@ def read_diagonal_matrix(num_qubits, matrix_1d):
     return matrix
 
 
-def load_circuit(filename: str, total_qubit: int, circuit_name: str) -> QuantumCircuit:
+def random_unitary_matrix(num_qubits):
+    """
+    Generates a random unitary matrix of size 2^num_qubits x 2^num_qubits
+    and returns it as a Python 2D list.
+    """
+    if not isinstance(num_qubits, int) or num_qubits < 1:
+        raise ValueError("num_qubits must be a positive integer.")
+    dimension = 2**num_qubits
+    random_complex_matrix = np.random.randn(
+        dimension, dimension
+    ) + 1j * np.random.randn(dimension, dimension)
+    Q, R = scipy.linalg.qr(random_complex_matrix)
+    unitary_matrix_list = Q.tolist()
+    return unitary_matrix_list
+
+
+def random_diagonal_matrix(num_qubits):
+    """
+    Generates a random quantum diagonal gate for a given number of qubits.
+    """
+    dimension = 2**num_qubits
+    return np.exp(2j * np.pi * np.random.rand(dimension))  # Random phases
+
+
+def load_circuit(
+    filename: str, total_qubit: int, circuit_name: str, use_random_matrix=False
+) -> QuantumCircuit:
     circuit = QuantumCircuit(total_qubit)
     circuit.name = circuit_name
     fusion_file = open(filename, "r")
@@ -54,66 +81,23 @@ def load_circuit(filename: str, total_qubit: int, circuit_name: str) -> QuantumC
     for line in lines:
         line_count = line_count + 1
         line = line.split()
-        if line[0] == "U1":
-            if len(line) == 5:
-                circuit.u(float(line[2]), float(line[3]), float(line[4]), int(line[1]))
+        if line[0] == "U1" and len(line) == 5:
+            circuit.u(float(line[2]), float(line[3]), float(line[4]), int(line[1]))
+        elif line[0].startswith("U") and len(line[0]) == 2:
+            gate_qubit = int(line[0][1])
+            if use_random_matrix:
+                mat = random_unitary_matrix(gate_qubit)
             else:
-                gate_qubit = 1
                 mat = read_unitary_matrix(gate_qubit, line[(gate_qubit + 1) :])
-                circuit.append(
-                    UnitaryGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-                )
-        elif line[0] == "U2":
-            gate_qubit = 2
-            mat = read_unitary_matrix(gate_qubit, line[(gate_qubit + 1) :])
             circuit.append(
                 UnitaryGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
             )
-        elif line[0] == "U3":
-            gate_qubit = 3
-            mat = read_unitary_matrix(gate_qubit, line[(gate_qubit + 1) :])
-            circuit.append(
-                UnitaryGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-            )
-        elif line[0] == "U4":
-            gate_qubit = 4
-            mat = read_unitary_matrix(gate_qubit, line[(gate_qubit + 1) :])
-            circuit.append(
-                UnitaryGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-            )
-        elif line[0] == "U5":
-            gate_qubit = 5
-            mat = read_unitary_matrix(gate_qubit, line[(gate_qubit + 1) :])
-            circuit.append(
-                UnitaryGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-            )
-        elif line[0] == "D1":
-            gate_qubit = 1
-            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
-            circuit.append(
-                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-            )
-        elif line[0] == "D2":
-            gate_qubit = 2
-            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
-            circuit.append(
-                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-            )
-        elif line[0] == "D3":
-            gate_qubit = 3
-            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
-            circuit.append(
-                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-            )
-        elif line[0] == "D4":
-            gate_qubit = 4
-            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
-            circuit.append(
-                DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
-            )
-        elif line[0] == "D5":
-            gate_qubit = 5
-            mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
+        elif line[0].startswith("D") and len(line[0]) == 2:
+            gate_qubit = int(line[0][1])
+            if use_random_matrix:
+                mat = random_diagonal_matrix(gate_qubit)
+            else:
+                mat = read_diagonal_matrix(gate_qubit, line[(gate_qubit + 1) :])
             circuit.append(
                 DiagonalGate(mat), [int(line[q]) for q in range(1, gate_qubit + 1)]
             )
@@ -163,7 +147,7 @@ def exec_circuit(
     fusion_method: str,
     max_fusion_qubits: int,
     open_fusion: bool,
-    dump_log: bool
+    dump_log: bool,
 ) -> ExecResult:
     simulator = AerSimulator(
         method="statevector",
@@ -225,5 +209,5 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     # Compute total variation distance (TVD)
     all_keys = set(prob1.keys()).union(set(prob2.keys()))
     tvd = sum(abs(prob1.get(k, 0) - prob2.get(k, 0)) for k in all_keys) / 2
-    # print(f"TVD: {tvd:.4f}; {'' if tvd < tol else 'NOT '}Equivalent.")
+    print(f"TVD: {tvd:.4f}; {'' if tvd < tol else 'NOT '}Equivalent.")
     return tvd < tol

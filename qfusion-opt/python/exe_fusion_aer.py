@@ -62,6 +62,40 @@ class ExecConfig:
     fusion_max_qubit: int
 
 
+def gen_dfgc_fusion(
+    filename: str,
+    fused_filename: str,
+    total_qubit: int,
+    fusion_method: str,
+    fusion_max_qubit: int,
+    verbose: bool,
+) -> float:
+    cmd = [
+        "./fusion",
+        "./circuit/" + filename,
+        fused_filename,
+        str(fusion_max_qubit),
+        str(total_qubit),
+        "5" if fusion_method == "static_dfgc" else "8",
+    ]
+    fusion_process = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+    )
+    if fusion_process.returncode != 0:
+        print("ERROR:", fusion_process.returncode, flush=True)
+        print(fusion_process.stdout, flush=True)
+        print(fusion_process.stderr, flush=True)
+        sys.exit(1)
+
+    if verbose:
+        print(fusion_process.stdout, flush=True)
+        print(fusion_process.stderr, flush=True)
+    fusion_time = float(fusion_process.stdout.split("\n")[0].split(",")[-1])
+    return fusion_time
+
+
 def run_benchmark(
     circuit_name: str,
     total_qubit: int,
@@ -75,10 +109,9 @@ def run_benchmark(
 
     print(f"{fusion_method}: ", end="", flush=True)
     logfile.write(f"{fusion_method}:\n")
+
+    fused_filename = f"./qiskitFusionCircuit/fused_{fusion_method}_{circuit_name}.txt"
     if fusion_method in ["static_qiskit", "dynamic_qiskit"]:
-        fused_filename = (
-            f"./qiskitFusionCircuit/fused_{fusion_method}_{circuit_name}.txt"
-        )
         fusion_time = gen_qiskit_fusion(
             f"{circuit_name}.txt",
             fused_filename,
@@ -92,8 +125,27 @@ def run_benchmark(
         # total gate count =
         #   original gate count - all measure gates - one barrier gate before measurement
         logfile.write(f"{fusion_time}, {len(qc.data) - 1 - qc.num_qubits}\n")
+
+    elif fusion_method in ["static_dfgc", "dynamic_dfgc"]:
+        fusion_time = gen_dfgc_fusion(
+            f"{circuit_name}.txt",
+            fused_filename,
+            total_qubit,
+            fusion_method,
+            fusion_config.fusion_max_qubit,
+            fusion_config.verbose,
+        )
+        qc = load_circuit(
+            fused_filename, total_qubit, circuit_name, use_random_matrix=True
+        )
+        # total gate count =
+        #   original gate count - all measure gates - one barrier gate before measurement
+        logfile.write(f"{fusion_time}, {len(qc.data) - 1 - qc.num_qubits}\n")
+
     else:
         qc = load_circuit(f"./circuit/{circuit_name}.txt", total_qubit, circuit_name)
+
+    # Verify circuit fusion
     if compare_circuit is not None and not circuits_equivalent_by_samples(
         compare_circuit, qc
     ):
@@ -182,50 +234,24 @@ if __name__ == "__main__":
         )
 
         # static DFGC
-        # result = subprocess.run(
-        #     [
-        #         "./fusion",
-        #         "./circuit/" + filename,
-        #         "./fusionCircuit/fused_q_s_" + filename,
-        #         str(mfq),
-        #         str(total_qubit),
-        #         "5",
-        #     ],
-        #     capture_output=True,
-        #     text=True,
-        # )
-        # print("static DFGC time: ", result.stdout.split()[-1])
-        # print(
-        #     exec_circuit(
-        #         "./fusionCircuit/fused_q_s_" + filename,
-        #         total_qubit,
-        #         True,
-        #         mfq,
-        #         False,
-        #     )
-        # )
+        fusion_method = "static_dfgc"
+        run_benchmark(
+            circuit_name,
+            total_qubit,
+            FusionConfig(fusion_method, fusion_max_qubit),
+            ExecConfig(False, fusion_max_qubit),
+            logfile,
+            qc1,
+        )
 
-        # # dynamic DFGC
-        # result = subprocess.run(
-        #     [
-        #         "./fusion",
-        #         "./circuit/" + filename,
-        #         "./fusionCircuit/fused_q_d_" + filename,
-        #         str(mfq),
-        #         str(total_qubit),
-        #         "8",
-        #     ],
-        #     capture_output=True,
-        #     text=True,
-        # )
-        # print("dynamic DFGC time: ", result.stdout.split()[-1])
-        # print(
-        #     exec_circuit(
-        #         "./fusionCircuit/fused_q_d_" + filename,
-        #         total_qubit,
-        #         True,
-        #         mfq,
-        #         False,
-        #     )
-        # )
+        # dynamic DFGC
+        fusion_method = "dynamic_dfgc"
+        run_benchmark(
+            circuit_name,
+            total_qubit,
+            FusionConfig(fusion_method, fusion_max_qubit),
+            ExecConfig(False, fusion_max_qubit),
+            logfile,
+            qc1,
+        )
         logfile.close()
