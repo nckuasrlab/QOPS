@@ -47,7 +47,7 @@ model error rate: 0.09959293174978058
 
 $ python python/microbenchmark_suite/train_perf_model/aer.py 
 Namespace(microbenchmark_result='./log/microbenchmark_result_aer.csv', model_folder='./model/aer')
-model error rate: 0.03413687985997949
+model error rate: 0.036115926738519114
 ```
 
 ## 4. gen_cost_table
@@ -57,7 +57,7 @@ $ python python/microbenchmark_suite/gen_cost_table/quokka.py gen_table 32 18
 Namespace(mode='gen_table', model_folder='./model/quokka', input_total_qubit=32, input_chunk_size=18, output_file='./log/gate_exe_time.csv')
 
 $ python python/microbenchmark_suite/gen_cost_table/aer.py gen_table 32
-Namespace(mode='gen_table', model_folder='./model/aer', input_total_qubit=32, output_file='./log/gate_exe_time.csv')
+Namespace(mode='gen_table', model_folder='./model/aer', input_total_qubit=32, output_file='./log/gate_exe_time_aer.csv')
 ```
 
 ## 5. predict gate time (optional)
