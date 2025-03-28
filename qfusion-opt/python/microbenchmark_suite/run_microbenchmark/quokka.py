@@ -5,6 +5,12 @@ import random
 import subprocess
 
 from python.common import gate_list_quokka as gate_list
+from python.microbenchmark_suite.run_microbenchmark.random_param import (
+    random_diagonal_gate,
+    random_theta,
+    random_u_gate_parameters,
+    random_unitary_matrix,
+)
 
 # Random Seed for Reproducibility
 random.seed(0)
@@ -44,7 +50,11 @@ def set_ini_file(total_qbit, num_file_qubit, size, simulation_type):
         )
     f.close()
 
-
+# TODO
+# - random diagonal and unitary matrix
+# - chunk size is used to reduce the number of VSWAP2-2, so the benchmark should rerun. 
+#       The test program could be applying gate from q0 to qN then run finder then simulate.
+#       The result will show the larger the chunk size, the smaller the number of VSWAP2-2 (faster simulation time).
 def gen_microbenchmark(
     simulator_binary,
     tmp_circuit_dir,
@@ -69,33 +79,19 @@ def gen_microbenchmark(
                 target.sort()
                 if gate == "H" or gate == "X":
                     for i in range(num_repeat_runs):
-                        f.write(gate + " " + str(target[0]) + "\n")
+                        f.write(f"{gate} {target[0]}\n")
                 elif gate == "RX" or gate == "RY" or gate == "RZ":
                     for i in range(num_repeat_runs):
-                        f.write(gate + " " + str(target[0]) + " 3.141592653589793\n")
+                        f.write(f"{gate} {target[0]} {random_theta()}\n")
                 elif gate == "U1":
                     for i in range(num_repeat_runs):
-                        f.write(
-                            gate
-                            + " "
-                            + str(target[0])
-                            + " 3.141592653589793 3.141592653589793 3.141592653589793\n"
-                        )
+                        f.write(f"{gate} {target[0]} {' '.join(str(val) for val in random_u_gate_parameters())}\n")
                 elif gate == "CX" or gate == "CZ":
                     for i in range(num_repeat_runs):
-                        f.write(
-                            gate + " " + str(target[0]) + " " + str(target[1]) + "\n"
-                        )
+                        f.write(f"{gate} {target[0]} {target[1]}\n")
                 elif gate == "CP" or gate == "RZZ":
                     for i in range(num_repeat_runs):
-                        f.write(
-                            gate
-                            + " "
-                            + str(target[0])
-                            + " "
-                            + str(target[1])
-                            + " 3.141592653589793\n"
-                        )
+                        f.write(f"{gate} {target[0]} {target[1]} {random_theta()}\n")
                 elif gate == "U2":
                     for i in range(num_repeat_runs):
                         f.write(gate + " " + str(target[0]) + " " + str(target[1]))
@@ -188,7 +184,7 @@ def get_args():
         type=int,
         help="Chunk size maximum",
         metavar="NUM",
-        default=18,
+        default=20,
     )
     parser.add_argument(
         "--simulation_type",
