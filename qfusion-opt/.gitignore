@@ -1,6 +1,5 @@
 tmp/
 .env
-*.txt
 *.pkl
 
 __pycache__/
