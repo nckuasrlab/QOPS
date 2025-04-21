@@ -1,3 +1,4 @@
+import datetime
 import os
 import subprocess
 import sys
@@ -60,6 +61,7 @@ class FusionConfig:
 class ExecConfig:
     fusion_enable: bool
     fusion_max_qubit: int
+    skip_exec: bool = False
 
 
 def gen_dfgc_fusion(
@@ -145,6 +147,9 @@ def run_benchmark(
     else:
         qc = load_circuit(f"./circuit/{circuit_name}.txt", total_qubit, circuit_name)
 
+    if exec_config.skip_exec:
+        print("", flush=True)
+        return
     # Verify circuit fusion
     if compare_circuit is not None and not circuits_equivalent_by_samples(
         compare_circuit, qc
@@ -165,7 +170,7 @@ def run_benchmark(
             fusion_method,
             exec_config.fusion_max_qubit,
             exec_config.fusion_enable,
-            True if i == (repeat_num // 2) else False,
+            True if i == (repeat_num // 2) else False,  # we only dump log at the middle
         )
         logfile.write(str(exec_result) + "\n")
         logfile.flush()
@@ -176,7 +181,7 @@ def run_benchmark(
 if __name__ == "__main__":
     fusion_max_qubit = 3  # max_fusion_qubits
     total_qubit = 32
-    benchmarks = ["sc", "vc", "hs", "bv", "qft", "qaoa", "qv", "ising"]
+    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"] # , "ising"
 
     os.makedirs("./qiskitFusionCircuit", exist_ok=True)
 
@@ -186,8 +191,9 @@ if __name__ == "__main__":
         print("==================================================================")
         print(filename)
         logfile = open(
-            f"./qiskitFusionCircuit/experiment_{benchmark}{total_qubit}.log", "w"
+            f"./qiskitFusionCircuit/experiment_{benchmark}{total_qubit}.log", "a"
         )
+        logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
 
         # disable
         fusion_method = "disable"
@@ -200,27 +206,27 @@ if __name__ == "__main__":
         )
 
         # origin
-        fusion_method = "origin"
-        run_benchmark(
-            circuit_name,
-            total_qubit,
-            FusionConfig(fusion_method, fusion_max_qubit),
-            ExecConfig(True, fusion_max_qubit),
-            logfile,
-        )
-        # qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
-        qc1 = None
-
-        # static Qiskit
-        # fusion_method = "static_qiskit"
+        # fusion_method = "origin"
         # run_benchmark(
         #     circuit_name,
         #     total_qubit,
         #     FusionConfig(fusion_method, fusion_max_qubit),
-        #     ExecConfig(False, fusion_max_qubit),
+        #     ExecConfig(True, fusion_max_qubit),
         #     logfile,
-        #     qc1,
         # )
+        # qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
+        qc1 = None
+
+        # static Qiskit
+        fusion_method = "static_qiskit"
+        run_benchmark(
+            circuit_name,
+            total_qubit,
+            FusionConfig(fusion_method, fusion_max_qubit),
+            ExecConfig(False, fusion_max_qubit),
+            logfile,
+            qc1,
+        )
 
         # dynamic Qiskit
         fusion_method = "dynamic_qiskit"
