@@ -82,3 +82,9 @@ $ ./fusion ./circuit/sc24.txt ./fusionCircuit/sc24.txt 3 24 3
 $ finder/finder ./fusionCircuit/sc24.txt out.txt 18
 $ cpu/Quokka -i sub_cpu.ini -c out.txt
 ```
+
+## Test on Aer simulator with fusion methods
+
+```bash
+python python/exe_fusion_aer.py > out.txt
+```
