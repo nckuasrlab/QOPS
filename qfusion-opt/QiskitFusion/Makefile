@@ -12,14 +12,16 @@ gen_build_dir:
 static_qiskit.out: static_qiskit.hpp gen_build_dir
 	@cp $< ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp # patch the fusion.hpp
 	@cd ${QISKIT_AER_ROOT}/build/ && cmake .. -DDISABLE_CONAN=ON && \
-		cmake --build . --config Release -- -j8 2>| compile.log
+		cmake --build . --config Release -- -j8 2>| compile.log || \
+		(echo "check '${QISKIT_AER_ROOT}/build/compile.log' for compilation errors" && exit 1)
 	@mv ${QISKIT_AER_ROOT}/build/Release/qasm_simulator ./$@
 
 
 dynamic_qiskit.out: dynamic_qiskit.hpp gen_build_dir
 	@cp $< ${QISKIT_AER_ROOT}/src/transpile/fusion.hpp  # patch the fusion.hpp
 	@cd ${QISKIT_AER_ROOT}/build/ && cmake .. -DDISABLE_CONAN=ON && \
-		cmake --build . --config Release -- -j8 2>| compile.log
+		cmake --build . --config Release -- -j8 2>| compile.log || \
+		(echo "check '${QISKIT_AER_ROOT}/build/compile.log' for compilation errors" && exit 1)
 	@mv ${QISKIT_AER_ROOT}/build/Release/qasm_simulator ./$@
 
 

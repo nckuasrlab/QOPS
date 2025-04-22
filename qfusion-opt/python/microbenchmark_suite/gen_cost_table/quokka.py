@@ -77,7 +77,7 @@ def main():
             )
             df_input = pd.get_dummies(df_input, columns=["gate_type"])
             df_input = sc.transform(df_input)
-            f_exe.write(str(model.predict(df_input)[0]) + "\n")
+            f_exe.write(f"{gate},{input_chunk_size},{model.predict(df_input)[0]}\n")
         f_exe.close()
 
     elif args.mode == "predict":

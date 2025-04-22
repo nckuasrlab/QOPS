@@ -11,6 +11,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <sstream>
 
 size_t maxFusionQuibits;
 int Qubits;
@@ -32,16 +33,16 @@ using Matrix = std::vector<std::vector<std::complex<double>>>;
 int targetQubitCounter(std::string gateType) {
     if (gateType == "H" || gateType == "X" || gateType == "RY" ||
         gateType == "RX" || gateType == "U1" || gateType == "RZ" ||
-        gateType == "DONE")
+        gateType == "D1")
         return 1;
     else if (gateType == "CX" || gateType == "CP" || gateType == "CZ" ||
-             gateType == "RZZ" || gateType == "DTWO")
+             gateType == "RZZ" || gateType == "D2")
         return 2;
-    else if (gateType == "DTHREE")
+    else if (gateType == "D3")
         return 3;
-    else if (gateType == "DFOUR")
+    else if (gateType == "D4")
         return 4;
-    else if (gateType == "DFIVE")
+    else if (gateType == "D5")
         return 5;
     return 0;
 }
@@ -483,10 +484,10 @@ void constructDependencyList(std::vector<fusionGate> fusionGateList,
 double cost(std::string gateType, int fusionSize, int targetQubit) {
     if (method < 4 || method == 5)
         return pow(cost_factor, (double)std::max(fusionSize - 1, 1));
-    else if (method == 7 || method == 8) {
+    else if (method == 7 || method == 8) { // TODO: verify cost table mapping from file
         if (fusionSize == 2)
             return gateTime[10 * Qubits + targetQubit];
-        else if (fusionSize == 3)
+        else if (fusionSize == 3) // TODO: impl U4, U5
             return gateTime[11 * Qubits + targetQubit];
         else if (gateType == "H")
             return gateTime[0 * Qubits + targetQubit];
@@ -508,16 +509,16 @@ double cost(std::string gateType, int fusionSize, int targetQubit) {
             return gateTime[8 * Qubits + targetQubit];
         else if (gateType == "RZZ")
             return gateTime[9 * Qubits + targetQubit];
-        else if (gateType == "DONE")
-            return gateTime[12 * Qubits + targetQubit];
-        else if (gateType == "DTWO")
-            return gateTime[13 * Qubits + targetQubit];
-        else if (gateType == "DTHREE")
+        else if (gateType == "D1")
             return gateTime[14 * Qubits + targetQubit];
-        else if (gateType == "DFOUR")
+        else if (gateType == "D2")
             return gateTime[15 * Qubits + targetQubit];
-        else if (gateType == "DFIVE")
+        else if (gateType == "D3")
             return gateTime[16 * Qubits + targetQubit];
+        else if (gateType == "D4")
+            return gateTime[17 * Qubits + targetQubit];
+        else if (gateType == "D5")
+            return gateTime[18 * Qubits + targetQubit];
     } else {
         if (fusionSize == 2)
             return gateTime[10];
@@ -685,6 +686,7 @@ void outputFusionCircuit(
     for (size_t index = 1; index < executionGateList.size(); ++index) {
         const auto &execGate = executionGateList[index];
         if (execGate.fusionSize > 1) {
+            // TODO: check diagonal gate is correctly generated
             std::vector<int> targetQubits;
             const auto &pGate =
                 fusionGateList[execGate.fusionSize - 1][execGate.fusionIndex];
@@ -1141,6 +1143,7 @@ int main(int argc, char *argv[]) {
         method = atoi(argv[5]);
 
     if (method == 4 || method == 6 || method == 7 || method == 8) {
+        // TODO: use environment variable to get the path of cost table
         std::ifstream gateTimeFile("./log/gate_exe_time.csv");
         if (!gateTimeFile) {
             std::cerr << "Error: Could not open the file "
@@ -1149,8 +1152,15 @@ int main(int argc, char *argv[]) {
                 << "Please run python/performance_model_{SIMULATOR}.py first\n";
             return 1;
         }
-        for (std::string line; getline(gateTimeFile, line);)
-            gateTime.push_back(stod(line));
+        // the cost table format: gate, target_qubit (or chunk_size), time
+        for (std::string line; getline(gateTimeFile, line);) {
+            std::stringstream ss(line);
+            std::string gate, target_qubit, time;
+            getline(ss, gate, ',');
+            getline(ss, target_qubit, ',');
+            getline(ss, time, ',');
+            gateTime.push_back(stod(time));
+        }
     }
 
     // reorder

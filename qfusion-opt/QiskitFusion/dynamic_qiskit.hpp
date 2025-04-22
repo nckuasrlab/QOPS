@@ -1144,6 +1144,18 @@ void CostBasedFusion::set_config(const Config &config) {
     costs_[9] = config._fusion_cost_10.value();
 }
 
+static double get_dynamic_cost(const std::map<std::string, std::vector<double>>& dynamic_gate_time,
+                               const AER::Operations::Op op) {
+  // get cost of Op with its first qubit
+  std::string gate = aer_gate_to_quokka_gate(op.name + "-" + std::to_string(op.qubits.size()));
+  int cost = pow(1.8,
+    (double)std::max(op.qubits.size() - 2, size_t(1)));
+  if (gate != "notfound") {
+    cost = dynamic_gate_time.at(gate)[op.qubits[0]];
+  }
+  return cost;
+}
+
 bool CostBasedFusion::aggregate_operations(oplist_t &ops,
                                            const int fusion_start,
                                            const int fusion_end,
@@ -1176,15 +1188,17 @@ bool CostBasedFusion::aggregate_operations(oplist_t &ops,
 
   // set costs and fusion_to of fusion_start
   fusion_to.push_back(fusion_start);
-  costs.push_back(method.can_ignore(ops[fusion_start]) ? .0 : cost_factor);
+  double cost_i = get_dynamic_cost(dynamic_gate_time, ops[fusion_start]);
+  costs.push_back(method.can_ignore(ops[fusion_start]) ? .0 : cost_i);
 
   bool applied = false;
   // calculate the minimal path to each operation in the circuit
   for (int i = fusion_start + 1; i < fusion_end; ++i) {
     // init with fusion from i-th to i-th
     fusion_to.push_back(i);
+    double cost_i = get_dynamic_cost(dynamic_gate_time, ops[fusion_start]);
     costs.push_back(costs[i - fusion_start - 1] +
-                    (method.can_ignore(ops[i]) ? .0 : cost_factor));
+                    (method.can_ignore(ops[i]) ? .0 : cost_i));
 
     for (int num_fusion = 2; num_fusion <= static_cast<int>(max_fused_qubits);
          ++num_fusion) {
@@ -1268,16 +1282,22 @@ double CostBasedFusion::estimate_cost(const std::vector<op_t> &ops,
                                       const uint_t from,
                                       const uint_t until,
                                       const std::map<std::string, std::vector<double>> dynamic_gate_time) const {
-  // if (is_diagonal(ops, from, until))
-  //   return 1.0;
+  
 
   reg_t fusion_qubits;
-  const int gate_list_num = 19;
   for (uint_t i = from; i <= until; ++i)
     add_fusion_qubits(fusion_qubits, ops[i]);
-  const int total_qubit_in_cost = int(dynamic_gate_time.size()/gate_list_num);
-  std::string gate = aer_gate_to_quokka_gate(ops[from].name 
-    + "-" + std::to_string(ops[from].qubits.size()));
+
+  std::string gate = "notfound";
+  if (is_diagonal(ops, from, until)) {
+    gate = "D" + std::to_string(fusion_qubits.size());
+  } else if (ops.size() > 1) {
+    gate = "U" + std::to_string(fusion_qubits.size());
+  } else if (ops.size() == 1) {
+    gate = aer_gate_to_quokka_gate(ops[from].name 
+      + "-" + std::to_string(ops[from].qubits.size()));
+  } 
+
   int cost = pow(cost_factor,
     (double)std::max(fusion_qubits.size() - 2, size_t(1)));
   if (gate != "notfound") {

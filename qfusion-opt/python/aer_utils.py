@@ -5,6 +5,7 @@ import numpy as np
 import scipy.linalg
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import DiagonalGate, UnitaryGate
+from qiskit.compiler import transpile
 from qiskit_aer import AerSimulator
 from scipy.linalg import polar
 
@@ -156,7 +157,9 @@ def exec_circuit(
         fusion_verbose=open_fusion,
         fusion_max_qubit=max_fusion_qubits,
     )
-    res = simulator.run(circuit).result()
+    # circuit is transpiled with default optimizations
+    qc = transpile(circuit, simulator)
+    res = simulator.run(qc).result()
 
     # dump execution log
     if dump_log:
