@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <ostream>
 #include <queue>
 #include <set>
 #include <string>
@@ -177,6 +178,29 @@ Matrix twoQubitsGateMat(fusionGate gate, std::vector<int> fusedQubits) {
             }
             resMat = tensorProduct(resMat, gateProduct);
         }
+    } else if (gate.gateType[0] == 'D') {
+        int matSize = 1 << fusedQubits.size();
+        for (int i = 0; i < resMat.size(); i++)
+            resMat[i][i] = 1;
+        uint32_t targetMask = 0;
+
+        for (auto qubit : reorderQubits)
+            targetMask |= (1 << qubit);
+
+        for (int i = 0; i < resMat.size(); i++) {
+            uint32_t target = i & targetMask;
+            /* sortTarget is used while the gate.targetQubit would cross a
+             * qubit. For example, if gate.targetQubit = {0 ,2}, and the
+             * fusedQubits = {0, 1, 2}, the targetMask = 101b, which means it
+             * will get the first and third qubit. If i = 5 target = 5 & "101b",
+             * which is 5. But the original target should be "11b". So here is
+             * how we handle it.*/
+            uint32_t sortTarget = 0;
+            for (int idx = 0; idx < reorderQubits.size(); idx++)
+                sortTarget |= ((target >> reorderQubits[idx]) & 1) << idx;
+            std::complex elem = {gate.rotation[sortTarget * 2], gate.rotation[sortTarget * 2 + 1]};
+            resMat[i][i] = elem;
+        }
     }
     return resMat;
 }
@@ -218,6 +242,9 @@ Matrix gateMatrix(std::string gateType, std::vector<double> rotation) {
         mat[1].assign({{sin(theta / 2) * cos(phi), sin(theta / 2) * sin(phi)},
                        {cos(theta / 2) * cos(phi + lamda),
                         cos(theta / 2) * sin(phi + lamda)}});
+    } else {
+        std::cerr << gateType << " gate doesn't support!\n";
+        exit(1);
     }
     return mat;
 }
@@ -242,7 +269,6 @@ Matrix tensorProduct(Matrix matA, Matrix matB) {
     }
     return resMat;
 }
-
 /* Expand the size of gate to specific size */
 Matrix gateExpansion(const fusionGate targetGate,
                      std::vector<int> targetQubits) {
@@ -251,7 +277,8 @@ Matrix gateExpansion(const fusionGate targetGate,
     /* If targetGate two-qubit gate like CX, CZ and CP, get the expanded matrix
      * from twoQubitsGateMat().(Because they can't be simply expanded from
      * tensor product.) */
-    if (targetGate.gateType[0] == 'C' || targetGate.gateType == "RZZ")
+    if (targetGate.gateType[0] == 'C' || targetGate.gateType == "RZZ" ||
+        targetGate.gateType[0] == 'D')
         return twoQubitsGateMat(targetGate, targetQubits);
 
     for (int i = 0; i < targetQubits.size(); i++) {
@@ -273,11 +300,17 @@ Matrix gateExpansion(const fusionGate targetGate,
     }
     return resMat;
 }
-
 /* Implement the matrix multiplication */
 Matrix matrixMul(Matrix matA, Matrix matB) {
     Matrix resMat(matA.size(),
                   std::vector<std::complex<double>>(matB[0].size(), {0, 0}));
+    if (matA[0].size() != matB.size()) {
+        std::cerr << "The size of first matrix row is not equal to second "
+                     "matrix column, matA[0] = "
+                  << matA[0].size() << " ,matB.size = " << matB.size()
+                  << std::endl;
+        exit(1);
+    }
     for (int i = 0; i < matA.size(); i++) {
         for (int j = 0; j < matB[0].size(); j++) {
             std::complex<double> tmp(0, 0);
@@ -289,7 +322,6 @@ Matrix matrixMul(Matrix matA, Matrix matB) {
     }
     return resMat;
 }
-
 /* Calculate the result matrix of gate fusion */
 Matrix calculateFusionGate(std::vector<fusionGate> subGateList,
                            std::vector<int> targetQubits) {
@@ -690,23 +722,42 @@ void outputFusionCircuit(
             std::vector<int> targetQubits;
             const auto &pGate =
                 fusionGateList[execGate.fusionSize - 1][execGate.fusionIndex];
+            bool isDiagonal = true;
+            for (const auto &subGate : pGate.subGateList) {
+                if (subGate.gateType[0] != 'D') {
+                    isDiagonal = false;
+                    break;
+                }
+            }
             for (const auto &subGate : pGate.subGateList)
                 for (int qubit : subGate.targetQubit)
                     if (find(targetQubits.begin(), targetQubits.end(), qubit) ==
                         targetQubits.end())
                         targetQubits.push_back(qubit);
             sort(targetQubits.begin(), targetQubits.end());
-            outputFile << "U" << targetQubits.size() << " ";
+            char gateT = 'U';
+            if (isDiagonal)
+                gateT = 'D';
+            outputFile << gateT << targetQubits.size() << " ";
             for (int qubit : targetQubits)
                 outputFile << qubit << " ";
 
             Matrix fusedGateMat =
                 calculateFusionGate(pGate.subGateList, targetQubits);
-            for (size_t matRow = 0; matRow < fusedGateMat.size(); matRow++) {
-                for (const auto elem : fusedGateMat[matRow])
+            if (gateT == 'D') {
+                for (size_t i = 0; i < fusedGateMat.size(); i++)
                     outputFile << std::fixed << std::setprecision(16)
-                               << elem.real() << " " << std::fixed
-                               << std::setprecision(16) << elem.imag() << " ";
+                               << fusedGateMat[i][i].real() << " "
+                               << fusedGateMat[i][i].imag() << " ";
+            } else {
+                for (size_t matRow = 0; matRow < fusedGateMat.size();
+                     matRow++) {
+                    for (const auto elem : fusedGateMat[matRow])
+                        outputFile << std::fixed << std::setprecision(16)
+                                   << elem.real() << " " << std::fixed
+                                   << std::setprecision(16) << elem.imag()
+                                   << " ";
+                }
             }
             outputFile << "\n";
         } else {
@@ -715,9 +766,17 @@ void outputFusionCircuit(
             outputFile << subGate.gateType << " ";
             for (int qubit : subGate.targetQubit)
                 outputFile << qubit << " ";
-            for (double rotation : subGate.rotation)
-                outputFile << std::fixed << std::setprecision(16) << rotation
-                           << " ";
+            if (subGate.gateType[0] == 'D') {
+                for (int i = 0; i * 2 < subGate.rotation.size(); i++) {
+                    outputFile << std::fixed << std::setprecision(16) << " "
+                               << subGate.rotation[i * 2] << " "
+                               << subGate.rotation[i * 2 + 1];
+                }
+            } else {
+                for (double rotation : subGate.rotation)
+                    outputFile << std::fixed << std::setprecision(16)
+                               << rotation << " ";
+            }
             outputFile << "\n";
         }
     }
@@ -812,7 +871,11 @@ class DAG {
 
                 Matrix fusedGateMat;
                 std::vector<fusionGate> gateListForUGate;
+
+                for (int i = nodeList[nowIndex].predecessor; i < nowIndex; ++i)
+                    gateListForUGate.push_back(gateList[i].subGateList[0]);
                 fusedGateMat = calculateFusionGate(gateListForUGate, qubit);
+
                 for (size_t matRow = 0; matRow < fusedGateMat.size();
                      matRow++) {
                     for (const auto elem : fusedGateMat[matRow]) {
@@ -832,12 +895,30 @@ class DAG {
                 for (int qubitIndex :
                      gateList[predecessorIndex].subGateList[0].targetQubit)
                     tmpStr += " " + std::to_string(qubitIndex);
-                for (double rotation :
-                     gateList[predecessorIndex].subGateList[0].rotation) {
-                    std::ostringstream rotateStr;
-                    rotateStr << std::fixed << std::setprecision(16) << " "
-                              << rotation;
-                    tmpStr += rotateStr.str();
+                if (gateList[predecessorIndex].subGateList[0].gateType[0] ==
+                    'D') {
+                    for (int i = 0; i * 2 < gateList[predecessorIndex]
+                                                .subGateList[0]
+                                                .rotation.size(); i++) {
+                        std::ostringstream rotateStr;
+                        rotateStr << std::fixed << std::setprecision(16) << " "
+                                  << gateList[predecessorIndex]
+                                         .subGateList[0]
+                                         .rotation[i * 2]
+                                  << " "
+                                  << gateList[predecessorIndex]
+                                         .subGateList[0]
+                                         .rotation[i * 2 + 1];
+                        tmpStr += rotateStr.str();
+                    }
+                } else {
+                    for (double rotation :
+                         gateList[predecessorIndex].subGateList[0].rotation) {
+                        std::ostringstream rotateStr;
+                        rotateStr << std::fixed << std::setprecision(16) << " "
+                                  << rotation;
+                        tmpStr += rotateStr.str();
+                    }
                 }
                 outputStr.push_back(tmpStr);
             }
@@ -1262,9 +1343,11 @@ int main(int argc, char *argv[]) {
                 gateParser >> subGate.gateType;
             else if (circuit[i].gateType == "CP" ||
                      circuit[i].gateType == "RZZ")
-                gateParser >> subGate.gateType >> ignoredValue >>
-                    ignoredValue >> rotation;
+                gateParser >> subGate.gateType >> ignoredValue >> ignoredValue >>
+                    rotation;
             subGate.rotation.push_back(rotation);
+            subGate.originalOrderQubit = circuit[i].targetQubit;
+            subGate.targetQubit = circuit[i].targetQubit;
 
             if (circuit[i].gateType == "RZ") {
                 auto firstInset =
@@ -1332,6 +1415,8 @@ int main(int argc, char *argv[]) {
             sort(targetQubitList.begin(), targetQubitList.end());
             gateLine newGate("D", targetQubitList);
             circuit.push_back(newGate);
+            fusedGatesRecord[&*(circuit.begin() + circuit.size() - 1)] =
+                subGateList;
         }
         std::ofstream tmpOutputFile("diagonal.txt");
         // add more if else if max qubit is larger than 5
@@ -1354,10 +1439,8 @@ int main(int argc, char *argv[]) {
                                   << std::to_string(circuit[i].targetQubit[j]);
                 Matrix fusedDGate = calculateFusionGate(
                     fusedGatesRecord[&circuit[i]], circuit[i].targetQubit);
-                for (size_t matRow = 0; matRow < fusedDGate.size(); matRow++) {
-                    for (const auto elem : fusedDGate[matRow])
-                        tmpOutputFile << " " << elem.real() << " "
-                                      << elem.imag();
+                for (int j = 0; j < fusedDGate.size(); j++) {
+                    tmpOutputFile << std::fixed << std::setprecision(16) << " " << fusedDGate[j][j].real() << " " << fusedDGate[j][j].imag();
                 }
                 tmpOutputFile << "\n";
             }
