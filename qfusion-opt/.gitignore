@@ -16,3 +16,6 @@ model/
 qiskitFusionCircuit/
 subCircuit/
 txt/
+
+# generated tmp files
+diagonal.txt
