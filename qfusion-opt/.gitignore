@@ -16,3 +16,7 @@ model/
 qiskitFusionCircuit/
 subCircuit/
 txt/
+
+# generated tmp files
+diagonal.txt
+sub_cpu.ini

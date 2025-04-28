@@ -3,6 +3,7 @@ import os
 import random
 import time
 
+import numpy as np
 from python.common import gate_list_aer as gate_list
 from python.microbenchmark_suite.run_microbenchmark.random_param import (
     random_diagonal_gate,
@@ -16,6 +17,7 @@ from qiskit_aer import AerSimulator
 
 # Random Seed for Reproducibility
 random.seed(0)
+np.random.seed(0)
 
 
 def gen_microbenchmark(
