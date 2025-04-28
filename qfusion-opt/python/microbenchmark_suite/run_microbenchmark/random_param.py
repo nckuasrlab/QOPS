@@ -1,8 +1,10 @@
+from typing import List
+
 import numpy as np
 import scipy.linalg
 
 
-def random_unitary_matrix(num_qubits):
+def random_unitary_matrix(num_qubits) -> List[List[complex]]:
     """
     Generates a random unitary matrix of size 2^num_qubits x 2^num_qubits
     and returns it as a Python 2D list.
@@ -26,7 +28,7 @@ def random_unitary_matrix(num_qubits):
     return unitary_matrix_list
 
 
-def random_diagonal_gate(num_qubits):
+def random_diagonal_gate(num_qubits) -> List[complex]:
     """
     Generates a random quantum diagonal gate for a given number of qubits.
     """
@@ -47,3 +49,9 @@ def random_u_gate_parameters():
 def random_theta():
     theta = np.random.uniform(0, 2 * np.pi)
     return theta
+
+if __name__ == "__main__":
+    print(random_unitary_matrix(2))
+    print(random_diagonal_gate(2))
+    print(random_u_gate_parameters())
+    print(random_theta())
