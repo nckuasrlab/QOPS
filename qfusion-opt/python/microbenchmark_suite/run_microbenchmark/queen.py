@@ -55,47 +55,31 @@ def gen_microbenchmark(
     microbenchmark_result_file,
 ):
     f_log = open(microbenchmark_result_file, "a")
-    for gate in gate_list:
-        for total_qubit in range(total_qubit_min, total_qubit_max + 1):
+    for total_qubit in range(total_qubit_min, total_qubit_max + 1):
+        gate_position_map = [
+            random.sample(range(total_qubit), 5) for _ in range(num_repeat_runs)
+        ]
+        for gate in gate_list:
             ori_circuit_name = f"{tmp_circuit_dir}/" + gate + ".txt"
-            if gate != "CZ" and gate != "CP" and gate != "RZZ":
-                ori_circuit = open(ori_circuit_name, "w")
-            if gate == "H" or gate == "X":
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 1)
-                    ori_circuit.write(f"{gate} {target[0]}\n")
-            elif gate == "RX" or gate == "RY" or gate == "RZ":
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 1)
-                    ori_circuit.write(f"{gate} {target[0]} {random_theta()}\n")
-            elif gate == "CX": # or gate == "CZ":
-                CZ_circuit_name = f"{tmp_circuit_dir}/" + "CZ" + ".txt"
-                CP_circuit_name = f"{tmp_circuit_dir}/" + "CP" + ".txt"
-                RZZ_circuit_name = f"{tmp_circuit_dir}/" + "RZZ" + ".txt"
-                CZ_circuit = open(CZ_circuit_name, "w")
-                CP_circuit = open(CP_circuit_name, "w")
-                RZZ_circuit = open(RZZ_circuit_name, "w")
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 2)
-                    ori_circuit.write(f"{gate} {target[0]} {target[1]}\n")
-                    CZ_circuit.write(f"CZ {target[0]} {target[1]}\n")
-                    CP_circuit.write(f"CP {target[0]} {target[1]} {random_theta()}\n")
-                    RZZ_circuit.write(f"RZZ {target[0]} {target[1]} {random_theta()}\n")
-                CZ_circuit.close()
-                CP_circuit.close()
-                RZZ_circuit.close()
-                '''
-            elif gate == "CP" or gate == "RZZ":
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 2)
-                    ori_circuit.write(
-                        f"{gate} {target[0]} {target[1]} {random_theta()}\n"
-                    )
-                '''
+            ori_circuit = open(ori_circuit_name, "w")
+            if gate in ["H", "X", "RX", "RY", "RZ"]:
+                for i in range(num_repeat_runs):
+                    target = gate_position_map[i]
+                    ori_circuit.write(f"{gate} {target[0]}")
+                    if gate[0] == "R":
+                        ori_circuit.write(f" {random_theta()}")
+                    ori_circuit.write("\n");
+            elif gate in ["CX", "CZ", "CP", "RZZ"]:
+                for i in range(num_repeat_runs):
+                    target = gate_position_map[i]
+                    ori_circuit.write(f"{gate} {target[0]} {target[1]}")
+                    if gate == "CP" or gate == "RZZ":
+                        ori_circuit.write(f" {random_theta()}")
+                    ori_circuit.write("\n")
             elif gate[0] == "U":
                 qubits = int(gate[1:])
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), qubits)
+                for idx in range(num_repeat_runs):
+                    target = gate_position_map[idx]
                     ori_circuit.write(f"{gate}")
                     for i in range(qubits):
                         ori_circuit.write(f" {target[i]}")
@@ -106,8 +90,8 @@ def gen_microbenchmark(
                     ori_circuit.write("\n")
             elif gate[0] == "D":
                 qubits = int(gate[1:])
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), qubits)
+                for idx in range(num_repeat_runs):
+                    target = gate_position_map[idx]
                     ori_circuit.write(f"{gate}")
                     for i in range(qubits):
                         ori_circuit.write(f" {target[i]}")
@@ -115,8 +99,8 @@ def gen_microbenchmark(
                     for i in range(2**qubits):
                         ori_circuit.write(f" {m[i].real} {m[i].imag}")
                     ori_circuit.write("\n")
-            if gate != "CZ" and gate != "CP" and gate != "RZZ":
-                ori_circuit.close()
+            ori_circuit.close()
+
             # continue
             for chunk_size in range(chunk_min, chunk_max + 1):
                 set_ini_file(total_qubit, num_file_qubit, chunk_size, simulation_type)
