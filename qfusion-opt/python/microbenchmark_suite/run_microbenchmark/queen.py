@@ -26,7 +26,7 @@ def set_ini_file(total_qubit, num_file_qubit, chunk_size, simulation_type):
     if simulation_type == "MEM":
         f.write(
             "[system]\n"
-            + f"total_qubit={total_qubit}\n"
+            + f"total_qbit={total_qubit}\n"
             + f"device_qbit=0\n"
             + f"chunk_qbit={chunk_size}\n"
             + f"buffer_qbit=26\n"
@@ -56,9 +56,10 @@ def gen_microbenchmark(
 ):
     f_log = open(microbenchmark_result_file, "a")
     for gate in gate_list:
-        for total_qubit in [32]:  # range(total_qubit_min, total_qubit_max + 1):
+        for total_qubit in range(total_qubit_min, total_qubit_max + 1):
             ori_circuit_name = f"{tmp_circuit_dir}/" + gate + ".txt"
-            ori_circuit = open(ori_circuit_name, "w")
+            if gate != "CZ" and gate != "CP" and gate != "RZZ":
+                ori_circuit = open(ori_circuit_name, "w")
             if gate == "H" or gate == "X":
                 for _ in repeat(None, num_repeat_runs):
                     target = random.sample(range(total_qubit), 1)
@@ -67,16 +68,30 @@ def gen_microbenchmark(
                 for _ in repeat(None, num_repeat_runs):
                     target = random.sample(range(total_qubit), 1)
                     ori_circuit.write(f"{gate} {target[0]} {random_theta()}\n")
-            elif gate == "CX" or gate == "CZ":
+            elif gate == "CX": # or gate == "CZ":
+                CZ_circuit_name = f"{tmp_circuit_dir}/" + "CZ" + ".txt"
+                CP_circuit_name = f"{tmp_circuit_dir}/" + "CP" + ".txt"
+                RZZ_circuit_name = f"{tmp_circuit_dir}/" + "RZZ" + ".txt"
+                CZ_circuit = open(CZ_circuit_name, "w")
+                CP_circuit = open(CP_circuit_name, "w")
+                RZZ_circuit = open(RZZ_circuit_name, "w")
                 for _ in repeat(None, num_repeat_runs):
                     target = random.sample(range(total_qubit), 2)
                     ori_circuit.write(f"{gate} {target[0]} {target[1]}\n")
+                    CZ_circuit.write(f"CZ {target[0]} {target[1]}\n")
+                    CP_circuit.write(f"CP {target[0]} {target[1]} {random_theta()}\n")
+                    RZZ_circuit.write(f"RZZ {target[0]} {target[1]} {random_theta()}\n")
+                CZ_circuit.close()
+                CP_circuit.close()
+                RZZ_circuit.close()
+                '''
             elif gate == "CP" or gate == "RZZ":
                 for _ in repeat(None, num_repeat_runs):
                     target = random.sample(range(total_qubit), 2)
                     ori_circuit.write(
                         f"{gate} {target[0]} {target[1]} {random_theta()}\n"
                     )
+                '''
             elif gate[0] == "U":
                 qubits = int(gate[1:])
                 for _ in repeat(None, num_repeat_runs):
@@ -100,9 +115,10 @@ def gen_microbenchmark(
                     for i in range(2**qubits):
                         ori_circuit.write(f" {m[i].real} {m[i].imag}")
                     ori_circuit.write("\n")
-            ori_circuit.close()
+            if gate != "CZ" and gate != "CP" and gate != "RZZ":
+                ori_circuit.close()
             # continue
-            for chunk_size in [18]:  # range(chunk_min, chunk_max + 1):
+            for chunk_size in range(chunk_min, chunk_max + 1):
                 set_ini_file(total_qubit, num_file_qubit, chunk_size, simulation_type)
                 opt_circuit_name = f"{tmp_circuit_dir}/" + gate + "_opt.txt"
                 # continue
@@ -126,13 +142,13 @@ def gen_microbenchmark(
 
                 # run simulator
                 output = subprocess.run(
-                    [simulator_binary, "-i", "sub_cpu.ini", "-c", opt_circuit],
+                    [simulator_binary, "-i", "sub_cpu.ini", "-c", opt_circuit_name],
                     capture_output=True,
                     text=True,
                 )
                 # ms
                 data = (
-                    float(output.stdout.split("\n")[-2].split("s")[0])
+                    float(output.stdout.split("\n")[-2].split(" ")[-2])
                     / num_repeat_runs
                     * 1000
                 )
