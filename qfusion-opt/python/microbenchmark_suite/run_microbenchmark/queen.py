@@ -26,7 +26,7 @@ def set_ini_file(total_qubit, num_file_qubit, chunk_size, simulation_type):
     if simulation_type == "MEM":
         f.write(
             "[system]\n"
-            + f"total_qubit={total_qubit}\n"
+            + f"total_qbit={total_qubit}\n"
             + f"device_qbit=0\n"
             + f"chunk_qbit={chunk_size}\n"
             + f"buffer_qbit=26\n"
@@ -55,32 +55,31 @@ def gen_microbenchmark(
     microbenchmark_result_file,
 ):
     f_log = open(microbenchmark_result_file, "a")
-    for gate in gate_list:
-        for total_qubit in [32]:  # range(total_qubit_min, total_qubit_max + 1):
+    for total_qubit in range(total_qubit_min, total_qubit_max + 1):
+        gate_position_map = [
+            random.sample(range(total_qubit), 5) for _ in range(num_repeat_runs)
+        ]
+        for gate in gate_list:
             ori_circuit_name = f"{tmp_circuit_dir}/" + gate + ".txt"
             ori_circuit = open(ori_circuit_name, "w")
-            if gate == "H" or gate == "X":
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 1)
-                    ori_circuit.write(f"{gate} {target[0]}\n")
-            elif gate == "RX" or gate == "RY" or gate == "RZ":
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 1)
-                    ori_circuit.write(f"{gate} {target[0]} {random_theta()}\n")
-            elif gate == "CX" or gate == "CZ":
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 2)
-                    ori_circuit.write(f"{gate} {target[0]} {target[1]}\n")
-            elif gate == "CP" or gate == "RZZ":
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), 2)
-                    ori_circuit.write(
-                        f"{gate} {target[0]} {target[1]} {random_theta()}\n"
-                    )
+            if gate in ["H", "X", "RX", "RY", "RZ"]:
+                for i in range(num_repeat_runs):
+                    target = gate_position_map[i]
+                    ori_circuit.write(f"{gate} {target[0]}")
+                    if gate[0] == "R":
+                        ori_circuit.write(f" {random_theta()}")
+                    ori_circuit.write("\n");
+            elif gate in ["CX", "CZ", "CP", "RZZ"]:
+                for i in range(num_repeat_runs):
+                    target = gate_position_map[i]
+                    ori_circuit.write(f"{gate} {target[0]} {target[1]}")
+                    if gate == "CP" or gate == "RZZ":
+                        ori_circuit.write(f" {random_theta()}")
+                    ori_circuit.write("\n")
             elif gate[0] == "U":
                 qubits = int(gate[1:])
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), qubits)
+                for idx in range(num_repeat_runs):
+                    target = gate_position_map[idx]
                     ori_circuit.write(f"{gate}")
                     for i in range(qubits):
                         ori_circuit.write(f" {target[i]}")
@@ -91,8 +90,8 @@ def gen_microbenchmark(
                     ori_circuit.write("\n")
             elif gate[0] == "D":
                 qubits = int(gate[1:])
-                for _ in repeat(None, num_repeat_runs):
-                    target = random.sample(range(total_qubit), qubits)
+                for idx in range(num_repeat_runs):
+                    target = gate_position_map[idx]
                     ori_circuit.write(f"{gate}")
                     for i in range(qubits):
                         ori_circuit.write(f" {target[i]}")
@@ -101,8 +100,9 @@ def gen_microbenchmark(
                         ori_circuit.write(f" {m[i].real} {m[i].imag}")
                     ori_circuit.write("\n")
             ori_circuit.close()
+
             # continue
-            for chunk_size in [18]:  # range(chunk_min, chunk_max + 1):
+            for chunk_size in range(chunk_min, chunk_max + 1):
                 set_ini_file(total_qubit, num_file_qubit, chunk_size, simulation_type)
                 opt_circuit_name = f"{tmp_circuit_dir}/" + gate + "_opt.txt"
                 # continue
@@ -126,13 +126,13 @@ def gen_microbenchmark(
 
                 # run simulator
                 output = subprocess.run(
-                    [simulator_binary, "-i", "sub_cpu.ini", "-c", opt_circuit],
+                    [simulator_binary, "-i", "sub_cpu.ini", "-c", opt_circuit_name],
                     capture_output=True,
                     text=True,
                 )
                 # ms
                 data = (
-                    float(output.stdout.split("\n")[-2].split("s")[0])
+                    float(output.stdout.split("\n")[-2].split(" ")[-2])
                     / num_repeat_runs
                     * 1000
                 )
