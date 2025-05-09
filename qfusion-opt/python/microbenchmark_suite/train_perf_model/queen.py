@@ -3,7 +3,7 @@ import os
 import pickle
 
 import pandas as pd
-from python.common import gate_list_quokka as gate_list
+from python.common import gate_list_queen as gate_list
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_percentage_error
 from sklearn.model_selection import train_test_split
@@ -15,7 +15,7 @@ random_seed = 0
 
 def get_args():
     parser = argparse.ArgumentParser(
-        description="Train performance model Quokka",
+        description="Train performance model Queen",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
@@ -23,14 +23,14 @@ def get_args():
         "--microbenchmark_result",
         help="Path to microbenchmark result",
         metavar="CSV_FILENAME",
-        default="./log/microbenchmark_result_quokka.csv",
+        default="./log/microbenchmark_result_queen.csv",
     )
     parser.add_argument(
         "-o",
         "--model_folder",
         help="Folder path to output model",
         metavar="MODEL_FOLDER",
-        default="./model/quokka",
+        default="./model/queen",
     )
     return parser.parse_args()
 

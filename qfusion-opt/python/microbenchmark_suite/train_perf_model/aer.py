@@ -3,7 +3,7 @@ import os
 import pickle
 
 import pandas as pd
-from python.common import gate_list_aer
+from python.common import gate_list_aer as gate_list
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_percentage_error
 from sklearn.model_selection import train_test_split
@@ -45,7 +45,7 @@ def main():
 
     # data preprocessing
     df_microbenchmark["gate_type"] = pd.Categorical(
-        df_microbenchmark["gate_type"], categories=gate_list_aer
+        df_microbenchmark["gate_type"], categories=gate_list
     )
     df_microbenchmark = pd.get_dummies(df_microbenchmark, columns=["gate_type"])
     x = df_microbenchmark.drop(labels=["execution_time"], axis=1)
