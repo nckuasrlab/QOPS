@@ -20,7 +20,7 @@ int Qubits;
 int counter = 0;
 int method = 0;
 double cost_factor = 1.8;
-std::vector<double> gateTime;
+std::map<std::string, std::vector<double>> gateTime; // dynamic cost
 
 class gateLine;
 
@@ -515,71 +515,38 @@ void constructDependencyList(std::vector<fusionGate> fusionGateList,
     }
 }
 
-double cost(std::string gateType, int fusionSize, int targetQubit) {
-    if (method < 4 || method == 5)
+double cost(std::string gateType, const int fusionSize,
+            const std::vector<int> &targetQubits) {
+    if (method < 4 || method == 5) { // mode 4,6,7,8 need dynamic cost
         return pow(cost_factor, (double)std::max(fusionSize - 1, 1));
-    else if (method == 7 ||
-             method == 8) { // TODO: verify cost table mapping from file
-        if (fusionSize == 2)
-            return gateTime[10 * Qubits + targetQubit];
-        else if (fusionSize == 3) // TODO: impl U4, U5
-            return gateTime[11 * Qubits + targetQubit];
-        else if (gateType == "H")
-            return gateTime[0 * Qubits + targetQubit];
-        else if (gateType == "X")
-            return gateTime[1 * Qubits + targetQubit];
-        else if (gateType == "RX")
-            return gateTime[2 * Qubits + targetQubit];
-        else if (gateType == "RY")
-            return gateTime[3 * Qubits + targetQubit];
-        else if (gateType == "RZ")
-            return gateTime[4 * Qubits + targetQubit];
-        else if (gateType == "U1")
-            return gateTime[5 * Qubits + targetQubit];
-        else if (gateType == "CX")
-            return gateTime[6 * Qubits + targetQubit];
-        else if (gateType == "CZ")
-            return gateTime[7 * Qubits + targetQubit];
-        else if (gateType == "CP")
-            return gateTime[8 * Qubits + targetQubit];
-        else if (gateType == "RZZ")
-            return gateTime[9 * Qubits + targetQubit];
-        else if (gateType == "D1")
-            return gateTime[14 * Qubits + targetQubit];
-        else if (gateType == "D2")
-            return gateTime[15 * Qubits + targetQubit];
-        else if (gateType == "D3")
-            return gateTime[16 * Qubits + targetQubit];
-        else if (gateType == "D4")
-            return gateTime[17 * Qubits + targetQubit];
-        else if (gateType == "D5")
-            return gateTime[18 * Qubits + targetQubit];
-    } else {
-        if (fusionSize == 2)
-            return gateTime[10];
-        else if (fusionSize == 3)
-            return gateTime[11];
-        else if (gateType == "H")
-            return gateTime[0];
-        else if (gateType == "X")
-            return gateTime[1];
-        else if (gateType == "RX")
-            return gateTime[2];
-        else if (gateType == "RY")
-            return gateTime[3];
-        else if (gateType == "RZ")
-            return gateTime[4];
-        else if (gateType == "U1")
-            return gateTime[5];
-        else if (gateType == "CX")
-            return gateTime[6];
-        else if (gateType == "CZ")
-            return gateTime[7];
-        else if (gateType == "CP")
-            return gateTime[8];
-        else if (gateType == "RZZ")
-            return gateTime[9];
     }
+    int targetQubit = targetQubits[0];
+    if (method != 7 and method != 8) {
+        // In Aer simulator, the second dimension represents the
+        // target qubit. However, this is unnecessary in Quokka or
+        // Queen simulators, so a value of 0 is used.
+        targetQubit = 0;
+    }
+    if (fusionSize >= 2) {
+        if (fusionSize > 5) {
+            throw std::runtime_error("Current design does not support "
+                                     "fusion size larger than 5: " +
+                                     fusionSize);
+        }
+        if (gateType.starts_with("D")) { // for fused diagonal gates
+            return gateTime[gateType][targetQubit];
+        } else { // for fused unitary gates
+            std::string tempGateType = "U" + std::to_string(fusionSize);
+            return gateTime[tempGateType][targetQubit];
+        }
+    } else if (gateTime.count(gateType)) {
+        return gateTime[gateType][targetQubit];
+    } else { // gate type not in gateTime, we use the number of target qubits to
+             // estimate
+        std::string tempGateType = "U" + std::to_string(targetQubits.size());
+        return gateTime[tempGateType][targetQubit];
+    }
+    throw std::runtime_error("Should not reach here.");
     return 0;
 }
 
@@ -590,18 +557,19 @@ class treeNode {
     double executionTime;
     treeNode() : PNode(nullptr), nodeSI{0, 0}, executionTime(0) {}
     void setValue(treeNode *PNode, gateSI &gateSI, std::string gateType,
-                  int targetQubit) {
+                  const std::vector<int> &targetQubits) {
         this->PNode = PNode;
         this->nodeSI = gateSI;
         // set weight
         this->executionTime =
-            cost(gateType, this->nodeSI.fusionSize, targetQubit);
+            cost(gateType, this->nodeSI.fusionSize, targetQubits);
     }
     void getSmallWeight(std::vector<std::vector<fusionGate>> fusionGateList,
                         std::vector<std::vector<int>> dependencyList,
                         double nowWeight, double &smallWeight,
                         std::vector<gateSI> nowGateList,
                         std::vector<gateSI> &executionGateList) {
+        // showFusionGateList(fusionGateList, 2, 3);
         counter++;
         nowWeight += executionTime;
         nowGateList.push_back(nodeSI);
@@ -642,7 +610,7 @@ class treeNode {
                             .gateType,
                         fusionGateList[nowFusionSize][i]
                             .subGateList[0]
-                            .targetQubit[0]);
+                            .targetQubit);
                     nextNode.getSmallWeight(fusionGateList, dependencyList,
                                             nowWeight, smallWeight, nowGateList,
                                             executionGateList);
@@ -797,12 +765,12 @@ class DAG {
     void addEdge(int source, int destination, double weight) {
         edge[source].push_back(std::make_pair(destination, weight));
     }
-    void constructDAG(const std::vector<fusionGate> gateList) {
+    void constructDAG(const std::vector<fusionGate> &gateList) {
         for (size_t i = 0; i < gateList.size(); ++i) {
             // one qubit fusion edge
             addEdge(i, i + 1,
                     cost(gateList[i].subGateList[0].gateType, 1,
-                         gateList[i].subGateList[0].targetQubit[0]));
+                         gateList[i].subGateList[0].targetQubit));
             // muti qubit fusion edge
             for (size_t fusionSize = 2; fusionSize <= maxFusionQuibits;
                  ++fusionSize) {
@@ -821,7 +789,7 @@ class DAG {
                 }
                 if (nowIndex > i) {
                     sort(qubit.begin(), qubit.end());
-                    addEdge(i, nowIndex + 1, cost("", fusionSize, qubit[0]));
+                    addEdge(i, nowIndex + 1, cost("", fusionSize, qubit));
                 } else {
                     addEdge(i, -1, DBL_MAX);
                 }
@@ -1251,11 +1219,11 @@ int main(int argc, char *argv[]) {
         // the cost table format: gate, target_qubit (or chunk_size), time
         for (std::string line; getline(gateTimeFile, line);) {
             std::stringstream ss(line);
-            std::string gate, target_qubit, time;
-            getline(ss, gate, ',');
+            std::string gateType, target_qubit, time;
+            getline(ss, gateType, ',');
             getline(ss, target_qubit, ',');
             getline(ss, time, ',');
-            gateTime.push_back(stod(time));
+            gateTime[gateType].push_back(stod(time));
         }
     }
 

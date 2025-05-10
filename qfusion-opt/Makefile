@@ -1,5 +1,5 @@
 CXX:=g++
-CXXFLAGS:=-std=c++17 -O3 -march=native -flto=auto -funroll-loops -pipe -Wall -Wextra -Wpedantic
+CXXFLAGS:=-std=c++2a -O3 -march=native -flto=auto -funroll-loops -pipe -Wall -Wextra -Wpedantic
 
 TEST:=qv32.txt
 QUBIT:=32
