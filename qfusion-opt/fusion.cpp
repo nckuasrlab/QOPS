@@ -10,9 +10,10 @@
 #include <ostream>
 #include <queue>
 #include <set>
-#include <string>
-#include <vector>
 #include <sstream>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 size_t maxFusionQuibits;
 int Qubits;
@@ -198,7 +199,8 @@ Matrix twoQubitsGateMat(fusionGate gate, std::vector<int> fusedQubits) {
             uint32_t sortTarget = 0;
             for (int idx = 0; idx < reorderQubits.size(); idx++)
                 sortTarget |= ((target >> reorderQubits[idx]) & 1) << idx;
-            std::complex elem = {gate.rotation[sortTarget * 2], gate.rotation[sortTarget * 2 + 1]};
+            std::complex<double> elem = {gate.rotation[sortTarget * 2],
+                                         gate.rotation[sortTarget * 2 + 1]};
             resMat[i][i] = elem;
         }
     }
@@ -516,7 +518,8 @@ void constructDependencyList(std::vector<fusionGate> fusionGateList,
 double cost(std::string gateType, int fusionSize, int targetQubit) {
     if (method < 4 || method == 5)
         return pow(cost_factor, (double)std::max(fusionSize - 1, 1));
-    else if (method == 7 || method == 8) { // TODO: verify cost table mapping from file
+    else if (method == 7 ||
+             method == 8) { // TODO: verify cost table mapping from file
         if (fusionSize == 2)
             return gateTime[10 * Qubits + targetQubit];
         else if (fusionSize == 3) // TODO: impl U4, U5
@@ -899,7 +902,8 @@ class DAG {
                     'D') {
                     for (int i = 0; i * 2 < gateList[predecessorIndex]
                                                 .subGateList[0]
-                                                .rotation.size(); i++) {
+                                                .rotation.size();
+                         i++) {
                         std::ostringstream rotateStr;
                         rotateStr << std::fixed << std::setprecision(16) << " "
                                   << gateList[predecessorIndex]
@@ -1204,6 +1208,15 @@ GetOptimalGFS(std::string &outputFileName,
     }
 }
 
+std::string get_env_variable(const std::string &var_name) {
+    const char *var_value_cstr = std::getenv(var_name.c_str());
+    if (var_value_cstr == nullptr) {
+        throw std::runtime_error("Environment variable '" + var_name +
+                                 "' not found.");
+    }
+    return std::string(var_value_cstr);
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 5) {
         std::cerr << "Usage: " << argv[0]
@@ -1224,11 +1237,13 @@ int main(int argc, char *argv[]) {
         method = atoi(argv[5]);
 
     if (method == 4 || method == 6 || method == 7 || method == 8) {
-        // TODO: use environment variable to get the path of cost table
-        std::ifstream gateTimeFile("./log/gate_exe_time.csv");
+        std::string gateTimeFilenamme =
+            get_env_variable("DYNAMIC_COST_FILENAME");
+        std::ifstream gateTimeFile(gateTimeFilenamme);
         if (!gateTimeFile) {
-            std::cerr << "Error: Could not open the file "
-                         "(./log/gate_exe_time.csv)!\n";
+            std::cerr << "Error: Could not open the file " << gateTimeFilenamme
+                      << "\nPlease set environment variable "
+                         "DYNAMIC_COST_FILENAME correctly\n";
             std::cerr
                 << "Please run python/performance_model_{SIMULATOR}.py first\n";
             return 1;
@@ -1343,8 +1358,8 @@ int main(int argc, char *argv[]) {
                 gateParser >> subGate.gateType;
             else if (circuit[i].gateType == "CP" ||
                      circuit[i].gateType == "RZZ")
-                gateParser >> subGate.gateType >> ignoredValue >> ignoredValue >>
-                    rotation;
+                gateParser >> subGate.gateType >> ignoredValue >>
+                    ignoredValue >> rotation;
             subGate.rotation.push_back(rotation);
             subGate.originalOrderQubit = circuit[i].targetQubit;
             subGate.targetQubit = circuit[i].targetQubit;
@@ -1440,7 +1455,9 @@ int main(int argc, char *argv[]) {
                 Matrix fusedDGate = calculateFusionGate(
                     fusedGatesRecord[&circuit[i]], circuit[i].targetQubit);
                 for (int j = 0; j < fusedDGate.size(); j++) {
-                    tmpOutputFile << std::fixed << std::setprecision(16) << " " << fusedDGate[j][j].real() << " " << fusedDGate[j][j].imag();
+                    tmpOutputFile << std::fixed << std::setprecision(16) << " "
+                                  << fusedDGate[j][j].real() << " "
+                                  << fusedDGate[j][j].imag();
                 }
                 tmpOutputFile << "\n";
             }
@@ -1543,8 +1560,8 @@ int main(int argc, char *argv[]) {
             .count();
 
     // some result
-    std::vector time_keys{"reorder", "diagonal", "reorder2", "GetPGFS",
-                          "GetOptimalGFS"};
+    std::vector<std::string> time_keys{"reorder", "diagonal", "reorder2",
+                                       "GetPGFS", "GetOptimalGFS"};
     for (const auto &key : time_keys) {
         std::cout << timers[key] << ", ";
     }
