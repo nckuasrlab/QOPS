@@ -80,8 +80,14 @@ def gen_dfgc_fusion(
         str(total_qubit),
         "5" if fusion_method == "static_dfgc" else "8",
     ]
+    modified_env = os.environ.copy()
+    if fusion_method == "dynamic_dfgc":
+        modified_env["DYNAMIC_COST_FILENAME"] = "./log/gate_exe_time_aer.csv"
+
+    print(f"{'--verbose' if verbose else ''}", end="", flush=True)
     fusion_process = subprocess.run(
         cmd,
+        env=modified_env,
         capture_output=True,
         text=True,
     )
@@ -138,7 +144,7 @@ def run_benchmark(
             fusion_config.verbose,
         )
         qc = load_circuit(
-            fused_filename, total_qubit, circuit_name, use_random_matrix=True
+            fused_filename, total_qubit, circuit_name, use_random_matrix=False
         )
         # total gate count =
         #   original gate count - all measure gates - one barrier gate before measurement
@@ -155,14 +161,15 @@ def run_benchmark(
         compare_circuit, qc
     ):
         print(f"ERROR: {fusion_method} circuits not equivalent", flush=True)
-
-    exec_result = exec_circuit(
-        qc,
-        fusion_method,
-        exec_config.fusion_max_qubit,
-        exec_config.fusion_enable,
-        False,
-    )  # warmup
+    
+    if compare_circuit is None: # warmup if no compare circuit
+        exec_result = exec_circuit(
+            qc,
+            fusion_method,
+            exec_config.fusion_max_qubit,
+            exec_config.fusion_enable,
+            False,
+        )
     for i in range(repeat_num):
         print(f".", end="", flush=True)
         exec_result = exec_circuit(
@@ -181,7 +188,7 @@ def run_benchmark(
 if __name__ == "__main__":
     fusion_max_qubit = 3  # max_fusion_qubits
     total_qubit = 32
-    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"] # , "ising"
+    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"]  # , "ising"
 
     os.makedirs("./qiskitFusionCircuit", exist_ok=True)
 
@@ -217,7 +224,7 @@ if __name__ == "__main__":
         # qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
         qc1 = None
 
-        # static Qiskit
+        # static Qiskit = origin
         fusion_method = "static_qiskit"
         run_benchmark(
             circuit_name,
