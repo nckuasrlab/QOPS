@@ -33,6 +33,9 @@ gate_type_U2 31608.323270706
 ```bash
 $ python python/microbenchmark_suite/run_microbenchmark/quokka.py --simulator_binary=../Quokka/cpu/Quokka
 
+$ python python/microbenchmark_suite/run_microbenchmark/queen.py --simulator_binary=~/Queen_CPU/Queen_MPI_gateBlock/src/simulator/Queen --optimizer_binary=~/Queen_CPU/Queen_MPI_gateBlock/src/optimizer/finder
+Total time: 47250.74763983697
+
 $ python python/microbenchmark_suite/run_microbenchmark/aer.py
 Namespace(num_repeat_runs=100, total_qubit_min=24, total_qubit_max=32, microbenchmark_result_file='./log/microbenchmark_result_aer.csv')
 Total time: 27118.383654820966
@@ -45,6 +48,10 @@ $ python python/microbenchmark_suite/train_perf_model/quokka.py
 Namespace(microbenchmark_result='./log/microbenchmark_result_quokka.csv', model_folder='./model/quokka')
 model error rate: 0.09959293174978058
 
+$ python python/microbenchmark_suite/train_perf_model/queen.py
+Namespace(microbenchmark_result='./log/microbenchmark_result_queen.csv', model_folder='./model/queen')
+model error rate: 0.09348921127382935
+
 $ python python/microbenchmark_suite/train_perf_model/aer.py 
 Namespace(microbenchmark_result='./log/microbenchmark_result_aer.csv', model_folder='./model/aer')
 model error rate: 0.036115926738519114
@@ -56,6 +63,10 @@ model error rate: 0.036115926738519114
 $ python python/microbenchmark_suite/gen_cost_table/quokka.py gen_table 32 18
 Namespace(mode='gen_table', model_folder='./model/quokka', input_total_qubit=32, input_chunk_size=18, output_file='./log/gate_exe_time.csv')
 
+$ python python/microbenchmark_suite/gen_cost_table/queen.py gen_table 32 
+Namespace(mode='gen_table', model_folder='./model/queen', input_total_qubit=32, input_chunk_size=-1, output_file='./log/gate_exe_time_queen.csv')
+Best chunk size:  17
+
 $ python python/microbenchmark_suite/gen_cost_table/aer.py gen_table 32
 Namespace(mode='gen_table', model_folder='./model/aer', input_total_qubit=32, output_file='./log/gate_exe_time_aer.csv')
 ```
@@ -66,6 +77,10 @@ Namespace(mode='gen_table', model_folder='./model/aer', input_total_qubit=32, ou
 $ python python/microbenchmark_suite/gen_cost_table/quokka.py predict H 32 18
 Namespace(mode='predict', model_folder='./model/quokka', input_gate_type='H', input_total_qubit=32, input_chunk_size=18)
 56.89338679999995
+
+$ python python/microbenchmark_suite/gen_cost_table/queen.py predict H 32 18
+Namespace(mode='predict', model_folder='./model/queen', input_gate_type='H', input_total_qubit=32, input_chunk_size=18)
+118.56756715999964
 
 $ python python/microbenchmark_suite/gen_cost_table/aer.py predict H 32 18
 Namespace(mode='predict', model_folder='./model/aer', input_gate_type='H', input_total_qubit=32, input_target_qubit=18)

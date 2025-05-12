@@ -35,11 +35,6 @@ def set_ini_file(total_qubit, num_file_qubit, chunk_size, simulation_type):
     f.close()
 
 
-# TODO
-# - random diagonal and unitary matrix
-# - chunk_size is used to reduce the number of VSWAP2-2, so the benchmark should rerun.
-#       The test program could be applying gate from q0 to qN then run finder then simulate.
-#       The result will show the larger the chunk_size, the smaller the number of VSWAP2-2 (faster simulation time).
 def gen_microbenchmark(
     simulator_binary,
     optimizer_binary,
@@ -68,7 +63,7 @@ def gen_microbenchmark(
                     ori_circuit.write(f"{gate} {target[0]}")
                     if gate[0] == "R":
                         ori_circuit.write(f" {random_theta()}")
-                    ori_circuit.write("\n");
+                    ori_circuit.write("\n")
             elif gate in ["CX", "CZ", "CP", "RZZ"]:
                 for i in range(num_repeat_runs):
                     target = gate_position_map[i]
@@ -101,7 +96,12 @@ def gen_microbenchmark(
                     ori_circuit.write("\n")
             ori_circuit.close()
 
-            # continue
+            """
+            chunk_size is used to reduce the number of SQS/VSWAP2-2, so the benchmark 
+              should rerun. The test program could be applying gate from q0 to qN then 
+              run finder then simulate. The result will show the larger the chunk_size, 
+              the smaller the number of SQS/VSWAP2-2, causing faster simulation time.
+            """
             for chunk_size in range(chunk_min, chunk_max + 1):
                 set_ini_file(total_qubit, num_file_qubit, chunk_size, simulation_type)
                 opt_circuit_name = f"{tmp_circuit_dir}/" + gate + "_opt.txt"
@@ -110,7 +110,7 @@ def gen_microbenchmark(
                 # run finder
                 opt = subprocess.run(
                     [
-                        optimizer_binary,
+                        os.path.expanduser(optimizer_binary),
                         ori_circuit_name,
                         str(chunk_size),
                         str(total_qubit),
@@ -126,7 +126,13 @@ def gen_microbenchmark(
 
                 # run simulator
                 output = subprocess.run(
-                    [simulator_binary, "-i", "sub_cpu.ini", "-c", opt_circuit_name],
+                    [
+                        os.path.expanduser(simulator_binary),
+                        "-i",
+                        "sub_cpu.ini",
+                        "-c",
+                        opt_circuit_name,
+                    ],
                     capture_output=True,
                     text=True,
                 )
@@ -146,6 +152,8 @@ def gen_microbenchmark(
                     + str(data)
                     + "\n"
                 )
+                f_log.flush()
+                os.fsync(f_log)
     f_log.close()
 
 
