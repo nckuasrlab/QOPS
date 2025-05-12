@@ -132,7 +132,10 @@ def run_benchmark(
         qc = load_circuit(fused_filename, total_qubit, circuit_name)
         # total gate count =
         #   original gate count - all measure gates - one barrier gate before measurement
-        logfile.write(f"{fusion_time}, {len(qc.data) - 1 - qc.num_qubits}\n")
+        logfile.write(
+            f"{fusion_time}, {len(qc.data) - 1 - qc.num_qubits}, "
+            f"fmq={fusion_config.fusion_max_qubit}\n"
+        )
 
     elif fusion_method in ["static_dfgc", "dynamic_dfgc"]:
         fusion_time = gen_dfgc_fusion(
@@ -148,7 +151,10 @@ def run_benchmark(
         )
         # total gate count =
         #   original gate count - all measure gates - one barrier gate before measurement
-        logfile.write(f"{fusion_time}, {len(qc.data) - 1 - qc.num_qubits}\n")
+        logfile.write(
+            f"{fusion_time}, {len(qc.data) - 1 - qc.num_qubits}, "
+            f"fmq={fusion_config.fusion_max_qubit}\n"
+        )
 
     else:
         qc = load_circuit(f"./circuit/{circuit_name}.txt", total_qubit, circuit_name)
@@ -161,8 +167,8 @@ def run_benchmark(
         compare_circuit, qc
     ):
         print(f"ERROR: {fusion_method} circuits not equivalent", flush=True)
-    
-    if compare_circuit is None: # warmup if no compare circuit
+
+    if compare_circuit is None:  # warmup if no compare circuit
         exec_result = exec_circuit(
             qc,
             fusion_method,
@@ -186,7 +192,8 @@ def run_benchmark(
 
 
 if __name__ == "__main__":
-    fusion_max_qubit = 3  # max_fusion_qubits
+    print(f"running {__file__ }")
+    fusion_max_qubit = 5  # max_fusion_qubits
     total_qubit = 32
     benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"]  # , "ising"
 
@@ -212,17 +219,8 @@ if __name__ == "__main__":
             logfile,
         )
 
-        # origin
-        # fusion_method = "origin"
-        # run_benchmark(
-        #     circuit_name,
-        #     total_qubit,
-        #     FusionConfig(fusion_method, fusion_max_qubit),
-        #     ExecConfig(True, fusion_max_qubit),
-        #     logfile,
-        # )
-        # qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
-        qc1 = None
+        qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
+        # qc1 = None
 
         # static Qiskit = origin
         fusion_method = "static_qiskit"
