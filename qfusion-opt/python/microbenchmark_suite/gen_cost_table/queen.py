@@ -32,13 +32,18 @@ def get_args():
     gen_table_parser.add_argument(
         "input_total_qubit", help="Total number of qubits", type=int
     )
-    gen_table_parser.add_argument("input_chunk_size", help="Chunk size", type=int)
+    gen_table_parser.add_argument(
+        "--input_chunk_size",
+        help="Chunk size (default: best_chunk_size)",
+        type=int,
+        default=-1,
+    )
     gen_table_parser.add_argument(
         "-o",
         "--output_file",
         help="Output file (default: %(default)s)",
         metavar="FILE",
-        default="./log/gate_exe_time.csv",
+        default="./log/gate_exe_time_queen.csv",
     )
 
     # --- Subparser for the 'predict' mode ---
@@ -48,13 +53,40 @@ def get_args():
     predict_parser.add_argument(
         "input_total_qubit", help="Total number of qubits", type=int
     )
-    predict_parser.add_argument("input_chunk_size", help="Chunk size", type=int)
+    predict_parser.add_argument(
+        "--input_chunk_size",
+        help="Chunk size (default: best_chunk_size)",
+        type=int,
+        default=-1,
+    )
     return parser.parse_args()
+
+
+def get_best_chunk_size(benchmark_filename: str, total_qubit: int):
+    chunk_sizes = {}
+    with open(benchmark_filename, "r") as f:
+        for line in f.readlines():
+            if not line.strip():
+                continue
+            parts = line.split(",")
+            if int(parts[1]) != total_qubit:
+                continue
+            if parts[2] not in chunk_sizes:
+                chunk_sizes[parts[2]] = float(parts[3])
+            else:
+                chunk_sizes[parts[2]] += float(parts[3])
+    index_min = min(chunk_sizes, key=chunk_sizes.get)
+    return index_min
 
 
 def main():
     args = get_args()
     print(args)
+    if args.input_chunk_size == -1:
+        args.input_chunk_size = get_best_chunk_size(
+            "./log/microbenchmark_result_queen.csv", args.input_total_qubit
+        )
+        print(f"Best chunk size: {args.input_chunk_size}")
 
     # load pretrained performance model
     with open(f"{args.model_folder}/gate_model.pkl", "rb") as f:
