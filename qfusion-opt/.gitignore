@@ -14,9 +14,11 @@ qiskit-aer/src/transpile/fusion_backup.hpp
 fusionCircuit/
 model/
 qiskitFusionCircuit/
+queenFusionCircuit/
 subCircuit/
 txt/
 
 # generated tmp files
 diagonal.txt
 sub_cpu.ini
+out.txt

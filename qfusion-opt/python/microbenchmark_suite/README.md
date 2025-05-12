@@ -63,8 +63,9 @@ model error rate: 0.036115926738519114
 $ python python/microbenchmark_suite/gen_cost_table/quokka.py gen_table 32 18
 Namespace(mode='gen_table', model_folder='./model/quokka', input_total_qubit=32, input_chunk_size=18, output_file='./log/gate_exe_time.csv')
 
-$ python python/microbenchmark_suite/gen_cost_table/queen.py gen_table 32 18
-Namespace(mode='gen_table', model_folder='./model/queen', input_total_qubit=32, input_chunk_size=18, output_file='./log/gate_exe_time.csv')
+$ python python/microbenchmark_suite/gen_cost_table/queen.py gen_table 32 
+Namespace(mode='gen_table', model_folder='./model/queen', input_total_qubit=32, input_chunk_size=-1, output_file='./log/gate_exe_time_queen.csv')
+Best chunk size:  17
 
 $ python python/microbenchmark_suite/gen_cost_table/aer.py gen_table 32
 Namespace(mode='gen_table', model_folder='./model/aer', input_total_qubit=32, output_file='./log/gate_exe_time_aer.csv')
