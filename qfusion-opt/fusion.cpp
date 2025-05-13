@@ -163,10 +163,12 @@ Matrix twoQubitsGateMat(fusionGate gate, std::vector<int> fusedQubits) {
         gate.rotation[0] = -gate.rotation[0];
         std::vector<std::string> gateList;
         int firstTime = 1;
-        for (int i = 0; i < reorderQubits.size(); i++) {
-            if (reorderQubits[i] == i) {
-                if (firstTime)
+        for (int i = 0; i < fusedQubits.size(); i++) {
+            if (std::find(reorderQubits.begin(), reorderQubits.end(), fusedQubits[i]) != reorderQubits.end()) {
+                if (firstTime) {
                     gateList.push_back("RZ");
+                    firstTime = 0;
+                }
                 else
                     gateList.push_back("Z");
             } else
@@ -176,6 +178,7 @@ Matrix twoQubitsGateMat(fusionGate gate, std::vector<int> fusedQubits) {
             Matrix gateProduct = gateMatrix(gateList[i], gate.rotation);
             if (i == gateList.size() - 1) {
                 resMat = gateProduct;
+                continue;
             }
             resMat = tensorProduct(resMat, gateProduct);
         }
