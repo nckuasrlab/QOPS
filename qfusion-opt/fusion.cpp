@@ -160,27 +160,17 @@ Matrix twoQubitsGateMat(fusionGate gate, std::vector<int> fusedQubits) {
                 resMat[i][i] = -1;
         }
     } else if (gate.gateType == "RZZ") {
-        gate.rotation[0] = -gate.rotation[0];
-        std::vector<std::string> gateList;
-        int firstTime = 1;
-        for (int i = 0; i < fusedQubits.size(); i++) {
-            if (std::find(reorderQubits.begin(), reorderQubits.end(), fusedQubits[i]) != reorderQubits.end()) {
-                if (firstTime) {
-                    gateList.push_back("RZ");
-                    firstTime = 0;
-                }
-                else
-                    gateList.push_back("Z");
-            } else
-                gateList.push_back("I2");
-        }
-        for (int i = gateList.size() - 1; i >= 0; i--) {
-            Matrix gateProduct = gateMatrix(gateList[i], gate.rotation);
-            if (i == gateList.size() - 1) {
-                resMat = gateProduct;
-                continue;
-            }
-            resMat = tensorProduct(resMat, gateProduct);
+        Matrix rzzTmp(4, std::vector<std::complex<double>>(4));
+        rzzTmp[0][0] = {cos(gate.rotation[0] / 2), -sin(gate.rotation[0] / 2)};
+        rzzTmp[1][1] = {cos(gate.rotation[0] / 2), sin(gate.rotation[0] / 2)};
+        rzzTmp[2][2] = rzzTmp[1][1];
+        rzzTmp[3][3] = rzzTmp[0][0];
+        uint32_t firstQubitMask = 1 << reorderQubits[0];
+        uint32_t secondQubitMask = 1 << reorderQubits[1];
+        for (int i = 0; i < resMat.size(); i++) {
+            uint32_t target = ((i & secondQubitMask) >> (reorderQubits[1]) - 1) |
+                              ((i & firstQubitMask) >> (reorderQubits[0]));
+            resMat[i][i] = rzzTmp[target][target];
         }
     } else if (gate.gateType[0] == 'D') {
         int matSize = 1 << fusedQubits.size();
@@ -572,7 +562,6 @@ class treeNode {
                         double nowWeight, double &smallWeight,
                         std::vector<gateSI> nowGateList,
                         std::vector<gateSI> &executionGateList) {
-        // showFusionGateList(fusionGateList, 2, 3);
         counter++;
         nowWeight += executionTime;
         nowGateList.push_back(nodeSI);
@@ -1080,7 +1069,6 @@ inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList) {
 inline void
 GetOptimalGFS(std::string &outputFileName,
               std::vector<std::vector<fusionGate>> &fusionGateList) {
-    // showFusionGateList(fusionGateList, 2, 3);
     //  find best fusion conbination
     //  execute small gate block one by one to reduce execution time
     const std::string cmd = "rm " + outputFileName + " > /dev/null 2>&1";
