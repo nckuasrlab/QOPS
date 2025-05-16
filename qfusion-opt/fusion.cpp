@@ -1000,7 +1000,142 @@ class fusionList {
     }
 };
 
-inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList) {
+inline void DoDiagonalFusion(const std::string &diagonal_path) {
+    std::ifstream tmpInputFile(diagonal_path);
+    std::vector<gateLine> circuit;
+    for (std::string line; getline(tmpInputFile, line);) {
+        gateLine tmpGateline(line);
+        circuit.push_back(tmpGateline);
+    }
+    tmpInputFile.close();
+    std::vector<int> targetQubitList;
+    // use hash table to record the gates fused into a diagonal gate
+    std::map<gateLine *, std::vector<fusionGate>> fusedGatesRecord;
+    int addFlag = 0;
+    std::vector<fusionGate> subGateList;
+    for (size_t i = 0; i < circuit.size(); ++i) {
+        fusionGate subGate;
+        int ignoredValue;
+        double rotation = 0.0;
+        std::istringstream gateParser(circuit[i].line);
+        // Parsing the input string to fusionGate for the usage of
+        // calculating the fused result of diagonal gate.
+        if (circuit[i].gateType == "RZ")
+            gateParser >> subGate.gateType >> ignoredValue >> rotation;
+        else if (circuit[i].gateType == "CZ")
+            gateParser >> subGate.gateType;
+        else if (circuit[i].gateType == "CP" ||
+                    circuit[i].gateType == "RZZ")
+            gateParser >> subGate.gateType >> ignoredValue >>
+                ignoredValue >> rotation;
+        subGate.rotation.push_back(rotation);
+        subGate.originalOrderQubit = circuit[i].targetQubit;
+        subGate.targetQubit = circuit[i].targetQubit;
+
+        if (circuit[i].gateType == "RZ") {
+            auto firstInset =
+                find(targetQubitList.begin(), targetQubitList.end(),
+                        circuit[i].targetQubit[0]) != targetQubitList.end();
+            if (firstInset && targetQubitList.size() <= maxFusionQuibits) {
+                subGateList.push_back(subGate);
+                circuit.erase(circuit.begin() + i);
+                i--;
+            } else if (!firstInset &&
+                        targetQubitList.size() <= maxFusionQuibits - 1) {
+                targetQubitList.push_back(circuit[i].targetQubit[0]);
+                subGateList.push_back(subGate);
+                circuit.erase(circuit.begin() + i);
+                i--;
+            } else {
+                addFlag++;
+            }
+        } else if (circuit[i].gateType == "CZ" ||
+                    circuit[i].gateType == "CP" ||
+                    circuit[i].gateType == "RZZ") {
+            auto firstInset =
+                find(targetQubitList.begin(), targetQubitList.end(),
+                        circuit[i].targetQubit[0]) != targetQubitList.end();
+            auto secondInset =
+                find(targetQubitList.begin(), targetQubitList.end(),
+                        circuit[i].targetQubit[1]) != targetQubitList.end();
+            if (!firstInset && !secondInset &&
+                targetQubitList.size() <= maxFusionQuibits - 2) {
+                targetQubitList.push_back(circuit[i].targetQubit[0]);
+                targetQubitList.push_back(circuit[i].targetQubit[1]);
+                subGateList.push_back(subGate);
+                circuit.erase(circuit.begin() + i);
+                i--;
+            } else if (firstInset && !secondInset &&
+                        targetQubitList.size() <= maxFusionQuibits - 1) {
+                targetQubitList.push_back(circuit[i].targetQubit[1]);
+                subGateList.push_back(subGate);
+                circuit.erase(circuit.begin() + i);
+                i--;
+            } else if ((firstInset ^ secondInset) &&
+                        targetQubitList.size() <= maxFusionQuibits - 1) {
+                targetQubitList.push_back(
+                    circuit[i].targetQubit[firstInset ? 1 : 0]);
+                subGateList.push_back(subGate);
+                circuit.erase(circuit.begin() + i);
+                i--;
+            } else {
+                addFlag++;
+            }
+        } else if (targetQubitList.size() > 0)
+            addFlag++;
+        if (addFlag && targetQubitList.size() > 0) {
+            sort(targetQubitList.begin(), targetQubitList.end());
+            gateLine newGate("D", targetQubitList);
+            circuit.insert(circuit.begin() + i, newGate);
+            fusedGatesRecord[&*(circuit.begin() + i)] = subGateList;
+            subGateList.clear();
+            addFlag = 0;
+            targetQubitList.clear();
+        }
+    }
+
+    if (!targetQubitList.empty()) {
+        sort(targetQubitList.begin(), targetQubitList.end());
+        gateLine newGate("D", targetQubitList);
+        circuit.push_back(newGate);
+        fusedGatesRecord[&*(circuit.begin() + circuit.size() - 1)] =
+            subGateList;
+    }
+    std::ofstream tmpOutputFile(diagonal_path);
+    // add more if else if max qubit is larger than 5
+    for (size_t i = 0; i < circuit.size(); ++i) {
+        if (circuit[i].line != "")
+            tmpOutputFile << circuit[i].line << "\n";
+        else if (circuit[i].gateType == "D") {
+            if (circuit[i].targetQubit.size() == 1)
+                tmpOutputFile << "D1";
+            else if (circuit[i].targetQubit.size() == 2)
+                tmpOutputFile << "D2";
+            else if (circuit[i].targetQubit.size() == 3)
+                tmpOutputFile << "D3";
+            else if (circuit[i].targetQubit.size() == 4)
+                tmpOutputFile << "D4";
+            else if (circuit[i].targetQubit.size() == 5)
+                tmpOutputFile << "D5";
+            for (size_t j = 0; j < circuit[i].targetQubit.size(); ++j)
+                tmpOutputFile << " "
+                                << std::to_string(circuit[i].targetQubit[j]);
+            std::set targetQubit_s(circuit[i].targetQubit.begin(),
+                                    circuit[i].targetQubit.end());
+            Matrix fusedDGate = calculateFusionGate(
+                fusedGatesRecord[&circuit[i]], targetQubit_s);
+            for (int j = 0; j < fusedDGate.size(); j++) {
+                tmpOutputFile << std::fixed << std::setprecision(16) << " "
+                                << fusedDGate[j][j].real() << " "
+                                << fusedDGate[j][j].imag();
+            }
+            tmpOutputFile << "\n";
+        }
+    }
+    tmpOutputFile.close();
+}
+
+inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList, const std::string& diagonal_path) {
     // construct fusion list
     std::vector<fusionGate> NQubitFusionList;
     int gateIndex = 0;
@@ -1292,136 +1427,7 @@ int main(int argc, char *argv[]) {
     // diagonal fusion
     time_start = std::chrono::steady_clock::now();
     if (method > 4 && method != 7) {
-        std::ifstream tmpInputFile("diagonal.txt");
-        circuit.clear();
-        for (std::string line; getline(tmpInputFile, line);) {
-            gateLine tmpGateline(line);
-            circuit.push_back(tmpGateline);
-        }
-        tmpInputFile.close();
-        std::vector<int> targetQubitList;
-        // use hash table to record the gates fused into a diagonal gate
-        std::map<gateLine *, std::vector<fusionGate>> fusedGatesRecord;
-        int addFlag = 0;
-        std::vector<fusionGate> subGateList;
-        for (size_t i = 0; i < circuit.size(); ++i) {
-            fusionGate subGate;
-            int ignoredValue;
-            double rotation = 0.0;
-            std::istringstream gateParser(circuit[i].line);
-            // Parsing the input string to fusionGate for the usage of
-            // calculating the fused result of diagonal gate.
-            if (circuit[i].gateType == "RZ")
-                gateParser >> subGate.gateType >> ignoredValue >> rotation;
-            else if (circuit[i].gateType == "CZ")
-                gateParser >> subGate.gateType;
-            else if (circuit[i].gateType == "CP" ||
-                     circuit[i].gateType == "RZZ")
-                gateParser >> subGate.gateType >> ignoredValue >>
-                    ignoredValue >> rotation;
-            subGate.rotation.push_back(rotation);
-            subGate.originalOrderQubit = circuit[i].targetQubit;
-            subGate.targetQubit = circuit[i].targetQubit;
-
-            if (circuit[i].gateType == "RZ") {
-                auto firstInset =
-                    find(targetQubitList.begin(), targetQubitList.end(),
-                         circuit[i].targetQubit[0]) != targetQubitList.end();
-                if (firstInset && targetQubitList.size() <= maxFusionQuibits) {
-                    subGateList.push_back(subGate);
-                    circuit.erase(circuit.begin() + i);
-                    i--;
-                } else if (!firstInset &&
-                           targetQubitList.size() <= maxFusionQuibits - 1) {
-                    targetQubitList.push_back(circuit[i].targetQubit[0]);
-                    subGateList.push_back(subGate);
-                    circuit.erase(circuit.begin() + i);
-                    i--;
-                } else {
-                    addFlag++;
-                }
-            } else if (circuit[i].gateType == "CZ" ||
-                       circuit[i].gateType == "CP" ||
-                       circuit[i].gateType == "RZZ") {
-                auto firstInset =
-                    find(targetQubitList.begin(), targetQubitList.end(),
-                         circuit[i].targetQubit[0]) != targetQubitList.end();
-                auto secondInset =
-                    find(targetQubitList.begin(), targetQubitList.end(),
-                         circuit[i].targetQubit[1]) != targetQubitList.end();
-                if (!firstInset && !secondInset &&
-                    targetQubitList.size() <= maxFusionQuibits - 2) {
-                    targetQubitList.push_back(circuit[i].targetQubit[0]);
-                    targetQubitList.push_back(circuit[i].targetQubit[1]);
-                    subGateList.push_back(subGate);
-                    circuit.erase(circuit.begin() + i);
-                    i--;
-                } else if (firstInset && !secondInset &&
-                           targetQubitList.size() <= maxFusionQuibits - 1) {
-                    targetQubitList.push_back(circuit[i].targetQubit[1]);
-                    subGateList.push_back(subGate);
-                    circuit.erase(circuit.begin() + i);
-                    i--;
-                } else if ((firstInset ^ secondInset) &&
-                           targetQubitList.size() <= maxFusionQuibits - 1) {
-                    targetQubitList.push_back(
-                        circuit[i].targetQubit[firstInset ? 1 : 0]);
-                    subGateList.push_back(subGate);
-                    circuit.erase(circuit.begin() + i);
-                    i--;
-                } else {
-                    addFlag++;
-                }
-            } else if (targetQubitList.size() > 0)
-                addFlag++;
-            if (addFlag && targetQubitList.size() > 0) {
-                sort(targetQubitList.begin(), targetQubitList.end());
-                gateLine newGate("D", targetQubitList);
-                circuit.insert(circuit.begin() + i, newGate);
-                fusedGatesRecord[&*(circuit.begin() + i)] = subGateList;
-                subGateList.clear();
-                addFlag = 0;
-                targetQubitList.clear();
-            }
-        }
-
-        if (!targetQubitList.empty()) {
-            sort(targetQubitList.begin(), targetQubitList.end());
-            gateLine newGate("D", targetQubitList);
-            circuit.push_back(newGate);
-            fusedGatesRecord[&*(circuit.begin() + circuit.size() - 1)] =
-                subGateList;
-        }
-        std::ofstream tmpOutputFile("diagonal.txt");
-        // add more if else if max qubit is larger than 5
-        for (size_t i = 0; i < circuit.size(); ++i) {
-            if (circuit[i].line != "")
-                tmpOutputFile << circuit[i].line << "\n";
-            else if (circuit[i].gateType == "D") {
-                if (circuit[i].targetQubit.size() == 1)
-                    tmpOutputFile << "D1";
-                else if (circuit[i].targetQubit.size() == 2)
-                    tmpOutputFile << "D2";
-                else if (circuit[i].targetQubit.size() == 3)
-                    tmpOutputFile << "D3";
-                else if (circuit[i].targetQubit.size() == 4)
-                    tmpOutputFile << "D4";
-                else if (circuit[i].targetQubit.size() == 5)
-                    tmpOutputFile << "D5";
-                for (size_t j = 0; j < circuit[i].targetQubit.size(); ++j)
-                    tmpOutputFile << " "
-                                  << std::to_string(circuit[i].targetQubit[j]);
-                Matrix fusedDGate = calculateFusionGate(
-                    fusedGatesRecord[&circuit[i]], circuit[i].targetQubit);
-                for (int j = 0; j < fusedDGate.size(); j++) {
-                    tmpOutputFile << std::fixed << std::setprecision(16) << " "
-                                  << fusedDGate[j][j].real() << " "
-                                  << fusedDGate[j][j].imag();
-                }
-                tmpOutputFile << "\n";
-            }
-        }
-        tmpOutputFile.close();
+        DoDiagonalFusion(diagonal_path);
     }
     time_end = std::chrono::steady_clock::now();
     timers["diagonal"] =
