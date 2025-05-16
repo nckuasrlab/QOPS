@@ -9,6 +9,7 @@
 #include <map>
 #include <ostream>
 #include <queue>
+#include <random>
 #include <set>
 #include <sstream>
 #include <string>
@@ -21,6 +22,24 @@ int counter = 0;
 int method = 0;
 double cost_factor = 1.8;
 std::map<std::string, std::vector<double>> gateTime; // dynamic cost
+
+double cost(const std::string &gateType, const int fusionSize,
+            const std::vector<int> &targetQubits);
+
+std::string
+generate_temp_path(const std::string &prefix = "tmpfile_diagonal_") {
+    // Get temp directory path (POSIX: /tmp, Windows: %TEMP%)
+    const char *tmp_dir = std::getenv("TMPDIR");
+    if (!tmp_dir)
+        tmp_dir = "/tmp";
+
+    // Generate a random suffix
+    static std::mt19937_64 rng(std::random_device{}());
+    static std::uniform_int_distribution<uint64_t> dist;
+
+    std::string filename = prefix + std::to_string(dist(rng));
+    return std::string(tmp_dir) + "/" + filename;
+}
 
 class gateLine;
 
@@ -71,12 +90,21 @@ class fusionGate {
     }
 
     void dump() const {
-        std::cout << fusionGateSI.fusionSize << "-" << fusionGateSI.fusionIndex
-                  << "\n";
-        for (const auto &subGate : subGateList)
-            std::cout << subGate.fusionGateSI.fusionSize << "-"
-                      << subGate.fusionGateSI.fusionIndex << " ";
-        std::cout << "\n";
+        // To dump only the current gate, use the command provided. To dump all
+        // gates, iterate through the gate.subGateList using a loop such as: for
+        // (const auto &subGate : gate.subGateList) { subGate.dump(); }.
+        std::cout << fusionGateSI.fusionSize << "-" << fusionGateSI.fusionIndex;
+        std::cout << " ("
+                  << cost(gateType, fusionGateSI.fusionSize, targetQubit)
+                  << ") ";
+        if (subGateList.empty())
+            return;
+        double sum_cost = 0;
+        for (const auto &subGate : subGateList) {
+            sum_cost += cost(subGate.gateType, subGate.fusionGateSI.fusionSize,
+                             subGate.targetQubit);
+        }
+        std::cout << "sum_cost = " << sum_cost << "\n";
     }
 
     void showGateInfo() const {
@@ -112,12 +140,12 @@ Matrix gateMatrix(std::string gateType, std::vector<double>);
 Matrix tensorProduct(Matrix A, Matrix B);
 
 /* Return the matrix of two-qubit gate */
-Matrix twoQubitsGateMat(fusionGate gate, std::vector<int> fusedQubits) {
+Matrix twoQubitsGateMat(fusionGate gate, std::set<int> fusedQubits) {
     int sizeAfterExpand = pow(2, fusedQubits.size());
     std::vector<int> reorderQubits;
 
     for (auto i : gate.originalOrderQubit) {
-        auto it = std::find(fusedQubits.begin(), fusedQubits.end(), i);
+        auto it = fusedQubits.find(i);
         if (it != fusedQubits.end())
             reorderQubits.push_back(std::distance(fusedQubits.begin(), it));
     }
@@ -168,8 +196,9 @@ Matrix twoQubitsGateMat(fusionGate gate, std::vector<int> fusedQubits) {
         uint32_t firstQubitMask = 1 << reorderQubits[0];
         uint32_t secondQubitMask = 1 << reorderQubits[1];
         for (int i = 0; i < resMat.size(); i++) {
-            uint32_t target = ((i & secondQubitMask) >> (reorderQubits[1]) - 1) |
-                              ((i & firstQubitMask) >> (reorderQubits[0]));
+            uint32_t target =
+                ((i & secondQubitMask) >> (reorderQubits[1]) - 1) |
+                ((i & firstQubitMask) >> (reorderQubits[0]));
             resMat[i][i] = rzzTmp[target][target];
         }
     } else if (gate.gateType[0] == 'D') {
@@ -265,8 +294,7 @@ Matrix tensorProduct(Matrix matA, Matrix matB) {
     return resMat;
 }
 /* Expand the size of gate to specific size */
-Matrix gateExpansion(const fusionGate targetGate,
-                     std::vector<int> targetQubits) {
+Matrix gateExpansion(const fusionGate targetGate, std::set<int> targetQubits) {
     Matrix resMat, rhsMat;
     std::vector<std::string> expandedGateList;
     /* If targetGate two-qubit gate like CX, CZ and CP, get the expanded matrix
@@ -276,9 +304,9 @@ Matrix gateExpansion(const fusionGate targetGate,
         targetGate.gateType[0] == 'D')
         return twoQubitsGateMat(targetGate, targetQubits);
 
-    for (int i = 0; i < targetQubits.size(); i++) {
+    for (auto &targetQubit : targetQubits) {
         if (find(targetGate.targetQubit.begin(), targetGate.targetQubit.end(),
-                 targetQubits[i]) == targetGate.targetQubit.end())
+                 targetQubit) == targetGate.targetQubit.end())
             expandedGateList.push_back("I2");
         else
             expandedGateList.push_back(targetGate.gateType);
@@ -319,7 +347,7 @@ Matrix matrixMul(Matrix matA, Matrix matB) {
 }
 /* Calculate the result matrix of gate fusion */
 Matrix calculateFusionGate(std::vector<fusionGate> subGateList,
-                           std::vector<int> targetQubits) {
+                           std::set<int> targetQubits) {
     Matrix resGate;
     Matrix expandedGate;
     /* We have to multiply these gates reversly. For example, if the subGateList
@@ -337,19 +365,20 @@ Matrix calculateFusionGate(std::vector<fusionGate> subGateList,
 }
 
 void showFusionGateList(
-    const std::vector<std::vector<fusionGate>> &fusionGateList, int start,
-    int end) {
+    const std::vector<std::vector<fusionGate>> &fusionGateList, const int start,
+    const int end) {
     for (int i = start - 1; i < end; ++i) {
         std::cout << "Number of fusion qubits: " << i + 1 << "\n";
         for (const auto &gate : fusionGateList[i]) {
-            std::cout << "============================================="
-                         "============="
-                         "======"
-                         "======="
-                      << "\n";
-            gate.dump();
-            for (const auto &subGate : gate.subGateList)
+            std::cout << "=============================================\n";
+            if (i > 0) { // Fusion size is 1, with only one gate in subGateList,
+                         // so there is no need to dump the wrapper.
+                gate.dump();
+            }
+            for (const auto &subGate : gate.subGateList) {
+                subGate.dump();
                 subGate.showGateInfo();
+            }
         }
         std::cout << "\n";
     }
@@ -508,7 +537,7 @@ void constructDependencyList(std::vector<fusionGate> fusionGateList,
     }
 }
 
-double cost(std::string gateType, const int fusionSize,
+double cost(const std::string &gateType, const int fusionSize,
             const std::vector<int> &targetQubits) {
     if (method < 4 || method == 5) { // mode 4,6,7,8 need dynamic cost
         return pow(cost_factor, (double)std::max(fusionSize - 1, 1));
@@ -682,7 +711,7 @@ void outputFusionCircuit(
         const auto &execGate = executionGateList[index];
         if (execGate.fusionSize > 1) {
             // TODO: check diagonal gate is correctly generated
-            std::vector<int> targetQubits;
+            std::set<int> targetQubits;
             const auto &pGate =
                 fusionGateList[execGate.fusionSize - 1][execGate.fusionIndex];
             bool isDiagonal = true;
@@ -694,10 +723,7 @@ void outputFusionCircuit(
             }
             for (const auto &subGate : pGate.subGateList)
                 for (int qubit : subGate.targetQubit)
-                    if (find(targetQubits.begin(), targetQubits.end(), qubit) ==
-                        targetQubits.end())
-                        targetQubits.push_back(qubit);
-            sort(targetQubits.begin(), targetQubits.end());
+                    targetQubits.insert(qubit);
             char gateT = 'U';
             if (isDiagonal)
                 gateT = 'D';
@@ -813,6 +839,11 @@ class DAG {
             }
         }
 
+        for (int i = 0; i < graphSize; ++i) {
+            std::cout << i << " " << nodeList[i].predecessor << " "
+                      << nodeList[i].distance << "\n";
+        }
+
         // output fusion result
         std::ofstream outputFile(outputFileName, std::ios_base::app);
         std::vector<std::string> outputStr;
@@ -820,23 +851,30 @@ class DAG {
 
         while (nowIndex > 0) {
             if (nodeList[nowIndex].fusionSize > 1) {
-                std::vector<int> qubit;
-                for (int i = nodeList[nowIndex].predecessor; i < nowIndex; ++i)
+                std::set<int> qubit;
+                for (int i = nodeList[nowIndex].predecessor; i < nowIndex;
+                     ++i) {
                     for (int qubitIndex :
-                         gateList[i].subGateList[0].targetQubit)
-                        if (find(qubit.begin(), qubit.end(), qubitIndex) ==
-                            qubit.end())
-                            qubit.push_back(qubitIndex);
-                sort(qubit.begin(), qubit.end());
+                         gateList[i].subGateList[0].targetQubit) {
+                        qubit.insert(qubitIndex);
+                    }
+                }
                 std::string tmpStr = "U" + std::to_string(qubit.size());
                 for (int qubitIndex : qubit)
                     tmpStr += " " + std::to_string(qubitIndex);
-
+                std::vector<int> qubit_v(qubit.begin(), qubit.end());
+                std::cout << tmpStr << " " << cost("", qubit.size(), qubit_v)
+                          << "\n";
                 Matrix fusedGateMat;
                 std::vector<fusionGate> gateListForUGate;
 
-                for (int i = nodeList[nowIndex].predecessor; i < nowIndex; ++i)
+                for (int i = nodeList[nowIndex].predecessor; i < nowIndex;
+                     ++i) {
                     gateListForUGate.push_back(gateList[i].subGateList[0]);
+                    gateList[i].subGateList[0].dump();
+                    std::cout << "\n";
+                }
+                // std::vector qubit_v(qubit_s.begin(), qubit_s.end());
                 fusedGateMat = calculateFusionGate(gateListForUGate, qubit);
 
                 for (size_t matRow = 0; matRow < fusedGateMat.size();
@@ -1024,10 +1062,9 @@ inline void DoDiagonalFusion(const std::string &diagonal_path) {
             gateParser >> subGate.gateType >> ignoredValue >> rotation;
         else if (circuit[i].gateType == "CZ")
             gateParser >> subGate.gateType;
-        else if (circuit[i].gateType == "CP" ||
-                    circuit[i].gateType == "RZZ")
-            gateParser >> subGate.gateType >> ignoredValue >>
-                ignoredValue >> rotation;
+        else if (circuit[i].gateType == "CP" || circuit[i].gateType == "RZZ")
+            gateParser >> subGate.gateType >> ignoredValue >> ignoredValue >>
+                rotation;
         subGate.rotation.push_back(rotation);
         subGate.originalOrderQubit = circuit[i].targetQubit;
         subGate.targetQubit = circuit[i].targetQubit;
@@ -1035,13 +1072,13 @@ inline void DoDiagonalFusion(const std::string &diagonal_path) {
         if (circuit[i].gateType == "RZ") {
             auto firstInset =
                 find(targetQubitList.begin(), targetQubitList.end(),
-                        circuit[i].targetQubit[0]) != targetQubitList.end();
+                     circuit[i].targetQubit[0]) != targetQubitList.end();
             if (firstInset && targetQubitList.size() <= maxFusionQuibits) {
                 subGateList.push_back(subGate);
                 circuit.erase(circuit.begin() + i);
                 i--;
             } else if (!firstInset &&
-                        targetQubitList.size() <= maxFusionQuibits - 1) {
+                       targetQubitList.size() <= maxFusionQuibits - 1) {
                 targetQubitList.push_back(circuit[i].targetQubit[0]);
                 subGateList.push_back(subGate);
                 circuit.erase(circuit.begin() + i);
@@ -1049,15 +1086,14 @@ inline void DoDiagonalFusion(const std::string &diagonal_path) {
             } else {
                 addFlag++;
             }
-        } else if (circuit[i].gateType == "CZ" ||
-                    circuit[i].gateType == "CP" ||
-                    circuit[i].gateType == "RZZ") {
+        } else if (circuit[i].gateType == "CZ" || circuit[i].gateType == "CP" ||
+                   circuit[i].gateType == "RZZ") {
             auto firstInset =
                 find(targetQubitList.begin(), targetQubitList.end(),
-                        circuit[i].targetQubit[0]) != targetQubitList.end();
+                     circuit[i].targetQubit[0]) != targetQubitList.end();
             auto secondInset =
                 find(targetQubitList.begin(), targetQubitList.end(),
-                        circuit[i].targetQubit[1]) != targetQubitList.end();
+                     circuit[i].targetQubit[1]) != targetQubitList.end();
             if (!firstInset && !secondInset &&
                 targetQubitList.size() <= maxFusionQuibits - 2) {
                 targetQubitList.push_back(circuit[i].targetQubit[0]);
@@ -1066,13 +1102,13 @@ inline void DoDiagonalFusion(const std::string &diagonal_path) {
                 circuit.erase(circuit.begin() + i);
                 i--;
             } else if (firstInset && !secondInset &&
-                        targetQubitList.size() <= maxFusionQuibits - 1) {
+                       targetQubitList.size() <= maxFusionQuibits - 1) {
                 targetQubitList.push_back(circuit[i].targetQubit[1]);
                 subGateList.push_back(subGate);
                 circuit.erase(circuit.begin() + i);
                 i--;
             } else if ((firstInset ^ secondInset) &&
-                        targetQubitList.size() <= maxFusionQuibits - 1) {
+                       targetQubitList.size() <= maxFusionQuibits - 1) {
                 targetQubitList.push_back(
                     circuit[i].targetQubit[firstInset ? 1 : 0]);
                 subGateList.push_back(subGate);
@@ -1119,15 +1155,15 @@ inline void DoDiagonalFusion(const std::string &diagonal_path) {
                 tmpOutputFile << "D5";
             for (size_t j = 0; j < circuit[i].targetQubit.size(); ++j)
                 tmpOutputFile << " "
-                                << std::to_string(circuit[i].targetQubit[j]);
+                              << std::to_string(circuit[i].targetQubit[j]);
             std::set targetQubit_s(circuit[i].targetQubit.begin(),
-                                    circuit[i].targetQubit.end());
+                                   circuit[i].targetQubit.end());
             Matrix fusedDGate = calculateFusionGate(
                 fusedGatesRecord[&circuit[i]], targetQubit_s);
             for (int j = 0; j < fusedDGate.size(); j++) {
                 tmpOutputFile << std::fixed << std::setprecision(16) << " "
-                                << fusedDGate[j][j].real() << " "
-                                << fusedDGate[j][j].imag();
+                              << fusedDGate[j][j].real() << " "
+                              << fusedDGate[j][j].imag();
             }
             tmpOutputFile << "\n";
         }
@@ -1135,12 +1171,13 @@ inline void DoDiagonalFusion(const std::string &diagonal_path) {
     tmpOutputFile.close();
 }
 
-inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList, const std::string& diagonal_path) {
+inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList,
+                    const std::string &diagonal_path) {
     // construct fusion list
     std::vector<fusionGate> NQubitFusionList;
     int gateIndex = 0;
     // one qubit fusionList
-    std::ifstream inputFile("diagonal.txt");
+    std::ifstream inputFile(diagonal_path);
     for (std::string line; std::getline(inputFile, line);) {
         std::vector<std::string> gateInfo;
         fusionGate bigFusionGate;
@@ -1204,6 +1241,7 @@ inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList, const 
 inline void
 GetOptimalGFS(std::string &outputFileName,
               std::vector<std::vector<fusionGate>> &fusionGateList) {
+    showFusionGateList(fusionGateList, 1, fusionGateList.size());
     //  find best fusion conbination
     //  execute small gate block one by one to reduce execution time
     const std::string cmd = "rm " + outputFileName + " > /dev/null 2>&1";
@@ -1274,15 +1312,19 @@ GetOptimalGFS(std::string &outputFileName,
 
                 constructDependencyList(subFusionGateList, dependencyList);
                 // choose different strategies with different circuit size
+                std::cout << smallCircuitSize << std::endl;
                 if (smallCircuitSize < 26) {
+                    std::cout << "get small weight" << std::endl;
                     nowNode.getSmallWeight(subFusionGateList, dependencyList, 0,
                                            smallWeight, executionGateList,
                                            executionGateList);
                     outputFusionCircuit(outputFileName, fusionGateList,
                                         executionGateList);
                 } else {
+                    std::cout << "get shortest path" << std::endl;
                     DAG subDAG(smallCircuitSize);
                     subDAG.constructDAG(subFusionGateList[0]);
+                    subDAG.showInfo();
                     subDAG.shortestPath(subFusionGateList[0], outputFileName);
                 }
                 for (size_t i = 0; i < maxFusionQuibits; ++i) {
@@ -1417,7 +1459,8 @@ int main(int argc, char *argv[]) {
         }
         nowQubit = qubitIndex;
     }
-    std::ofstream outputFile("diagonal.txt");
+    std::string diagonal_path = generate_temp_path();
+    std::ofstream outputFile(diagonal_path);
     outputFile << newCircuit;
     outputFile.close();
     auto time_end = std::chrono::steady_clock::now();
@@ -1435,7 +1478,7 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::vector<fusionGate>> fusionGateList;
     time_start = std::chrono::steady_clock::now();
-    GetPGFS(fusionGateList);
+    GetPGFS(fusionGateList, diagonal_path);
     time_end = std::chrono::steady_clock::now();
     timers["GetPGFS"] =
         std::chrono::duration<double>(time_end - time_start).count();
