@@ -1,5 +1,6 @@
 CXX:=g++
 CXXFLAGS:=-std=c++2a -O3 -march=native -flto=auto -funroll-loops -pipe -Wall -Wextra -Wpedantic
+# CXXFLAGS:=-std=c++2a -g -O0 -pipe -Wall -Wextra -Wpedantic
 
 TEST:=qv32.txt
 QUBIT:=32
@@ -23,4 +24,4 @@ run: fusion
 # 	@(git --no-pager diff --no-index --color-words ./tmp/${TEST} ./tmp/ori_${TEST} && echo "\npassed!") || echo "\nfailed!"
 
 clean:
-	rm fusion
+	rm -f fusion
