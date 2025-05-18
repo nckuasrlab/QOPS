@@ -26,8 +26,6 @@ std::map<std::string, std::vector<double>> gateTime; // dynamic cost
 double cost(const std::string &gateType, const int fusionSize,
             const std::set<int> &targetQubits);
 
-class Gate;
-
 // gate size-index
 struct gateSI {
     int fusionSize;
@@ -50,6 +48,63 @@ int targetQubitCounter(const std::string &gateType) {
         return 5;
     return 0;
 }
+
+class Gate {
+  public:
+    std::string gateType;
+    std::vector<int> qubits;
+    std::set<int> sortedQubits;
+    std::vector<double> params; // non-qubit parameters
+
+    Gate(const std::string &line) {
+        std::vector<std::string> gateInfo;
+        size_t pos = 0;
+        std::string token;
+        std::string tempLine = line;
+
+        while ((pos = tempLine.find(' ')) != std::string::npos) {
+            token = tempLine.substr(0, pos);
+            gateInfo.push_back(token);
+            tempLine.erase(0, pos + 1);
+        }
+        if (!tempLine.empty() && (isdigit(tempLine[0]) || tempLine[0] == '-')) {
+            gateInfo.push_back(tempLine);
+        }
+
+        gateType = gateInfo[0];
+        int i = 1;
+        for (; i <= targetQubitCounter(gateType); ++i) {
+            qubits.push_back(stoi(gateInfo[i]));
+        }
+        sortedQubits = std::set<int>(qubits.begin(), qubits.end());
+        for (; i < gateInfo.size(); ++i) {
+            params.push_back(stod(gateInfo[i]));
+        }
+    }
+
+    Gate(const std::string &gateType, const std::vector<int> &targetQubit)
+        : gateType(gateType), qubits(targetQubit) {}
+
+    std::string str() const {
+        std::stringstream ss;
+        ss << gateType;
+        for (int qubit : qubits) {
+            ss << " " << qubit;
+        }
+        for (double param : params) {
+            ss << " " << std::fixed << std::setprecision(16) << param;
+        }
+        return ss.str();
+    }
+
+    void showInfo() const {
+        std::cout << gateType;
+        for (int qubit : qubits) {
+            std::cout << " " << qubit;
+        }
+        std::cout << "\n";
+    }
+};
 
 class fusionGate {
   public:
@@ -456,6 +511,28 @@ void deleteRelatedNode(std::vector<std::vector<fusionGate>> &fusionGateList,
     }
 }
 
+/* Used in reorder1 phase */
+std::vector<std::set<int>>
+constructDependencyList(const std::vector<Gate> &circuit) {
+    std::vector<std::set<int>> dependencyList;
+    std::vector<int> gateOnQubit(Qubits, -1);
+    for (int i = 0; i <= circuit.size(); ++i)
+        dependencyList.push_back(std::set<int>{-1});
+    for (int i = 0; i < circuit.size(); i++) {
+        std::set<int> dependency;
+        for (int qubit : circuit[i].qubits) {
+            dependency.insert(gateOnQubit[qubit]);
+            gateOnQubit[qubit] = i;
+        }
+        if (dependency.size() > 1)
+            dependency.erase(-1);
+        if (dependency.empty())
+            dependency.insert(-1);
+        dependencyList[i] = dependency;
+    }
+    return dependencyList;
+}
+
 std::vector<std::vector<int>> constructDependencyList(
     const std::vector<std::vector<fusionGate>> &fusionGateList) {
     std::vector<std::vector<int>> dependencyList;
@@ -601,63 +678,6 @@ class treeNode {
     }
 };
 
-class Gate {
-  public:
-    std::string gateType;
-    std::vector<int> qubits;
-    std::set<int> sortedQubits;
-    std::vector<double> params; // non-qubit parameters
-
-    Gate(const std::string &line) {
-        std::vector<std::string> gateInfo;
-        size_t pos = 0;
-        std::string token;
-        std::string tempLine = line;
-
-        while ((pos = tempLine.find(' ')) != std::string::npos) {
-            token = tempLine.substr(0, pos);
-            gateInfo.push_back(token);
-            tempLine.erase(0, pos + 1);
-        }
-        if (!tempLine.empty() && (isdigit(tempLine[0]) || tempLine[0] == '-')) {
-            gateInfo.push_back(tempLine);
-        }
-
-        gateType = gateInfo[0];
-        int i = 1;
-        for (; i <= targetQubitCounter(gateType); ++i) {
-            qubits.push_back(stoi(gateInfo[i]));
-        }
-        sortedQubits = std::set<int>(qubits.begin(), qubits.end());
-        for (; i < gateInfo.size(); ++i) {
-            params.push_back(stod(gateInfo[i]));
-        }
-    }
-
-    Gate(const std::string &gateType, const std::vector<int> &targetQubit)
-        : gateType(gateType), qubits(targetQubit) {}
-
-    std::string str() const {
-        std::stringstream ss;
-        ss << gateType;
-        for (int qubit : qubits) {
-            ss << " " << qubit;
-        }
-        for (double param : params) {
-            ss << " " << std::fixed << std::setprecision(16) << param;
-        }
-        return ss.str();
-    }
-
-    void showInfo() const {
-        std::cout << gateType;
-        for (int qubit : qubits) {
-            std::cout << " " << qubit;
-        }
-        std::cout << "\n";
-    }
-};
-
 class Circuit {
   public:
     std::vector<Gate> gates;
@@ -675,21 +695,55 @@ class Circuit {
     Gate &operator[](size_t index) { return gates[index]; }
     int size() const { return gates.size(); }
 
-    std::vector<std::queue<int>> getGateMap() {
-        std::vector<std::queue<int>> gateMap(Qubits, std::queue<int>());
-        for (size_t index = 0; index < gates.size(); ++index) {
-            int nextIndex = -1;
-            for (auto it = gates[index].sortedQubits.rbegin();
-                 it != gates[index].sortedQubits.rend(); ++it) {
-                gateMap[*it].push(index);
-                if (nextIndex != -1)
-                    gateMap[*it].push(nextIndex);
-                nextIndex = *it;
+    Circuit schedule() const {
+        Circuit reorderedCircuit;
+        std::vector<int> waitingGates;
+        std::set<int> scheduledGates;
+        int currentQubit = 0;
+        std::vector<std::set<int>> dependencyList =
+            constructDependencyList(gates);
+        std::vector<std::queue<int>> qubitGateQueues = buildQubitGateQueues();
+        while (true) {
+            // Skip empty qubit queues
+            while (currentQubit < Qubits &&
+                   qubitGateQueues[currentQubit].empty()) {
+                ++currentQubit;
             }
-            gateMap[*gates[index].sortedQubits.rbegin()].push(
-                *gates[index].sortedQubits.begin());
+
+            if (currentQubit == Qubits)
+                break; // All gates processed
+
+            // Extract gate index and its partner qubit
+            int gateIdx = qubitGateQueues[currentQubit].front();
+            qubitGateQueues[currentQubit].pop();
+
+            int partnerQubit = qubitGateQueues[currentQubit].front();
+            qubitGateQueues[currentQubit].pop();
+
+            if (currentQubit >= partnerQubit) {
+                if (checkDependency(gateIdx, dependencyList, scheduledGates)) {
+                    reorderedCircuit.gates.push_back(gates[gateIdx]);
+                    scheduledGates.insert(gateIdx);
+                } else {
+                    waitingGates.push_back(gateIdx);
+                }
+            }
+
+            // Try to schedule waiting gates whose dependencies are now resolved
+            for (auto it = waitingGates.begin(); it != waitingGates.end();) {
+                int pendingIdx = *it;
+                if (checkDependency(pendingIdx, dependencyList,
+                                    scheduledGates)) {
+                    reorderedCircuit.gates.push_back(gates[pendingIdx]);
+                    scheduledGates.insert(pendingIdx);
+                    it = waitingGates.erase(it); // Remove and advance
+                } else {
+                    ++it;
+                }
+            }
+            currentQubit = partnerQubit; // Continue with the next related qubit
         }
-        return gateMap;
+        return reorderedCircuit;
     }
 
     std::string str() const {
@@ -699,29 +753,29 @@ class Circuit {
         }
         return ss.str();
     }
-};
 
-/* Used in reorder1 phase */
-std::vector<std::set<int>>
-constructDependencyList(const std::vector<Gate> &circuit) {
-    std::vector<std::set<int>> dependencyList;
-    std::vector<int> gateOnQubit(Qubits, -1);
-    for (int i = 0; i <= circuit.size(); ++i)
-        dependencyList.push_back(std::set<int>{-1});
-    for (int i = 0; i < circuit.size(); i++) {
-        std::set<int> dependency;
-        for (int qubit : circuit[i].qubits) {
-            dependency.insert(gateOnQubit[qubit]);
-            gateOnQubit[qubit] = i;
+  private:
+    std::vector<std::queue<int>> buildQubitGateQueues() const {
+        std::vector<std::queue<int>> qubitGateQueues(Qubits);
+        for (size_t gateIdx = 0; gateIdx < gates.size(); ++gateIdx) {
+            const auto &qubits = gates[gateIdx].sortedQubits;
+            int prevQubit = -1;
+            int firstQubit = *qubits.begin();
+            // Add the gate to each involved qubit's queue in reverse order
+            for (auto it = qubits.rbegin(); it != qubits.rend(); ++it) {
+                int qubit = *it;
+                qubitGateQueues[qubit].push(gateIdx);
+                if (prevQubit == -1) { // First qubit
+                    qubitGateQueues[qubit].push(firstQubit);
+                } else {
+                    qubitGateQueues[qubit].push(prevQubit);
+                }
+                prevQubit = qubit;
+            }
         }
-        if (dependency.size() > 1)
-            dependency.erase(-1);
-        if (dependency.empty())
-            dependency.insert(-1);
-        dependencyList[i] = dependency;
+        return qubitGateQueues;
     }
-    return dependencyList;
-}
+};
 
 void outputFusionCircuit(
     const std::string &outputFileName,
@@ -1162,8 +1216,8 @@ inline void DoDiagonalFusion(Circuit &circuit) {
     }
 }
 
-inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList,
-                    const Circuit &circuit) {
+inline std::vector<std::vector<fusionGate>> GetPGFS(const Circuit &circuit) {
+    std::vector<std::vector<fusionGate>> fusionGateList;
     // construct 1-qubit fusion list
     std::vector<fusionGate> NQubitFusionList;
     int gateIndex = 0;
@@ -1209,6 +1263,7 @@ inline void GetPGFS(std::vector<std::vector<fusionGate>> &fusionGateList,
         }
         fusionGateList.push_back(NQubitFusionList);
     }
+    return fusionGateList;
 }
 
 inline void
@@ -1368,48 +1423,17 @@ int main(int argc, char *argv[]) {
     // reorder
     auto time_start = std::chrono::steady_clock::now();
     Circuit circuit(inputFileName);
-    std::vector<std::queue<int>> qubitReorder = circuit.getGateMap();
+    // std::vector<std::queue<int>> qubitReorder =
+    // circuit.buildQubitGateQueues(); std::vector<std::queue<int>>
+    // qubitReordercopy(qubitReorder); for (size_t i = 0; i < Qubits; ++i) {
+    //     for (int j = 0; j < qubitReordercopy[i].size(); ++j) {
+    //         std::cout << qubitReordercopy[i].front() << " ";
+    //         qubitReordercopy[i].pop();
+    //     }
+    //     std::cout << "\n";
+    // }
 
-    Circuit newCircuit;
-    int nowQubit = 0;
-    std::vector<std::set<int>> reorderDependencyList =
-        constructDependencyList(circuit.gates);
-    /* If the gate has to wait due to the dependency issue, store in this list
-     */
-    std::vector<int> reorderWaitList;
-    /* Record the gates are put into the outputFile */
-    std::set<int> finishedGate;
-    while (1) {
-        while (qubitReorder[nowQubit].size() == 0 && nowQubit < Qubits)
-            nowQubit++;
-        if (nowQubit == Qubits)
-            break;
-        int gateIndex = qubitReorder[nowQubit].front();
-        qubitReorder[nowQubit].pop();
-        int qubitIndex = qubitReorder[nowQubit].front();
-        qubitReorder[nowQubit].pop();
-        if (nowQubit >= qubitIndex) {
-            if (checkDependency(gateIndex, reorderDependencyList,
-                                finishedGate)) {
-                newCircuit.gates.push_back(circuit[gateIndex]);
-                finishedGate.insert(gateIndex);
-            } else {
-                reorderWaitList.push_back(gateIndex);
-            }
-        }
-        /* Try to move the gates in the wait list into outputFile */
-        for (int i = 0; i < reorderWaitList.size(); i++) {
-            if (checkDependency(reorderWaitList[i], reorderDependencyList,
-                                finishedGate)) {
-                gateIndex = reorderWaitList[i];
-                newCircuit.gates.push_back(circuit[gateIndex]);
-                finishedGate.insert(gateIndex);
-                reorderWaitList.erase(reorderWaitList.begin() + i);
-                i = 0;
-            }
-        }
-        nowQubit = qubitIndex;
-    }
+    Circuit newCircuit = circuit.schedule();
 
     auto time_end = std::chrono::steady_clock::now();
     timers["reorder"] =
@@ -1425,9 +1449,8 @@ int main(int argc, char *argv[]) {
     timers["diagonal"] =
         std::chrono::duration<double>(time_end - time_start).count();
 
-    std::vector<std::vector<fusionGate>> fusionGateList;
     time_start = std::chrono::steady_clock::now();
-    GetPGFS(fusionGateList, newCircuit);
+    std::vector<std::vector<fusionGate>> fusionGateList = GetPGFS(newCircuit);
     time_end = std::chrono::steady_clock::now();
     timers["GetPGFS"] =
         std::chrono::duration<double>(time_end - time_start).count();
