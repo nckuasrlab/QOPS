@@ -428,36 +428,19 @@ void showDependencyList(const std::vector<std::vector<int>> &dependencyList) {
     std::cout << "\n";
 }
 
-// check dependency 1:can execute 0:have dependency -1:other
-// note: dependencyList is needed to copy
-int checkDependency(const fusionGate &bigFusionGate,
-                    std::vector<std::set<int>> dependencyList) {
-    for (const auto &subgate : bigFusionGate.subGateList) {
-        if (*dependencyList[subgate.fusionGateSI.fusionIndex].begin() == -1) {
-            for (auto &dep_j : dependencyList) {
-                dep_j.erase(subgate.fusionGateSI.fusionIndex);
-                if (dep_j.empty())
-                    dep_j.insert(-1);
-            }
-        } else {
-            return 0;
-        }
-    }
-    return 1;
-}
 
-/* Used in reorder1 phase */
+/* Check if the gate has dependency, scheduled gates are excluded */
 // note: dependencyList is needed to copy
-int checkDependency(const int gateIndex,
-                    std::vector<std::set<int>> dependencyList,
-                    const std::set<int> &scheduledGates) {
-    std::vector<std::set<int>> dependencyCopy(dependencyList);
-    for (int gate : scheduledGates)
-        dependencyCopy[gateIndex].erase(gate);
-    if (dependencyCopy[gateIndex].empty() ||
-        dependencyCopy[gateIndex].contains(-1))
-        return 1;
-    return 0;
+bool hasDependency(const std::set<int> &gateIndex,
+                   std::vector<std::set<int>> dependencyList,
+                   const std::set<int> &scheduledGates) {
+    for (int i : gateIndex) {
+        for (int gate : scheduledGates)
+            dependencyList[i].erase(gate);
+        if (!dependencyList[i].empty() && !dependencyList[i].contains(-1))
+            return true;
+    }
+    return false;
 }
 
 // note: fusionGateList and dependencyList is modedified and bigFusionGate is
@@ -622,7 +605,11 @@ class treeNode {
                     nodeSI.fusionIndex > fusionGate.fusionGateSI.fusionIndex &&
                     (method != 0 && method != 2))
                     break;
-                if (checkDependency(fusionGate, dependencyList)) {
+                std::set<int> gateIndexes;
+                for (const auto &subgate : fusionGate.subGateList) {
+                    gateIndexes.insert(subgate.fusionGateSI.fusionIndex);
+                }
+                if (!hasDependency(gateIndexes, dependencyList, gateIndexes)) {
                     treeNode(this, fusionGate.fusionGateSI,
                              fusionGate.subGateList[0].gateType,
                              fusionGate.subGateList[0].sortedQubits)
@@ -661,14 +648,7 @@ class Circuit {
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(gates);
         std::vector<std::queue<int>> qubitGateQueues = buildQubitGateQueues();
-        std::vector<std::queue<int>> qubitReordercopy(qubitGateQueues);
-        for (size_t i = 0; i < Qubits; ++i) {
-            for (int j = 0; j < qubitReordercopy[i].size(); ++j) {
-                std::cout << qubitReordercopy[i].front() << " ";
-                qubitReordercopy[i].pop();
-            }
-            std::cout << "\n";
-        }
+
         while (true) {
             // Skip empty qubit queues
             while (currentQubit < Qubits &&
@@ -687,7 +667,7 @@ class Circuit {
             qubitGateQueues[currentQubit].pop();
 
             if (currentQubit >= partnerQubit) {
-                if (checkDependency(gateIdx, dependencyList, scheduledGates)) {
+                if (!hasDependency({gateIdx}, dependencyList, scheduledGates)) {
                     reorderedCircuit.gates.push_back(gates[gateIdx]);
                     scheduledGates.insert(gateIdx);
                 } else {
@@ -698,8 +678,8 @@ class Circuit {
             // Try to schedule waiting gates whose dependencies are now resolved
             for (auto it = waitingGates.begin(); it != waitingGates.end();) {
                 int pendingIdx = *it;
-                if (checkDependency(pendingIdx, dependencyList,
-                                    scheduledGates)) {
+                if (!hasDependency({pendingIdx}, dependencyList,
+                                   scheduledGates)) {
                     reorderedCircuit.gates.push_back(gates[pendingIdx]);
                     scheduledGates.insert(pendingIdx);
                     it = waitingGates.erase(it); // Remove and advance
@@ -1450,9 +1430,9 @@ int main(int argc, char *argv[]) {
             qubitGateQueues[currentQubit].pop();
 
             if (currentQubit >= partnerQubit) {
-                if (checkDependency(fusionGateList[fusionQubits][gateIdx]
-                                        .fusionGateSI.fusionIndex,
-                                    dependencyList, scheduledGates)) {
+                if (!hasDependency({fusionGateList[fusionQubits][gateIdx]
+                                       .fusionGateSI.fusionIndex},
+                                   dependencyList, scheduledGates)) {
                     scheduledGates.insert(fusionGateList[fusionQubits][gateIdx]
                                               .fusionGateSI.fusionIndex);
                     NQubitFusionList.push_back(
@@ -1462,14 +1442,16 @@ int main(int argc, char *argv[]) {
                         fusionGateList[fusionQubits][gateIdx]);
             }
             /* Try to move the gates in wait list into NQubitFusionList */
-            for (int i = 0; i < waitingGates.size(); i++) {
-                if (checkDependency(waitingGates[i].fusionGateSI.fusionIndex,
-                                    dependencyList, scheduledGates)) {
-                    NQubitFusionList.push_back(waitingGates[i]);
+            for (auto it = waitingGates.begin(); it != waitingGates.end();) {
+                int pendingIdx = (*it).fusionGateSI.fusionIndex;
+                if (!hasDependency({pendingIdx},
+                                   dependencyList, scheduledGates)) {
+                    NQubitFusionList.push_back(*it);
                     scheduledGates.insert(
-                        waitingGates[i].fusionGateSI.fusionIndex);
-                    waitingGates.erase(waitingGates.begin() + i);
-                    i = 0;
+                        pendingIdx);
+                    waitingGates.erase(it);
+                } else {
+                    ++it;
                 }
             }
             currentQubit = partnerQubit;
