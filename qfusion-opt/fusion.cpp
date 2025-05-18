@@ -24,7 +24,7 @@ double cost_factor = 1.8;
 std::map<std::string, std::vector<double>> gateTime; // dynamic cost
 
 double cost(const std::string &gateType, const int fusionSize,
-            const std::set<int> &targetQubits);
+            const std::set<int> &sortedQubits);
 
 // gate size-index
 struct gateSI {
@@ -111,9 +111,9 @@ class fusionGate {
   public:
     gateSI fusionGateSI;
     std::string gateType;
-    std::set<int> targetQubit;
-    std::vector<int> originalOrderQubit;
-    std::vector<double> rotation;
+    std::set<int> sortedQubits;
+    std::vector<int> qubits;
+    std::vector<double> params;
     std::vector<fusionGate> subGateList;
 
     fusionGate() = default;
@@ -126,14 +126,14 @@ class fusionGate {
         // (const auto &subGate : gate.subGateList) { subGate.dump(); }.
         std::cout << fusionGateSI.fusionSize << "-" << fusionGateSI.fusionIndex;
         std::cout << " ("
-                  << cost(gateType, fusionGateSI.fusionSize, targetQubit)
+                  << cost(gateType, fusionGateSI.fusionSize, sortedQubits)
                   << ") ";
         if (subGateList.empty())
             return;
         double sum_cost = 0;
         for (const auto &subGate : subGateList) {
             sum_cost += cost(subGate.gateType, subGate.fusionGateSI.fusionSize,
-                             subGate.targetQubit);
+                             subGate.sortedQubits);
         }
         std::cout << "sum_cost = " << sum_cost << "\n";
     }
@@ -145,9 +145,9 @@ class fusionGate {
             return;
         }
         std::cout << gateType << " ";
-        for (const auto &qubit : targetQubit)
+        for (const auto &qubit : sortedQubits)
             std::cout << qubit << " ";
-        for (const auto &rot : rotation)
+        for (const auto &rot : params)
             std::cout << rot << " ";
         std::cout << "\n";
     }
@@ -172,7 +172,7 @@ Matrix twoQubitsGateMat(const fusionGate &gate,
     int sizeAfterExpand = pow(2, fusedQubits.size());
     std::vector<int> reorderQubits;
 
-    for (auto i : gate.originalOrderQubit) {
+    for (auto i : gate.qubits) {
         auto it = fusedQubits.find(i);
         if (it != fusedQubits.end())
             reorderQubits.push_back(std::distance(fusedQubits.begin(), it));
@@ -201,7 +201,7 @@ Matrix twoQubitsGateMat(const fusionGate &gate,
         uint32_t changeTarget = controlledBit | targetBit;
         for (int i = 0; i < resMat.size(); i++) {
             if ((i & changeTarget) == changeTarget)
-                resMat[i][i] = {cos(gate.rotation[0]), sin(gate.rotation[0])};
+                resMat[i][i] = {cos(gate.params[0]), sin(gate.params[0])};
         }
     } else if (gate.gateType == "CZ") {
         for (int i = 0; i < sizeAfterExpand; i++)
@@ -217,8 +217,8 @@ Matrix twoQubitsGateMat(const fusionGate &gate,
         }
     } else if (gate.gateType == "RZZ") {
         Matrix rzzTmp(4, std::vector<std::complex<double>>(4));
-        rzzTmp[0][0] = {cos(gate.rotation[0] / 2), -sin(gate.rotation[0] / 2)};
-        rzzTmp[1][1] = {cos(gate.rotation[0] / 2), sin(gate.rotation[0] / 2)};
+        rzzTmp[0][0] = {cos(gate.params[0] / 2), -sin(gate.params[0] / 2)};
+        rzzTmp[1][1] = {cos(gate.params[0] / 2), sin(gate.params[0] / 2)};
         rzzTmp[2][2] = rzzTmp[1][1];
         rzzTmp[3][3] = rzzTmp[0][0];
         uint32_t firstQubitMask = 1 << reorderQubits[0];
@@ -249,8 +249,8 @@ Matrix twoQubitsGateMat(const fusionGate &gate,
             uint32_t sortTarget = 0;
             for (int idx = 0; idx < reorderQubits.size(); idx++)
                 sortTarget |= ((target >> reorderQubits[idx]) & 1) << idx;
-            std::complex<double> elem = {gate.rotation[sortTarget * 2],
-                                         gate.rotation[sortTarget * 2 + 1]};
+            std::complex<double> elem = {gate.params[sortTarget * 2],
+                                         gate.params[sortTarget * 2 + 1]};
             resMat[i][i] = elem;
         }
     }
@@ -258,8 +258,8 @@ Matrix twoQubitsGateMat(const fusionGate &gate,
 }
 
 /* Return the matrix of input gate */
-// TODO const & rotation causes wrong results for vc24
-Matrix gateMatrix(const std::string &gateType, std::vector<double> rotation) {
+// TODO const & params causes wrong results for vc24
+Matrix gateMatrix(const std::string &gateType, std::vector<double> params) {
     Matrix mat(2, std::vector<std::complex<double>>());
     if (gateType == "X") {
         mat[0].assign({{0, 0}, {1, 0}});
@@ -274,21 +274,21 @@ Matrix gateMatrix(const std::string &gateType, std::vector<double> rotation) {
         mat[0].assign({{1 / sqrt(2), 0}, {1 / sqrt(2), 0}});
         mat[1].assign({{1 / sqrt(2), 0}, {-1 / sqrt(2), 0}});
     } else if (gateType == "RX") {
-        mat[0].assign({{cos(rotation[0] / 2), 0}, {0, -sin(rotation[0] / 2)}});
-        mat[1].assign({{0, -sin(rotation[0] / 2)}, {cos(rotation[0] / 2), 0}});
+        mat[0].assign({{cos(params[0] / 2), 0}, {0, -sin(params[0] / 2)}});
+        mat[1].assign({{0, -sin(params[0] / 2)}, {cos(params[0] / 2), 0}});
     } else if (gateType == "RY") {
-        mat[0].assign({{cos(rotation[0] / 2), 0}, {-sin(rotation[0] / 2), 0}});
-        mat[1].assign({{sin(rotation[0] / 2), 0}, {cos(rotation[0] / 2), 0}});
+        mat[0].assign({{cos(params[0] / 2), 0}, {-sin(params[0] / 2), 0}});
+        mat[1].assign({{sin(params[0] / 2), 0}, {cos(params[0] / 2), 0}});
     } else if (gateType == "RZ") {
-        mat[0].assign({{cos(rotation[0] / 2), -sin(rotation[0] / 2)}, {0, 0}});
-        mat[1].assign({{0, 0}, {cos(rotation[0] / 2), sin(rotation[0] / 2)}});
+        mat[0].assign({{cos(params[0] / 2), -sin(params[0] / 2)}, {0, 0}});
+        mat[1].assign({{0, 0}, {cos(params[0] / 2), sin(params[0] / 2)}});
     } else if (gateType == "I2") {
         mat[0].assign({{1, 0}, {0, 0}});
         mat[1].assign({{0, 0}, {1, 0}});
     } else if (gateType == "U1") {
-        double theta = rotation[0];
-        double phi = rotation[1];
-        double lamda = rotation[2];
+        double theta = params[0];
+        double phi = params[1];
+        double lamda = params[2];
         mat[0].assign(
             {{cos(theta / 2), 0},
              {-sin(theta / 2) * cos(lamda), -sin(theta / 2) * sin(lamda)}});
@@ -325,7 +325,7 @@ Matrix tensorProduct(const Matrix &matA, const Matrix &matB) {
 
 /* Expand the size of gate to specific size */
 Matrix gateExpansion(const fusionGate &targetGate,
-                     const std::set<int> &targetQubits) {
+                     const std::set<int> &sortedQubits) {
     Matrix resMat, rhsMat;
     std::vector<std::string> expandedGateList;
     /* If targetGate two-qubit gate like CX, CZ and CP, get the expanded matrix
@@ -333,10 +333,10 @@ Matrix gateExpansion(const fusionGate &targetGate,
      * tensor product.) */
     if (targetGate.gateType[0] == 'C' || targetGate.gateType == "RZZ" ||
         targetGate.gateType[0] == 'D')
-        return twoQubitsGateMat(targetGate, targetQubits);
+        return twoQubitsGateMat(targetGate, sortedQubits);
 
-    for (auto &targetQubit : targetQubits) {
-        if (!targetGate.targetQubit.contains(targetQubit))
+    for (auto &qubit : sortedQubits) {
+        if (!targetGate.sortedQubits.contains(qubit))
             expandedGateList.push_back("I2");
         else
             expandedGateList.push_back(targetGate.gateType);
@@ -344,7 +344,7 @@ Matrix gateExpansion(const fusionGate &targetGate,
     /* Use tensor product to expand a gate. Notice that we have to calculate it
      * from MSB to LSB */
     for (int i = expandedGateList.size() - 1; i >= 0; i--) {
-        rhsMat = gateMatrix(expandedGateList[i], targetGate.rotation);
+        rhsMat = gateMatrix(expandedGateList[i], targetGate.params);
         if (i == expandedGateList.size() - 1)
             resMat = rhsMat;
         else {
@@ -379,14 +379,14 @@ Matrix matrixMul(const Matrix &matA, const Matrix &matB) {
 
 /* Calculate the result matrix of gate fusion */
 Matrix calculateFusionGate(const std::vector<fusionGate> &subGateList,
-                           const std::set<int> &targetQubits) {
+                           const std::set<int> &sortedQubits) {
     Matrix resGate;
     Matrix expandedGate;
     /* We have to multiply these gates reversly. For example, if the subGateList
      * is H, X, Y, we should reverse the multiplication, it would be Y * X * H.
      */
     for (int i = subGateList.size() - 1; i >= 0; i--) {
-        expandedGate = gateExpansion(subGateList[i], targetQubits);
+        expandedGate = gateExpansion(subGateList[i], sortedQubits);
         if (i == subGateList.size() - 1) {
             resGate = expandedGate;
             continue;
@@ -403,10 +403,7 @@ void showFusionGateList(
         std::cout << "Number of fusion qubits: " << i + 1 << "\n";
         for (const auto &gate : fusionGateList[i]) {
             std::cout << "=============================================\n";
-            if (i > 0) { // Fusion size is 1, with only one gate in subGateList,
-                         // so there is no need to dump the wrapper.
-                gate.dump();
-            }
+            gate.dump();
             for (const auto &subGate : gate.subGateList) {
                 subGate.dump();
                 subGate.showGateInfo();
@@ -417,6 +414,7 @@ void showFusionGateList(
 }
 
 void showDependencyList(const std::vector<std::vector<int>> &dependencyList) {
+    std::cout << "=============================================\n";
     for (size_t i = 0; i < dependencyList.size(); ++i) {
         std::cout << i << " || ";
         for (size_t j = 0; j < dependencyList[i].size(); ++j) {
@@ -433,13 +431,13 @@ void showDependencyList(const std::vector<std::vector<int>> &dependencyList) {
 // check dependency 1:can execute 0:have dependency -1:other
 // note: dependencyList is needed to copy
 int checkDependency(const fusionGate &bigFusionGate,
-                    std::vector<std::vector<int>> dependencyList) {
+                    std::vector<std::set<int>> dependencyList) {
     for (const auto &subgate : bigFusionGate.subGateList) {
-        if (dependencyList[subgate.fusionGateSI.fusionIndex][0] == -1) {
+        if (*dependencyList[subgate.fusionGateSI.fusionIndex].begin() == -1) {
             for (auto &dep_j : dependencyList) {
-                std::erase(dep_j, subgate.fusionGateSI.fusionIndex);
-                if (dep_j.size() == 0)
-                    dep_j.push_back(-1);
+                dep_j.erase(subgate.fusionGateSI.fusionIndex);
+                if (dep_j.empty())
+                    dep_j.insert(-1);
             }
         } else {
             return 0;
@@ -452,25 +450,10 @@ int checkDependency(const fusionGate &bigFusionGate,
 // note: dependencyList is needed to copy
 int checkDependency(const int gateIndex,
                     std::vector<std::set<int>> dependencyList,
-                    const std::set<int> &finishedGate) {
+                    const std::set<int> &scheduledGates) {
     std::vector<std::set<int>> dependencyCopy(dependencyList);
-    for (int gate : finishedGate)
+    for (int gate : scheduledGates)
         dependencyCopy[gateIndex].erase(gate);
-    if (dependencyCopy[gateIndex].empty() ||
-        dependencyCopy[gateIndex].contains(-1))
-        return 1;
-    return 0;
-}
-
-/* Used in reorder2 phase */
-// note: dependencyList is needed to copy
-int checkDependency(const fusionGate &targetGate,
-                    const std::vector<fusionGate> &NQubitFusionList,
-                    std::vector<std::set<int>> dependencyList) {
-    std::vector<std::set<int>> dependencyCopy(dependencyList);
-    int gateIndex = targetGate.fusionGateSI.fusionIndex;
-    for (const auto &gate : NQubitFusionList)
-        dependencyCopy[gateIndex].erase(gate.fusionGateSI.fusionIndex);
     if (dependencyCopy[gateIndex].empty() ||
         dependencyCopy[gateIndex].contains(-1))
         return 1;
@@ -480,14 +463,14 @@ int checkDependency(const fusionGate &targetGate,
 // note: fusionGateList and dependencyList is modedified and bigFusionGate is
 // needed to copy
 void deleteRelatedNode(std::vector<std::vector<fusionGate>> &fusionGateList,
-                       std::vector<std::vector<int>> &dependencyList,
+                       std::vector<std::set<int>> &dependencyList,
                        const fusionGate bigFusionGate) {
     // delete node in dependency list
     for (const auto &subgate : bigFusionGate.subGateList)
         for (auto &dependencyList_i : dependencyList) {
-            std::erase(dependencyList_i, subgate.fusionGateSI.fusionIndex);
+            dependencyList_i.erase(subgate.fusionGateSI.fusionIndex);
             if (dependencyList_i.empty())
-                dependencyList_i.push_back(-1);
+                dependencyList_i.insert(-1);
         }
 
     // delete node in fusionGate list
@@ -534,32 +517,6 @@ constructDependencyList(const std::vector<Gate> &circuit) {
     return dependencyList;
 }
 
-std::vector<std::vector<int>> constructDependencyList(
-    const std::vector<std::vector<fusionGate>> &fusionGateList) {
-    std::vector<std::vector<int>> dependencyList;
-    int maxIndex = 0;
-    std::vector<int> gateOnQubit(Qubits, -1);
-    for (const auto &gate : fusionGateList[0])
-        maxIndex =
-            std::max(maxIndex, gate.subGateList[0].fusionGateSI.fusionIndex);
-    for (int i = 0; i <= maxIndex; ++i)
-        dependencyList.push_back(std::vector<int>{-1});
-    for (const auto &gate : fusionGateList[0]) {
-        std::vector<int> dependency;
-        for (int qubit : gate.subGateList[0].targetQubit) {
-            dependency.push_back(gateOnQubit[qubit]);
-            gateOnQubit[qubit] = gate.subGateList[0].fusionGateSI.fusionIndex;
-        }
-        if (dependency.size() > 1)
-            std::erase(dependency, -1);
-        if (dependency.empty())
-            dependency.push_back(-1);
-        dependencyList[gate.subGateList[0].fusionGateSI.fusionIndex] =
-            dependency;
-    }
-    return dependencyList;
-}
-
 /* Used in reorder2 phase */
 std::vector<std::set<int>>
 constructDependencyList(const std::vector<fusionGate> &fusionGateList) {
@@ -572,7 +529,7 @@ constructDependencyList(const std::vector<fusionGate> &fusionGateList) {
         dependencyList.push_back(std::set<int>{-1});
     for (const auto &gate : fusionGateList) {
         std::set<int> dependency;
-        for (int qubit : gate.targetQubit) {
+        for (int qubit : gate.sortedQubits) {
             dependency.insert(gateOnQubit[qubit]);
             gateOnQubit[qubit] = gate.fusionGateSI.fusionIndex;
         }
@@ -586,11 +543,11 @@ constructDependencyList(const std::vector<fusionGate> &fusionGateList) {
 }
 
 double cost(const std::string &gateType, const int fusionSize,
-            const std::set<int> &targetQubits) {
+            const std::set<int> &sortedQubits) {
     if (method < 4 || method == 5) { // mode 4,6,7,8 need dynamic cost
         return pow(cost_factor, (double)std::max(fusionSize - 1, 1));
     }
-    int targetQubit = *targetQubits.begin();
+    int targetQubit = *sortedQubits.begin();
     if (method != 7 and method != 8) {
         // In Aer simulator, the second dimension represents the
         // target qubit. However, this is unnecessary in Quokka or
@@ -613,7 +570,7 @@ double cost(const std::string &gateType, const int fusionSize,
         return gateTime[gateType][targetQubit];
     } else { // gate type not in gateTime, we use the number of target qubits to
              // estimate
-        std::string tempGateType = "U" + std::to_string(targetQubits.size());
+        std::string tempGateType = "U" + std::to_string(sortedQubits.size());
         return gateTime[tempGateType][targetQubit];
     }
     throw std::runtime_error("Should not reach here.");
@@ -627,12 +584,12 @@ class treeNode {
     double executionTime = 0;
     treeNode() = default; // root node
     treeNode(treeNode *PNode, const gateSI &nodeSI, std::string gateType,
-             const std::set<int> &targetQubits)
+             const std::set<int> &sortedQubits)
         : PNode(PNode), nodeSI(nodeSI),
-          executionTime(cost(gateType, this->nodeSI.fusionSize, targetQubits)) {
+          executionTime(cost(gateType, this->nodeSI.fusionSize, sortedQubits)) {
     }
     void getSmallWeight(std::vector<std::vector<fusionGate>> fusionGateList,
-                        std::vector<std::vector<int>> dependencyList,
+                        std::vector<std::set<int>> dependencyList,
                         double nowWeight, double &smallWeight,
                         std::vector<gateSI> nowGateList,
                         std::vector<gateSI> &executionGateList) {
@@ -668,7 +625,7 @@ class treeNode {
                 if (checkDependency(fusionGate, dependencyList)) {
                     treeNode(this, fusionGate.fusionGateSI,
                              fusionGate.subGateList[0].gateType,
-                             fusionGate.subGateList[0].targetQubit)
+                             fusionGate.subGateList[0].sortedQubits)
                         .getSmallWeight(fusionGateList, dependencyList,
                                         nowWeight, smallWeight, nowGateList,
                                         executionGateList);
@@ -704,6 +661,14 @@ class Circuit {
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(gates);
         std::vector<std::queue<int>> qubitGateQueues = buildQubitGateQueues();
+        std::vector<std::queue<int>> qubitReordercopy(qubitGateQueues);
+        for (size_t i = 0; i < Qubits; ++i) {
+            for (int j = 0; j < qubitReordercopy[i].size(); ++j) {
+                std::cout << qubitReordercopy[i].front() << " ";
+                qubitReordercopy[i].pop();
+            }
+            std::cout << "\n";
+        }
         while (true) {
             // Skip empty qubit queues
             while (currentQubit < Qubits &&
@@ -787,7 +752,7 @@ void outputFusionCircuit(
         const auto &execGate = executionGateList[index];
         if (execGate.fusionSize > 1) {
             // TODO: check diagonal gate is correctly generated
-            std::set<int> targetQubits;
+            std::set<int> sortedQubits;
             const auto &pGate =
                 fusionGateList[execGate.fusionSize - 1][execGate.fusionIndex];
             bool isDiagonal = true;
@@ -798,17 +763,17 @@ void outputFusionCircuit(
                 }
             }
             for (const auto &subGate : pGate.subGateList)
-                for (int qubit : subGate.targetQubit)
-                    targetQubits.insert(qubit);
+                for (int qubit : subGate.sortedQubits)
+                    sortedQubits.insert(qubit);
             char gateT = 'U';
             if (isDiagonal)
                 gateT = 'D';
-            outputFile << gateT << targetQubits.size() << " ";
-            for (int qubit : targetQubits)
+            outputFile << gateT << sortedQubits.size() << " ";
+            for (int qubit : sortedQubits)
                 outputFile << qubit << " ";
 
             Matrix fusedGateMat =
-                calculateFusionGate(pGate.subGateList, targetQubits);
+                calculateFusionGate(pGate.subGateList, sortedQubits);
             if (gateT == 'D') {
                 for (size_t i = 0; i < fusedGateMat.size(); i++)
                     outputFile << std::fixed << std::setprecision(16)
@@ -829,18 +794,18 @@ void outputFusionCircuit(
             const auto &subGate =
                 fusionGateList[0][execGate.fusionIndex].subGateList[0];
             outputFile << subGate.gateType << " ";
-            for (int qubit : subGate.targetQubit)
+            for (int qubit : subGate.sortedQubits)
                 outputFile << qubit << " ";
             if (subGate.gateType[0] == 'D') {
-                for (int i = 0; i * 2 < subGate.rotation.size(); i++) {
+                for (int i = 0; i * 2 < subGate.params.size(); i++) {
                     outputFile << std::fixed << std::setprecision(16) << " "
-                               << subGate.rotation[i * 2] << " "
-                               << subGate.rotation[i * 2 + 1];
+                               << subGate.params[i * 2] << " "
+                               << subGate.params[i * 2 + 1];
                 }
             } else {
-                for (double rotation : subGate.rotation)
-                    outputFile << std::fixed << std::setprecision(16)
-                               << rotation << " ";
+                for (double params : subGate.params)
+                    outputFile << std::fixed << std::setprecision(16) << params
+                               << " ";
             }
             outputFile << "\n";
         }
@@ -864,19 +829,19 @@ class DAG {
             // one qubit fusion edge
             addEdge(i, i + 1,
                     cost(gateList[i].subGateList[0].gateType, 1,
-                         gateList[i].subGateList[0].targetQubit));
+                         gateList[i].subGateList[0].sortedQubits));
             // muti qubit fusion edge
             for (size_t fusionSize = 2; fusionSize <= maxFusionQuibits;
                  ++fusionSize) {
-                std::set<int> qubit(gateList[i].subGateList[0].targetQubit);
+                std::set<int> qubit(gateList[i].subGateList[0].sortedQubits);
                 size_t nowIndex = i;
                 while (nowIndex < gateList.size() - 1) {
                     qubit.insert(gateList[nowIndex + 1]
                                      .subGateList[0]
-                                     .targetQubit.begin(),
+                                     .sortedQubits.begin(),
                                  gateList[nowIndex + 1]
                                      .subGateList[0]
-                                     .targetQubit.end());
+                                     .sortedQubits.end());
                     if (qubit.size() <= fusionSize)
                         nowIndex++;
                     else
@@ -931,7 +896,7 @@ class DAG {
                 for (int i = nodeList[nowIndex].predecessor; i < nowIndex;
                      ++i) {
                     for (int qubitIndex :
-                         gateList[i].subGateList[0].targetQubit) {
+                         gateList[i].subGateList[0].sortedQubits) {
                         qubit.insert(qubitIndex);
                     }
                 }
@@ -949,7 +914,6 @@ class DAG {
                     gateList[i].subGateList[0].dump();
                     std::cout << "\n";
                 }
-                // std::vector qubit_v(qubit_s.begin(), qubit_s.end());
                 fusedGateMat = calculateFusionGate(gateListForUGate, qubit);
 
                 for (size_t matRow = 0; matRow < fusedGateMat.size();
@@ -969,31 +933,31 @@ class DAG {
                 std::string tmpStr =
                     gateList[predecessorIndex].subGateList[0].gateType;
                 for (int qubitIndex :
-                     gateList[predecessorIndex].subGateList[0].targetQubit)
+                     gateList[predecessorIndex].subGateList[0].sortedQubits)
                     tmpStr += " " + std::to_string(qubitIndex);
                 if (gateList[predecessorIndex].subGateList[0].gateType[0] ==
                     'D') {
                     for (int i = 0; i * 2 < gateList[predecessorIndex]
                                                 .subGateList[0]
-                                                .rotation.size();
+                                                .params.size();
                          i++) {
                         std::ostringstream rotateStr;
                         rotateStr << std::fixed << std::setprecision(16) << " "
                                   << gateList[predecessorIndex]
                                          .subGateList[0]
-                                         .rotation[i * 2]
+                                         .params[i * 2]
                                   << " "
                                   << gateList[predecessorIndex]
                                          .subGateList[0]
-                                         .rotation[i * 2 + 1];
+                                         .params[i * 2 + 1];
                         tmpStr += rotateStr.str();
                     }
                 } else {
-                    for (double rotation :
-                         gateList[predecessorIndex].subGateList[0].rotation) {
+                    for (double params :
+                         gateList[predecessorIndex].subGateList[0].params) {
                         std::ostringstream rotateStr;
                         rotateStr << std::fixed << std::setprecision(16) << " "
-                                  << rotation;
+                                  << params;
                         tmpStr += rotateStr.str();
                     }
                 }
@@ -1035,7 +999,7 @@ class fusionList {
         for (const auto &gate : gateList) {
             info tmpInfo;
             tmpInfo.gateIndex = gate.fusionGateSI.fusionIndex;
-            for (int qubit : gate.subGateList[0].targetQubit) {
+            for (int qubit : gate.subGateList[0].sortedQubits) {
                 tmpInfo.targetQubit.insert(qubit);
             }
             infoList.push_back(tmpInfo);
@@ -1121,18 +1085,17 @@ inline void DoDiagonalFusion(Circuit &circuit) {
     std::vector<fusionGate> subGateList;
     for (size_t i = 0; i < circuit.size(); ++i) {
         fusionGate subGate;
-        double rotation = 0.0;
+        double params = 0.0;
         // Parsing the input string to fusionGate for the usage of
         // calculating the fused result of diagonal gate.
         subGate.gateType = circuit[i].gateType;
         if (circuit[i].gateType == "RZ" || circuit[i].gateType == "CP" ||
             circuit[i].gateType == "RZZ")
-            rotation = circuit[i].params[0];
-        subGate.rotation.push_back(rotation);
-        subGate.originalOrderQubit = circuit[i].qubits;
-        std::set<int> targetQubit_s(circuit[i].qubits.begin(),
-                                    circuit[i].qubits.end());
-        subGate.targetQubit = targetQubit_s;
+            params = circuit[i].params[0];
+        subGate.params.push_back(params);
+        subGate.qubits = circuit[i].qubits;
+        subGate.sortedQubits =
+            std::set<int>(circuit[i].qubits.begin(), circuit[i].qubits.end());
 
         if (circuit[i].gateType == "RZ") {
             auto firstInset =
@@ -1223,20 +1186,16 @@ inline std::vector<std::vector<fusionGate>> GetPGFS(const Circuit &circuit) {
     std::vector<fusionGate> NQubitFusionList;
     int gateIndex = 0;
     for (const auto &gate : circuit.gates) {
-        fusionGate bigFusionGate;
+        fusionGate wrapper(1, gateIndex);
+        wrapper.gateType = gate.gateType;
+        wrapper.sortedQubits = gate.sortedQubits;
         fusionGate nowFusionGate(1, gateIndex);
-        bigFusionGate.fusionGateSI.fusionSize = 1;
-        bigFusionGate.fusionGateSI.fusionIndex = gateIndex;
-        nowFusionGate.gateType = gate.gateType; //[0];
-        nowFusionGate.fusionGateSI.fusionIndex = gateIndex;
-        for (auto qubit : gate.qubits) {
-            nowFusionGate.targetQubit.insert(qubit);
-            nowFusionGate.originalOrderQubit.push_back(qubit);
-        }
-        for (auto param : gate.params)
-            nowFusionGate.rotation.push_back(param);
-        bigFusionGate.subGateList.push_back(nowFusionGate);
-        NQubitFusionList.push_back(bigFusionGate);
+        nowFusionGate.gateType = gate.gateType;
+        nowFusionGate.sortedQubits = gate.sortedQubits;
+        nowFusionGate.qubits = gate.qubits;
+        nowFusionGate.params = gate.params;
+        wrapper.subGateList.push_back(nowFusionGate);
+        NQubitFusionList.push_back(wrapper);
         gateIndex++;
     }
     fusionGateList.push_back(NQubitFusionList);
@@ -1249,16 +1208,16 @@ inline std::vector<std::vector<fusionGate>> GetPGFS(const Circuit &circuit) {
         NowInfoList.reNewList();
         int gateIndex = 0;
         while (!NowInfoList.infoList.empty()) {
-            fusionGate bigFusionGate;
-            bigFusionGate.fusionGateSI.fusionSize = fusionQubits;
-            bigFusionGate.fusionGateSI.fusionIndex = gateIndex;
+            fusionGate wrapper;
+            wrapper.fusionGateSI.fusionSize = fusionQubits;
+            wrapper.fusionGateSI.fusionIndex = gateIndex;
             std::vector<int> gateToFused;
             NowInfoList.getFusedGate(gateToFused, fusionQubits);
             for (int index : gateToFused) {
-                bigFusionGate.subGateList.push_back(
+                wrapper.subGateList.push_back(
                     fusionGateList[0][index].subGateList[0]);
             }
-            NQubitFusionList.push_back(bigFusionGate);
+            NQubitFusionList.push_back(wrapper);
             NowInfoList.reNewList();
             gateIndex++;
         }
@@ -1335,8 +1294,8 @@ GetOptimalGFS(std::string &outputFileName,
                 double smallWeight = DBL_MAX;
                 size_t smallCircuitSize = subFusionGateList[0].size();
 
-                std::vector<std::vector<int>> dependencyList =
-                    constructDependencyList(subFusionGateList);
+                std::vector<std::set<int>> dependencyList =
+                    constructDependencyList(subFusionGateList[0]);
                 // choose different strategies with different circuit size
                 std::cout << smallCircuitSize << std::endl;
                 if (smallCircuitSize < 26) {
@@ -1361,8 +1320,8 @@ GetOptimalGFS(std::string &outputFileName,
         }
     } else {
         treeNode nowNode;
-        std::vector<std::vector<int>> dependencyList =
-            constructDependencyList(fusionGateList);
+        std::vector<std::set<int>> dependencyList =
+            constructDependencyList(fusionGateList[0]);
         double smallWeight = DBL_MAX;
         std::vector<gateSI> executionGateList;
         nowNode.getSmallWeight(fusionGateList, dependencyList, 0, smallWeight,
@@ -1424,15 +1383,6 @@ int main(int argc, char *argv[]) {
     // reorder
     auto time_start = std::chrono::steady_clock::now();
     Circuit circuit(inputFileName);
-    // std::vector<std::queue<int>> qubitReorder =
-    // circuit.buildQubitGateQueues(); std::vector<std::queue<int>>
-    // qubitReordercopy(qubitReorder); for (size_t i = 0; i < Qubits; ++i) {
-    //     for (int j = 0; j < qubitReordercopy[i].size(); ++j) {
-    //         std::cout << qubitReordercopy[i].front() << " ";
-    //         qubitReordercopy[i].pop();
-    //     }
-    //     std::cout << "\n";
-    // }
 
     Circuit newCircuit = circuit.schedule();
 
@@ -1461,61 +1411,68 @@ int main(int argc, char *argv[]) {
     for (size_t fusionQubits = 1; fusionQubits < maxFusionQuibits;
          ++fusionQubits) {
         std::vector<fusionGate> NQubitFusionList;
-        std::vector<std::queue<int>> qubitReorder(Qubits, std::queue<int>());
+        std::vector<std::queue<int>> qubitGateQueues(Qubits, std::queue<int>());
         for (size_t index = 0; index < fusionGateList[fusionQubits].size();
              ++index) {
-            std::set<int> targetQubit;
+            std::set<int> sortedQubits;
             for (const auto &subGate :
                  fusionGateList[fusionQubits][index].subGateList)
-                targetQubit.insert(subGate.targetQubit.begin(),
-                                   subGate.targetQubit.end());
-            fusionGateList[fusionQubits][index].targetQubit = targetQubit;
+                sortedQubits.insert(subGate.sortedQubits.begin(),
+                                    subGate.sortedQubits.end());
+            fusionGateList[fusionQubits][index].sortedQubits = sortedQubits;
             int nextIndex = -1;
 
-            for (auto it = targetQubit.rbegin(); it != targetQubit.rend();
+            for (auto it = sortedQubits.rbegin(); it != sortedQubits.rend();
                  ++it) {
-                qubitReorder[*it].push(fusionGateList[fusionQubits][index]
-                                           .fusionGateSI.fusionIndex);
+                qubitGateQueues[*it].push(fusionGateList[fusionQubits][index]
+                                              .fusionGateSI.fusionIndex);
                 if (nextIndex != -1)
-                    qubitReorder[*it].push(nextIndex);
+                    qubitGateQueues[*it].push(nextIndex);
                 nextIndex = *it;
             }
-            qubitReorder[*targetQubit.rbegin()].push(*targetQubit.begin());
+            qubitGateQueues[*sortedQubits.rbegin()].push(*sortedQubits.begin());
         }
 
-        int nowQubit = 0;
-        std::vector<fusionGate> dependencyWaitList;
+        int currentQubit = 0;
+        std::vector<fusionGate> waitingGates;
+        std::set<int> scheduledGates;
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(fusionGateList[fusionQubits]);
-        while (1) {
-            while (qubitReorder[nowQubit].size() == 0 && nowQubit < Qubits)
-                nowQubit++;
-            if (nowQubit == Qubits)
+        while (true) {
+            while (currentQubit < Qubits &&
+                   qubitGateQueues[currentQubit].empty())
+                ++currentQubit;
+            if (currentQubit == Qubits)
                 break;
-            int gateIndex = qubitReorder[nowQubit].front();
-            qubitReorder[nowQubit].pop();
-            int qubitIndex = qubitReorder[nowQubit].front();
-            qubitReorder[nowQubit].pop();
+            int gateIdx = qubitGateQueues[currentQubit].front();
+            qubitGateQueues[currentQubit].pop();
+            int partnerQubit = qubitGateQueues[currentQubit].front();
+            qubitGateQueues[currentQubit].pop();
 
-            if (nowQubit >= qubitIndex) {
-                if (checkDependency(fusionGateList[fusionQubits][gateIndex],
-                                    NQubitFusionList, dependencyList))
+            if (currentQubit >= partnerQubit) {
+                if (checkDependency(fusionGateList[fusionQubits][gateIdx]
+                                        .fusionGateSI.fusionIndex,
+                                    dependencyList, scheduledGates)) {
+                    scheduledGates.insert(fusionGateList[fusionQubits][gateIdx]
+                                              .fusionGateSI.fusionIndex);
                     NQubitFusionList.push_back(
-                        fusionGateList[fusionQubits][gateIndex]);
-                else
-                    dependencyWaitList.push_back(
-                        fusionGateList[fusionQubits][gateIndex]);
+                        fusionGateList[fusionQubits][gateIdx]);
+                } else
+                    waitingGates.push_back(
+                        fusionGateList[fusionQubits][gateIdx]);
             }
             /* Try to move the gates in wait list into NQubitFusionList */
-            for (int i = 0; i < dependencyWaitList.size(); i++) {
-                if (checkDependency(dependencyWaitList[i], NQubitFusionList,
-                                    dependencyList)) {
-                    NQubitFusionList.push_back(dependencyWaitList[i]);
-                    dependencyWaitList.erase(dependencyWaitList.begin() + i);
+            for (int i = 0; i < waitingGates.size(); i++) {
+                if (checkDependency(waitingGates[i].fusionGateSI.fusionIndex,
+                                    dependencyList, scheduledGates)) {
+                    NQubitFusionList.push_back(waitingGates[i]);
+                    scheduledGates.insert(
+                        waitingGates[i].fusionGateSI.fusionIndex);
+                    waitingGates.erase(waitingGates.begin() + i);
                     i = 0;
                 }
             }
-            nowQubit = qubitIndex;
+            currentQubit = partnerQubit;
         }
         for (size_t index = 0; index < NQubitFusionList.size(); ++index)
             NQubitFusionList[index].fusionGateSI.fusionIndex = index;
