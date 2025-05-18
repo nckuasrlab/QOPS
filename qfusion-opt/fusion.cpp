@@ -575,8 +575,8 @@ class Circuit {
   public:
     std::vector<Gate> gates;
 
-    // Circuit(const std::vector<Gate> &gates) : gates(gates) {}
     Circuit() = default;
+    Circuit(const std::vector<Gate> &gates) : gates(gates) {}
     Circuit(const std::string &fileName) {
         std::ifstream tmpInputFile(fileName);
         std::string line;
@@ -591,7 +591,7 @@ class Circuit {
 
     Circuit schedule() const {
         Circuit reorderedCircuit;
-        std::vector<int> waitingGates;
+        std::vector<Gate> waitingGates;
         std::set<int> scheduledGates;
         int currentQubit = 0;
         std::vector<std::set<int>> dependencyList =
@@ -616,17 +616,19 @@ class Circuit {
             qubitGateQueues[currentQubit].pop();
 
             if (currentQubit >= partnerQubit) {
-                if (!hasDependency({gateIdx}, dependencyList, scheduledGates)) {
+                if (!hasDependency({gates[gateIdx].fusionGateSI.fusionIndex},
+                                   dependencyList, scheduledGates)) {
                     reorderedCircuit.gates.push_back(gates[gateIdx]);
-                    scheduledGates.insert(gateIdx);
+                    scheduledGates.insert(
+                        gates[gateIdx].fusionGateSI.fusionIndex);
                 } else {
-                    waitingGates.push_back(gateIdx);
+                    waitingGates.push_back(gates[gateIdx]);
                 }
             }
 
             // Try to schedule waiting gates whose dependencies are now resolved
             for (auto it = waitingGates.begin(); it != waitingGates.end();) {
-                int pendingIdx = *it;
+                int pendingIdx = (*it).fusionGateSI.fusionIndex;
                 if (!hasDependency({pendingIdx}, dependencyList,
                                    scheduledGates)) {
                     reorderedCircuit.gates.push_back(gates[pendingIdx]);
@@ -1144,8 +1146,11 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
             std::vector<int> gateToFused;
             NowInfoList.getFusedGate(gateToFused, fusionQubits);
             for (int index : gateToFused) {
-                wrapper.subGateList.push_back(
-                    fusionGateList[0][index].subGateList[0]);
+                auto &subGate = fusionGateList[0][index].subGateList[0];
+                wrapper.subGateList.push_back(subGate);
+                // note: wrapper.qubits is not updated since it is not used
+                wrapper.sortedQubits.insert(subGate.sortedQubits.begin(),
+                                            subGate.sortedQubits.end());
             }
             NQubitFusionList.push_back(wrapper);
             NowInfoList.reNewList();
@@ -1339,74 +1344,12 @@ int main(int argc, char *argv[]) {
     time_start = std::chrono::steady_clock::now();
     for (size_t fusionQubits = 1; fusionQubits < maxFusionQuibits;
          ++fusionQubits) {
-        std::vector<Gate> NQubitFusionList;
-        std::vector<std::queue<int>> qubitGateQueues(Qubits, std::queue<int>());
+        Circuit cc(fusionGateList[fusionQubits]);
+        fusionGateList[fusionQubits] = cc.schedule().gates;
         for (size_t index = 0; index < fusionGateList[fusionQubits].size();
-             ++index) {
-            std::set<int> sortedQubits;
-            for (const auto &subGate :
-                 fusionGateList[fusionQubits][index].subGateList)
-                sortedQubits.insert(subGate.sortedQubits.begin(),
-                                    subGate.sortedQubits.end());
-            fusionGateList[fusionQubits][index].sortedQubits = sortedQubits;
-            int nextIndex = -1;
-
-            for (auto it = sortedQubits.rbegin(); it != sortedQubits.rend();
-                 ++it) {
-                qubitGateQueues[*it].push(fusionGateList[fusionQubits][index]
-                                              .fusionGateSI.fusionIndex);
-                if (nextIndex != -1)
-                    qubitGateQueues[*it].push(nextIndex);
-                nextIndex = *it;
-            }
-            qubitGateQueues[*sortedQubits.rbegin()].push(*sortedQubits.begin());
-        }
-
-        int currentQubit = 0;
-        std::vector<Gate> waitingGates;
-        std::set<int> scheduledGates;
-        std::vector<std::set<int>> dependencyList =
-            constructDependencyList(fusionGateList[fusionQubits]);
-        while (true) {
-            while (currentQubit < Qubits &&
-                   qubitGateQueues[currentQubit].empty())
-                ++currentQubit;
-            if (currentQubit == Qubits)
-                break;
-            int gateIdx = qubitGateQueues[currentQubit].front();
-            qubitGateQueues[currentQubit].pop();
-            int partnerQubit = qubitGateQueues[currentQubit].front();
-            qubitGateQueues[currentQubit].pop();
-
-            if (currentQubit >= partnerQubit) {
-                if (!hasDependency({fusionGateList[fusionQubits][gateIdx]
-                                        .fusionGateSI.fusionIndex},
-                                   dependencyList, scheduledGates)) {
-                    scheduledGates.insert(fusionGateList[fusionQubits][gateIdx]
-                                              .fusionGateSI.fusionIndex);
-                    NQubitFusionList.push_back(
-                        fusionGateList[fusionQubits][gateIdx]);
-                } else
-                    waitingGates.push_back(
-                        fusionGateList[fusionQubits][gateIdx]);
-            }
-            /* Try to move the gates in wait list into NQubitFusionList */
-            for (auto it = waitingGates.begin(); it != waitingGates.end();) {
-                int pendingIdx = (*it).fusionGateSI.fusionIndex;
-                if (!hasDependency({pendingIdx}, dependencyList,
-                                   scheduledGates)) {
-                    NQubitFusionList.push_back(*it);
-                    scheduledGates.insert(pendingIdx);
-                    waitingGates.erase(it);
-                } else {
-                    ++it;
-                }
-            }
-            currentQubit = partnerQubit;
-        }
-        for (size_t index = 0; index < NQubitFusionList.size(); ++index)
-            NQubitFusionList[index].fusionGateSI.fusionIndex = index;
-        fusionGateList[fusionQubits] = NQubitFusionList;
+             ++index)
+            fusionGateList[fusionQubits][index].fusionGateSI.fusionIndex =
+                index;
     }
     time_end = std::chrono::steady_clock::now();
     timers["reorder2"] =
