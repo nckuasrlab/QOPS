@@ -82,8 +82,9 @@ class Gate {
         }
     }
 
-    Gate(const std::string &gateType, const std::vector<int> &targetQubit)
-        : gateType(gateType), qubits(targetQubit) {}
+    Gate(const std::string &gateType, const std::vector<int> &qubits)
+        : gateType(gateType), qubits(qubits),
+          sortedQubits(qubits.begin(), qubits.end()) {}
 
     std::string str() const {
         std::stringstream ss;
