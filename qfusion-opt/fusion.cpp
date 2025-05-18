@@ -428,12 +428,11 @@ void showDependencyList(const std::vector<std::vector<int>> &dependencyList) {
     std::cout << "\n";
 }
 
-
 /* Check if the gate has dependency, scheduled gates are excluded */
 // note: dependencyList is needed to copy
-bool hasDependency(const std::set<int> &gateIndex,
-                   std::vector<std::set<int>> dependencyList,
-                   const std::set<int> &scheduledGates) {
+inline bool hasDependency(const std::set<int> &gateIndex,
+                          std::vector<std::set<int>> dependencyList,
+                          const std::set<int> &scheduledGates) {
     for (int i : gateIndex) {
         for (int gate : scheduledGates)
             dependencyList[i].erase(gate);
@@ -701,6 +700,8 @@ class Circuit {
     }
 
   private:
+    // Build a queue of gate indices for each qubit
+    // for each gate, a qubit is pushed as a pair (gate, qubit)
     std::vector<std::queue<int>> buildQubitGateQueues() const {
         std::vector<std::queue<int>> qubitGateQueues(Qubits);
         for (size_t gateIdx = 0; gateIdx < gates.size(); ++gateIdx) {
@@ -711,7 +712,7 @@ class Circuit {
             for (auto it = qubits.rbegin(); it != qubits.rend(); ++it) {
                 int qubit = *it;
                 qubitGateQueues[qubit].push(gateIdx);
-                if (prevQubit == -1) { // First qubit
+                if (prevQubit == -1) {
                     qubitGateQueues[qubit].push(firstQubit);
                 } else {
                     qubitGateQueues[qubit].push(prevQubit);
@@ -1057,7 +1058,7 @@ class fusionList {
     }
 };
 
-inline void DoDiagonalFusion(Circuit &circuit) {
+void DoDiagonalFusion(Circuit &circuit) {
     std::vector<int> targetQubitList;
     // use hash table to record the gates fused into a diagonal gate
     std::map<Gate *, std::vector<fusionGate>> fusedGatesRecord;
@@ -1160,7 +1161,7 @@ inline void DoDiagonalFusion(Circuit &circuit) {
     }
 }
 
-inline std::vector<std::vector<fusionGate>> GetPGFS(const Circuit &circuit) {
+std::vector<std::vector<fusionGate>> GetPGFS(const Circuit &circuit) {
     std::vector<std::vector<fusionGate>> fusionGateList;
     // construct 1-qubit fusion list
     std::vector<fusionGate> NQubitFusionList;
@@ -1206,9 +1207,8 @@ inline std::vector<std::vector<fusionGate>> GetPGFS(const Circuit &circuit) {
     return fusionGateList;
 }
 
-inline void
-GetOptimalGFS(std::string &outputFileName,
-              const std::vector<std::vector<fusionGate>> &fusionGateList) {
+void GetOptimalGFS(std::string &outputFileName,
+                   const std::vector<std::vector<fusionGate>> &fusionGateList) {
     showFusionGateList(fusionGateList, 1, fusionGateList.size());
     //  find best fusion conbination
     //  execute small gate block one by one to reduce execution time
@@ -1431,7 +1431,7 @@ int main(int argc, char *argv[]) {
 
             if (currentQubit >= partnerQubit) {
                 if (!hasDependency({fusionGateList[fusionQubits][gateIdx]
-                                       .fusionGateSI.fusionIndex},
+                                        .fusionGateSI.fusionIndex},
                                    dependencyList, scheduledGates)) {
                     scheduledGates.insert(fusionGateList[fusionQubits][gateIdx]
                                               .fusionGateSI.fusionIndex);
@@ -1444,11 +1444,10 @@ int main(int argc, char *argv[]) {
             /* Try to move the gates in wait list into NQubitFusionList */
             for (auto it = waitingGates.begin(); it != waitingGates.end();) {
                 int pendingIdx = (*it).fusionGateSI.fusionIndex;
-                if (!hasDependency({pendingIdx},
-                                   dependencyList, scheduledGates)) {
+                if (!hasDependency({pendingIdx}, dependencyList,
+                                   scheduledGates)) {
                     NQubitFusionList.push_back(*it);
-                    scheduledGates.insert(
-                        pendingIdx);
+                    scheduledGates.insert(pendingIdx);
                     waitingGates.erase(it);
                 } else {
                     ++it;
