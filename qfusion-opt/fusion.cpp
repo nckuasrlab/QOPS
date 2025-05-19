@@ -27,10 +27,10 @@ std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
 double cost(const std::string &gateType, const int fusionSize,
             const std::set<int> &sortedQubits);
 
-// gate size-index
-struct gateSI {
-    int fusionSize;
-    int fusionIndex;
+// gate size-index for fusion
+struct Finfo {
+    int size; // fusiom size
+    int id;   // fusion gate index
 };
 
 int targetQubitCounter(const std::string &gateType) {
@@ -58,24 +58,22 @@ class Gate {
     std::vector<double> params; // non-qubit parameters
 
     // for fusion
-    gateSI fusionGateSI;
+    Finfo finfo;
     std::vector<Gate> subGateList;
 
     // Gate() = default;
-    Gate(gateSI fusionGateSI) : fusionGateSI(fusionGateSI) {}
-    Gate(gateSI fusionGateSI, const std::string &gateType,
+    Gate(Finfo finfo) : finfo(finfo) {}
+    Gate(Finfo finfo, const std::string &gateType,
          const std::set<int> &sortedQubits)
-        : fusionGateSI(fusionGateSI), gateType(gateType),
-          sortedQubits(sortedQubits) {}
-    Gate(gateSI fusionGateSI, const Gate &gate)
-        : fusionGateSI(fusionGateSI), gateType(gate.gateType),
-          qubits(gate.qubits), sortedQubits(gate.sortedQubits),
-          params(gate.params) {}
+        : finfo(finfo), gateType(gateType), sortedQubits(sortedQubits) {}
+    Gate(Finfo finfo, const Gate &gate)
+        : finfo(finfo), gateType(gate.gateType), qubits(gate.qubits),
+          sortedQubits(gate.sortedQubits), params(gate.params) {}
     Gate(const std::string &gateType, const std::vector<int> &qubits)
         : gateType(gateType), qubits(qubits),
           sortedQubits(qubits.begin(), qubits.end()) {}
 
-    Gate(const std::string &line, int gateIndex) : fusionGateSI{1, gateIndex} {
+    Gate(const std::string &line, int gateIndex) : finfo{1, gateIndex} {
         std::vector<std::string> gateInfo;
         size_t pos = 0;
         std::string token;
@@ -117,15 +115,13 @@ class Gate {
         // To dump only the current gate, use the command provided. To dump all
         // gates, iterate through the gate.subGateList using a loop such as: for
         // (const auto &subGate : gate.subGateList) { subGate.dump(); }.
-        std::cout << fusionGateSI.fusionSize << "-" << fusionGateSI.fusionIndex;
-        std::cout << " ("
-                  << cost(gateType, fusionGateSI.fusionSize, sortedQubits)
-                  << ") ";
+        std::cout << finfo.size << "-" << finfo.id;
+        std::cout << " (" << cost(gateType, finfo.size, sortedQubits) << ") ";
         if (subGateList.empty())
             return;
         double sum_cost = 0;
         for (const auto &subGate : subGateList) {
-            sum_cost += cost(subGate.gateType, subGate.fusionGateSI.fusionSize,
+            sum_cost += cost(subGate.gateType, subGate.finfo.size,
                              subGate.sortedQubits);
         }
         std::cout << "sum_cost = " << sum_cost << "\n";
@@ -390,15 +386,12 @@ void showFusionGateList(const std::vector<std::vector<Gate>> &fusionGateList,
     }
 }
 
-void showDependencyList(const std::vector<std::vector<int>> &dependencyList) {
+void showDependencyList(const std::vector<std::set<int>> &dependencyList) {
     std::cout << "=============================================\n";
     for (size_t i = 0; i < dependencyList.size(); ++i) {
         std::cout << i << " || ";
-        for (size_t j = 0; j < dependencyList[i].size(); ++j) {
-            if (dependencyList[i][j] > -1)
-                std::cout << dependencyList[i][j] << " ";
-            else
-                std::cout << "NULL";
+        for (auto j : dependencyList[i]) {
+            std::cout << j << " ";
         }
         std::cout << "\n";
     }
@@ -413,7 +406,7 @@ inline bool hasDependency(const std::set<int> &gateIndex,
     for (int i : gateIndex) {
         for (int gate : scheduledGates)
             dependencyList[i].erase(gate);
-        if (!dependencyList[i].empty() && !dependencyList[i].contains(-1))
+        if (!dependencyList[i].empty())
             return true;
     }
     return false;
@@ -427,9 +420,7 @@ void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
     // delete node in dependency list
     for (const auto &subgate : bigFusionGate.subGateList)
         for (auto &dependencyList_i : dependencyList) {
-            dependencyList_i.erase(subgate.fusionGateSI.fusionIndex);
-            if (dependencyList_i.empty())
-                dependencyList_i.insert(-1);
+            dependencyList_i.erase(subgate.finfo.id);
         }
 
     // delete node in fusionGate list
@@ -438,8 +429,7 @@ void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
             int flag = 0;
             for (const auto &subgate_i : fusionList_i[index].subGateList) {
                 for (const auto &subgate_j : bigFusionGate.subGateList)
-                    if (subgate_i.fusionGateSI.fusionIndex ==
-                        subgate_j.fusionGateSI.fusionIndex) {
+                    if (subgate_i.finfo.id == subgate_j.finfo.id) {
                         flag = 1;
                         break;
                     }
@@ -454,28 +444,20 @@ void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
     }
 }
 
-/* Used in reorder1 phase */
-/* Used in reorder2 phase */
-std::vector<std::set<int>>
-constructDependencyList(const std::vector<Gate> &fusionGateList) {
-    std::vector<std::set<int>> dependencyList;
+/* Construct dependency gate set for each gate */
+inline std::vector<std::set<int>>
+constructDependencyList(const std::vector<Gate> &gates) {
+    std::vector<int> gateOnQubit(gQubits, -1); // record the last gate on qubit
     int maxIndex = 0;
-    std::vector<int> gateOnQubit(gQubits, -1);
-    for (const auto &gate : fusionGateList)
-        maxIndex = std::max(maxIndex, gate.fusionGateSI.fusionIndex);
-    for (int i = 0; i <= maxIndex; ++i)
-        dependencyList.push_back(std::set<int>{-1});
-    for (const auto &gate : fusionGateList) {
-        std::set<int> dependency;
+    for (const auto &gate : gates)
+        maxIndex = std::max(maxIndex, gate.finfo.id);
+    std::vector<std::set<int>> dependencyList(maxIndex + 1);
+    for (const auto &gate : gates) {
         for (int qubit : gate.sortedQubits) {
-            dependency.insert(gateOnQubit[qubit]);
-            gateOnQubit[qubit] = gate.fusionGateSI.fusionIndex;
+            if (gateOnQubit[qubit] != -1) // the first gate on qubit is ignored
+                dependencyList[gate.finfo.id].insert(gateOnQubit[qubit]);
+            gateOnQubit[qubit] = gate.finfo.id;
         }
-        if (dependency.size() > 1)
-            dependency.erase(-1);
-        if (dependency.empty())
-            dependency.insert(-1);
-        dependencyList[gate.fusionGateSI.fusionIndex] = dependency;
     }
     return dependencyList;
 }
@@ -518,29 +500,26 @@ double cost(const std::string &gateType, const int fusionSize,
 class treeNode {
   public:
     treeNode *PNode = nullptr;
-    gateSI nodeSI = {0, 0};
+    Finfo finfo = {0, 0};
     double executionTime = 0;
     treeNode() = default; // root node
-    treeNode(treeNode *PNode, const gateSI &nodeSI, std::string gateType,
+    treeNode(treeNode *PNode, const Finfo &finfo, std::string gateType,
              const std::set<int> &sortedQubits)
-        : PNode(PNode), nodeSI(nodeSI),
-          executionTime(cost(gateType, this->nodeSI.fusionSize, sortedQubits)) {
-    }
+        : PNode(PNode), finfo(finfo),
+          executionTime(cost(gateType, this->finfo.size, sortedQubits)) {}
     void getSmallWeight(std::vector<std::vector<Gate>> fusionGateList,
                         std::vector<std::set<int>> dependencyList,
                         double nowWeight, double &smallWeight,
-                        std::vector<gateSI> nowGateList,
-                        std::vector<gateSI> &executionGateList) {
+                        std::vector<Finfo> nowGateList,
+                        std::vector<Finfo> &executionGateList) {
         gDFSCounter++;
         nowWeight += executionTime;
-        nowGateList.push_back(nodeSI);
+        nowGateList.push_back(finfo);
         if (PNode != nullptr) {
-            auto &currentFusionList = fusionGateList[nodeSI.fusionSize - 1];
+            auto &currentFusionList = fusionGateList[finfo.size - 1];
             auto it = find_if(
                 currentFusionList.begin(), currentFusionList.end(),
-                [this](const Gate &gate) {
-                    return gate.fusionGateSI.fusionIndex == nodeSI.fusionIndex;
-                });
+                [this](const Gate &gate) { return gate.finfo.id == finfo.id; });
             if (it != currentFusionList.end()) {
                 deleteRelatedNode(fusionGateList, dependencyList, *it);
             }
@@ -556,16 +535,16 @@ class treeNode {
         for (int nowFusionSize = gMaxFusionQuibits - 1; nowFusionSize >= 0;
              --nowFusionSize) {
             for (const auto &fusionGate : fusionGateList[nowFusionSize]) {
-                if (nodeSI.fusionSize == nowFusionSize + 1 &&
-                    nodeSI.fusionIndex > fusionGate.fusionGateSI.fusionIndex &&
+                if (finfo.size == nowFusionSize + 1 &&
+                    finfo.id > fusionGate.finfo.id &&
                     (gMethod != 0 && gMethod != 2))
                     break;
                 std::set<int> gateIndexes;
                 for (const auto &subgate : fusionGate.subGateList) {
-                    gateIndexes.insert(subgate.fusionGateSI.fusionIndex);
+                    gateIndexes.insert(subgate.finfo.id);
                 }
                 if (!hasDependency(gateIndexes, dependencyList, gateIndexes)) {
-                    treeNode(this, fusionGate.fusionGateSI,
+                    treeNode(this, fusionGate.finfo,
                              fusionGate.subGateList[0].gateType,
                              fusionGate.subGateList[0].sortedQubits)
                         .getSmallWeight(fusionGateList, dependencyList,
@@ -623,11 +602,10 @@ class Circuit {
             qubitGateQueues[currentQubit].pop();
 
             if (currentQubit >= partnerQubit) {
-                if (!hasDependency({gates[gateIdx].fusionGateSI.fusionIndex},
-                                   dependencyList, scheduledGates)) {
+                if (!hasDependency({gates[gateIdx].finfo.id}, dependencyList,
+                                   scheduledGates)) {
                     reorderedCircuit.gates.push_back(gates[gateIdx]);
-                    scheduledGates.insert(
-                        gates[gateIdx].fusionGateSI.fusionIndex);
+                    scheduledGates.insert(gates[gateIdx].finfo.id);
                 } else {
                     waitingGates.push_back(gates[gateIdx]);
                 }
@@ -635,7 +613,7 @@ class Circuit {
 
             // Try to schedule waiting gates whose dependencies are now resolved
             for (auto it = waitingGates.begin(); it != waitingGates.end();) {
-                int pendingIdx = (*it).fusionGateSI.fusionIndex;
+                int pendingIdx = (*it).finfo.id;
                 if (!hasDependency({pendingIdx}, dependencyList,
                                    scheduledGates)) {
                     reorderedCircuit.gates.push_back(gates[pendingIdx]);
@@ -685,15 +663,14 @@ class Circuit {
 
 void outputFusionCircuit(const std::string &outputFileName,
                          const std::vector<std::vector<Gate>> &fusionGateList,
-                         const std::vector<gateSI> &executionGateList) {
+                         const std::vector<Finfo> &executionGateList) {
     std::ofstream outputFile(outputFileName, std::ios_base::app);
     for (size_t index = 1; index < executionGateList.size(); ++index) {
         const auto &execGate = executionGateList[index];
-        if (execGate.fusionSize > 1) {
+        if (execGate.size > 1) {
             // TODO: check diagonal gate is correctly generated
             std::set<int> sortedQubits;
-            const auto &pGate =
-                fusionGateList[execGate.fusionSize - 1][execGate.fusionIndex];
+            const auto &pGate = fusionGateList[execGate.size - 1][execGate.id];
             bool isDiagonal = true;
             for (const auto &subGate : pGate.subGateList) {
                 if (subGate.gateType[0] != 'D') {
@@ -730,8 +707,7 @@ void outputFusionCircuit(const std::string &outputFileName,
             }
             outputFile << "\n";
         } else {
-            const auto &subGate =
-                fusionGateList[0][execGate.fusionIndex].subGateList[0];
+            const auto &subGate = fusionGateList[0][execGate.id].subGateList[0];
             outputFile << subGate.gateType << " ";
             for (int qubit : subGate.sortedQubits)
                 outputFile << qubit << " ";
@@ -937,7 +913,7 @@ class fusionList {
     fusionList(const std::vector<Gate> &gateList) {
         for (const auto &gate : gateList) {
             info tmpInfo;
-            tmpInfo.gateIndex = gate.fusionGateSI.fusionIndex;
+            tmpInfo.gateIndex = gate.finfo.id;
             for (int qubit : gate.subGateList[0].sortedQubits) {
                 tmpInfo.targetQubit.insert(qubit);
             }
@@ -947,12 +923,28 @@ class fusionList {
 
     void showInfoList() const {
         for (const auto &inf : infoList) {
-            std::cout << inf.gateIndex << " |";
-            for (int element : inf.targetQubit)
-                std::cout << " " << element;
-            std::cout << " |";
-            for (int element : inf.relatedQubit)
-                std::cout << " " << element;
+            std::cout << inf.gateIndex << "|";
+            if (!inf.targetQubit.empty()) {
+                std::cout << " t{";
+                for (auto it = inf.targetQubit.begin();
+                     it != inf.targetQubit.end(); ++it) {
+                    if (it != inf.targetQubit.begin())
+                        std::cout << ", ";
+                    std::cout << *it;
+                }
+                std::cout << "} ";
+            }
+            std::cout << "|";
+            if (!inf.relatedQubit.empty()) {
+                std::cout << " r{";
+                for (auto it = inf.relatedQubit.begin();
+                     it != inf.relatedQubit.end(); ++it) {
+                    if (it != inf.relatedQubit.begin())
+                        std::cout << ", ";
+                    std::cout << *it;
+                }
+                std::cout << "}";
+            }
             std::cout << " | " << inf.maxGateNumber << "\n";
         }
     }
@@ -1136,9 +1128,13 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
         std::vector<Gate> NQubitFusionList;
         fusionList NowInfoList(fusionGateList[0]); // BuildGateInfoList
         NowInfoList.reNewList();
+        // NowInfoList.showInfoList();
+        // std::vector<std::set<int>> dependencyList =
+        //     constructDependencyList(fusionGateList[0]);
+        // showDependencyList(dependencyList);
         int gateIndex = 0;
         while (!NowInfoList.infoList.empty()) {
-            Gate wrapper({fusionQubits, gateIndex});
+            Gate wrapper({fusionQubits, gateIndex++});
             std::vector<int> gateToFused =
                 NowInfoList.getFusedGate(fusionQubits);
             for (int index : gateToFused) {
@@ -1150,7 +1146,6 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
             }
             NQubitFusionList.push_back(wrapper);
             NowInfoList.reNewList();
-            gateIndex++;
         }
         fusionGateList.push_back(NQubitFusionList);
     }
@@ -1169,7 +1164,7 @@ void GetOptimalGFS(std::string &outputFileName,
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(fusionGateList[0]);
         double smallWeight = DBL_MAX;
-        std::vector<gateSI> executionGateList;
+        std::vector<Finfo> executionGateList;
         treeNode().getSmallWeight(fusionGateList, dependencyList, 0,
                                   smallWeight, executionGateList,
                                   executionGateList);
@@ -1182,10 +1177,9 @@ void GetOptimalGFS(std::string &outputFileName,
          ++index) {
         for (const auto &subGate :
              fusionGateList[gMaxFusionQuibits - 1][index].subGateList) {
-            subFusionGateList[0].push_back(
-                fusionGateList[0][subGate.fusionGateSI.fusionIndex]);
+            subFusionGateList[0].push_back(fusionGateList[0][subGate.finfo.id]);
             for (size_t i = 0; i < gMaxFusionQuibits; ++i)
-                recordIndex[i].push_back(subGate.fusionGateSI.fusionIndex);
+                recordIndex[i].push_back(subGate.finfo.id);
         }
         for (size_t fusionQubits = 1; fusionQubits < gMaxFusionQuibits - 1;
              ++fusionQubits) {
@@ -1199,7 +1193,7 @@ void GetOptimalGFS(std::string &outputFileName,
                     // subset of the recordIndex for this fusion size.
                     if (find(recordIndex[fusionQubits].begin(),
                              recordIndex[fusionQubits].end(),
-                             subGate.fusionGateSI.fusionIndex) ==
+                             subGate.finfo.id) ==
                         recordIndex[fusionQubits].end()) {
                         flag = 0;
                         recordIndex[fusionQubits].insert(
@@ -1207,9 +1201,8 @@ void GetOptimalGFS(std::string &outputFileName,
                             reIndex.end());
                         break;
                     }
-                    reIndex.push_back(subGate.fusionGateSI.fusionIndex);
-                    std::erase(recordIndex[fusionQubits],
-                               subGate.fusionGateSI.fusionIndex);
+                    reIndex.push_back(subGate.finfo.id);
+                    std::erase(recordIndex[fusionQubits], subGate.finfo.id);
                 }
                 if (flag)
                     subFusionGateList[fusionQubits].push_back(
@@ -1234,7 +1227,7 @@ void GetOptimalGFS(std::string &outputFileName,
                 std::vector<std::set<int>> dependencyList =
                     constructDependencyList(subFusionGateList[0]);
                 std::cout << "get small weight" << std::endl;
-                std::vector<gateSI> executionGateList;
+                std::vector<Finfo> executionGateList;
                 treeNode().getSmallWeight(subFusionGateList, dependencyList, 0,
                                           smallWeight, executionGateList,
                                           executionGateList);
@@ -1331,7 +1324,7 @@ int main(int argc, char *argv[]) {
     time_end = std::chrono::steady_clock::now();
     timers["GetPGFS"] =
         std::chrono::duration<double>(time_end - time_start).count();
-
+    showFusionGateList(fusionGateList, 1, gMaxFusionQuibits);
     // do reorder
     time_start = std::chrono::steady_clock::now();
     for (size_t fusionQubits = 1; fusionQubits < gMaxFusionQuibits;
@@ -1340,8 +1333,7 @@ int main(int argc, char *argv[]) {
         fusionGateList[fusionQubits] = cc.schedule().gates;
         for (size_t index = 0; index < fusionGateList[fusionQubits].size();
              ++index)
-            fusionGateList[fusionQubits][index].fusionGateSI.fusionIndex =
-                index;
+            fusionGateList[fusionQubits][index].finfo.id = index;
     }
     time_end = std::chrono::steady_clock::now();
     timers["reorder2"] =
