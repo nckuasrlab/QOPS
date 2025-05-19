@@ -8,7 +8,7 @@ NUM=10
 MODE=3
 
 fusion: fusion.cpp
-	${CXX} ${CXXFLAGS} -o $@ $^
+	${CXX} ${CXXFLAGS} -o $@ $^ -lpthread
 
 # fusion_ori: fusion_ori.cpp
 # 	${CXX} ${CXXFLAGS} -o $@ $^
