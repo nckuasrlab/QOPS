@@ -935,6 +935,11 @@ class FusionList {
                                   gate.subGateList[0].sortedQubits);
         }
     }
+    // copy assignment operator
+    FusionList &operator=(const FusionList &rhs) {
+        infoList = rhs.infoList;
+        return *this;
+    }
 
     void reNewList() {
         std::vector<std::vector<int>> qubitDependency(gQubits);
@@ -1087,6 +1092,7 @@ void DoDiagonalFusion(Circuit &circuit) {
     for (auto &gate : circuit.gates) {
         if (gate.gateType == "D") {
             gate.gateType += std::to_string(gate.qubits.size());
+            gate.finfo.fid = gate.subGateList[0].gids[0];
             for (const auto &subgate : gate.subGateList) { // collect gids
                 gate.gids.push_back(subgate.gids[0]);
             }
@@ -1117,25 +1123,28 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
 
     // Step 2: parallel generation of multi-qubit fusion lists
     std::vector<std::future<std::vector<Gate>>> futures;
+    FusionList fusionList(fusionGateList[0]);
+    const auto &fusionGateList0 = fusionGateList[0];
     for (qubit_size_t fSize = 2; fSize <= gMaxFusionSize; ++fSize) {
-        futures.push_back(std::async(std::launch::async, [fSize,
-                                                          &fusionGateList]() {
+        futures.push_back(std::async(std::launch::async, [fSize, fusionList,
+                                                          fusionGateList0]() {
             std::vector<Gate> nQubitFusionList;
-            FusionList nowInfoList(fusionGateList[0]); // Assume copy is cheap
-            nowInfoList.reNewList();
+            FusionList nowFusionList = fusionList; // Assume copy is cheap
+            nowFusionList.reNewList();
             gate_size_t gateIndex = 0;
             double in_loop_g = 0, in_loop_r = 0;
-            while (!nowInfoList.infoList.empty()) {
+            while (!nowFusionList.infoList.empty()) {
                 Gate wrapper({fSize, gateIndex++});
-                std::vector<int> gateToFused = nowInfoList.getFusedGate(fSize);
+                std::vector<int> gateToFused =
+                    nowFusionList.getFusedGate(fSize);
                 for (int index : gateToFused) {
-                    auto &subgate = fusionGateList[0][index].subGateList[0];
+                    auto &subgate = fusionGateList0[index].subGateList[0];
                     wrapper.subGateList.push_back(subgate);
                     wrapper.sortedQubits.insert(subgate.sortedQubits.begin(),
                                                 subgate.sortedQubits.end());
                 }
                 nQubitFusionList.push_back(wrapper);
-                nowInfoList.reNewList();
+                nowFusionList.reNewList();
             }
             return nQubitFusionList;
         }));
