@@ -248,7 +248,8 @@ Matrix twoQubitsGateMat(const Gate &gate,
 }
 
 /* Return the matrix of input gate */
-Matrix gateMatrix(const std::string &gateType, const std::vector<double> &params) {
+Matrix gateMatrix(const std::string &gateType,
+                  const std::vector<double> &params) {
     Matrix mat(2, std::vector<std::complex<double>>());
     if (gateType == "X") {
         mat[0].assign({{0, 0}, {1, 0}});
@@ -409,6 +410,13 @@ void showDependencyList(const std::vector<std::set<int>> &dependencyList) {
             std::cout << j << " ";
         }
         std::cout << "\n";
+    }
+    std::cout << "\n";
+}
+
+void showFinfoList(const std::vector<Finfo> &finfoList) {
+    for (const auto &info : finfoList) {
+        std::cout << info.size << "-" << info.fid << " ";
     }
     std::cout << "\n";
 }
@@ -711,10 +719,16 @@ void outputFusionCircuit(const std::string &outputFileName,
                          const std::vector<std::vector<Gate>> &fusionGateList,
                          const std::vector<Finfo> &finalGateList) {
     std::ofstream outputFile(outputFileName, std::ios_base::app);
-    for (size_t index = 1; index < finalGateList.size(); ++index) {
-        const Finfo &finfo = finalGateList[index];
-        if (finfo.size > 1) {
+    for (const auto &finfo : finalGateList) {
+        if (finfo.size == 0) { // root node
+            continue;
+        } else {
             const auto &wrapper = fusionGateList[finfo.size - 1][finfo.fid];
+            if (wrapper.subGateList.size() == 1) { // no fusion
+                outputFile << wrapper.subGateList[0].str() << "\n";
+                continue;
+            }
+
             bool isDiagonal = true;
             for (const auto &subgate : wrapper.subGateList) {
                 if (subgate.gateType[0] != 'D') {
@@ -745,9 +759,6 @@ void outputFusionCircuit(const std::string &outputFileName,
                 }
             }
             outputFile << "\n";
-        } else {
-            const auto &subgate = fusionGateList[0][finfo.fid].subGateList[0];
-            outputFile << subgate.str() << "\n";
         }
     }
     outputFile.close();
@@ -900,10 +911,8 @@ class DAG {
             outputFile << *it << "\n";
         outputFile.close();
     }
-    void showInfo() const {
-        std::cout << "-------------------------------------------------"
-                     "-------"
-                  << "\n";
+    void dump() const {
+        std::cout << "--------------------------------------------\n";
         std::cout << "Gate number: " << graphSize - 1 << "\n";
         for (size_t i = 0; i < edge.size(); ++i) {
             std::cout << "Source: " << i << "\n";
@@ -940,6 +949,8 @@ class FusionList {
         infoList = rhs.infoList;
         return *this;
     }
+    // copy constructor
+    FusionList(const FusionList &rhs) { infoList = rhs.infoList; }
 
     void reNewList() {
         std::vector<std::vector<int>> qubitDependency(gQubits);
@@ -1230,7 +1241,7 @@ void GetOptimalGFS(std::string &outputFileName,
             } else {
                 DAG subDAG(smallCircuitSize);
                 subDAG.constructDAG(subFusionGateList[0]);
-                subDAG.showInfo();
+                // subDAG.showInfo();
                 subDAG.shortestPath(subFusionGateList[0], outputFileName);
             }
             for (size_t i = 0; i < gMaxFusionSize; ++i) {
