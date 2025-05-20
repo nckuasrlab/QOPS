@@ -16,7 +16,7 @@
 #include <set>
 #include <sstream>
 #include <string>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 using gate_size_t = unsigned short;  // 65535 gates
@@ -33,7 +33,6 @@ std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
 // finalGateList)
 std::mutex gMutex;
 ThreadPool gPool(std::thread::hardware_concurrency());
-
 
 double cost(const std::string &gateType, const int fSize,
             const std::set<qubit_size_t> &sortedQubits);
@@ -249,8 +248,7 @@ Matrix twoQubitsGateMat(const Gate &gate,
 }
 
 /* Return the matrix of input gate */
-// TODO const & params causes wrong results for vc24
-Matrix gateMatrix(const std::string &gateType, std::vector<double> params) {
+Matrix gateMatrix(const std::string &gateType, const std::vector<double> &params) {
     Matrix mat(2, std::vector<std::complex<double>>());
     if (gateType == "X") {
         mat[0].assign({{0, 0}, {1, 0}});
@@ -920,79 +918,49 @@ class DAG {
 class FusionList {
   public:
     struct Info {
-        int gateIndex;
+        Info(gate_size_t gateIndex, const std::set<qubit_size_t> &sortedQubits)
+            : gateIndex(gateIndex), sortedQubits(sortedQubits) {}
+
+        gate_size_t gateIndex;
         int maxGateNumber = 0;
-        std::set<int> targetQubit;
-        std::set<int> relatedQubit;
+        std::set<qubit_size_t> sortedQubits;
+        std::set<qubit_size_t> relatedQubits;
     };
 
     std::vector<Info> infoList;
 
     FusionList(const std::vector<Gate> &gateList) {
         for (const auto &gate : gateList) {
-            Info tmpInfo;
-            tmpInfo.gateIndex = gate.finfo.fid;
-            for (int qubit : gate.subGateList[0].sortedQubits) {
-                tmpInfo.targetQubit.insert(qubit);
-            }
-            infoList.push_back(tmpInfo);
-        }
-    }
-
-    void showInfoList() const {
-        for (const auto &inf : infoList) {
-            std::cout << inf.gateIndex << "|";
-            if (!inf.targetQubit.empty()) {
-                std::cout << " t{";
-                for (auto it = inf.targetQubit.begin();
-                     it != inf.targetQubit.end(); ++it) {
-                    if (it != inf.targetQubit.begin())
-                        std::cout << ", ";
-                    std::cout << *it;
-                }
-                std::cout << "} ";
-            }
-            std::cout << "|";
-            if (!inf.relatedQubit.empty()) {
-                std::cout << " r{";
-                for (auto it = inf.relatedQubit.begin();
-                     it != inf.relatedQubit.end(); ++it) {
-                    if (it != inf.relatedQubit.begin())
-                        std::cout << ", ";
-                    std::cout << *it;
-                }
-                std::cout << "}";
-            }
-            std::cout << " | " << inf.maxGateNumber << "\n";
+            infoList.emplace_back(gate.finfo.fid,
+                                  gate.subGateList[0].sortedQubits);
         }
     }
 
     void reNewList() {
         std::vector<std::vector<int>> qubitDependency(gQubits);
-        std::vector<std::set<int>> preGate(gQubits);
-        for (auto &inf : infoList) {
-            inf.relatedQubit = inf.targetQubit;
-            for (int element : inf.targetQubit) {
-                inf.relatedQubit.insert(qubitDependency[element].begin(),
-                                        qubitDependency[element].end());
+        std::vector<std::unordered_set<int>> preGate(gQubits);
+        for (auto &info : infoList) {
+            info.relatedQubits = info.sortedQubits;
+            for (int element : info.sortedQubits) {
+                info.relatedQubits.insert(qubitDependency[element].begin(),
+                                          qubitDependency[element].end());
             }
-            std::set<int> allPreGate;
-            for (int element : inf.relatedQubit) {
-                qubitDependency[element].assign(inf.relatedQubit.begin(),
-                                                inf.relatedQubit.end());
-                preGate[element].insert(&inf - &infoList[0]);
+            std::unordered_set<int> allPreGate;
+            for (int element : info.relatedQubits) {
+                qubitDependency[element].assign(info.relatedQubits.begin(),
+                                                info.relatedQubits.end());
+                preGate[element].insert(&info - &infoList[0]);
                 allPreGate.insert(preGate[element].begin(),
                                   preGate[element].end());
             }
-            inf.maxGateNumber = allPreGate.size();
+            info.maxGateNumber = static_cast<int>(allPreGate.size());
         }
     }
 
     std::vector<int> getFusedGate(size_t fSize) {
         std::vector<int> gateToFused;
-        std::set<int> fusionQubit;
 
-        if (infoList[0].targetQubit.size() > fSize) {
+        if (infoList[0].sortedQubits.size() > fSize) {
             gateToFused.push_back(infoList[0].gateIndex);
             infoList.erase(infoList.begin());
             return gateToFused;
@@ -1000,21 +968,20 @@ class FusionList {
 
         while (fSize) {
             int nowMaxGateNumber = 0;
-            std::set<int> tmpFusionQubit;
-            for (const auto &inf : infoList) {
-                if (inf.maxGateNumber > nowMaxGateNumber &&
-                    inf.relatedQubit.size() <= fSize) {
-                    nowMaxGateNumber = inf.maxGateNumber;
-                    tmpFusionQubit = inf.relatedQubit;
+            std::set<qubit_size_t> tmpFusionQubit;
+            for (const auto &info : infoList) {
+                if (info.maxGateNumber > nowMaxGateNumber &&
+                    info.relatedQubits.size() <= fSize) {
+                    nowMaxGateNumber = info.maxGateNumber;
+                    tmpFusionQubit = info.relatedQubits;
                 }
             }
             fSize -= tmpFusionQubit.size();
-            fusionQubit.insert(tmpFusionQubit.begin(), tmpFusionQubit.end());
 
             for (auto it = infoList.begin(); it != infoList.end();) {
                 if (includes(tmpFusionQubit.begin(), tmpFusionQubit.end(),
-                             it->relatedQubit.begin(),
-                             it->relatedQubit.end())) {
+                             it->relatedQubits.begin(),
+                             it->relatedQubits.end())) {
                     gateToFused.push_back(it->gateIndex);
                     it = infoList.erase(it);
                 } else {
@@ -1025,6 +992,34 @@ class FusionList {
                 break;
         }
         return gateToFused;
+    }
+
+    void dump() const {
+        for (const auto &inf : infoList) {
+            std::cout << inf.gateIndex << "|";
+            if (!inf.sortedQubits.empty()) {
+                std::cout << " t{";
+                for (auto it = inf.sortedQubits.begin();
+                     it != inf.sortedQubits.end(); ++it) {
+                    if (it != inf.sortedQubits.begin())
+                        std::cout << ", ";
+                    std::cout << *it;
+                }
+                std::cout << "} ";
+            }
+            std::cout << "|";
+            if (!inf.relatedQubits.empty()) {
+                std::cout << " r{";
+                for (auto it = inf.relatedQubits.begin();
+                     it != inf.relatedQubits.end(); ++it) {
+                    if (it != inf.relatedQubits.begin())
+                        std::cout << ", ";
+                    std::cout << *it;
+                }
+                std::cout << "}";
+            }
+            std::cout << " | " << inf.maxGateNumber << "\n";
+        }
     }
 };
 
@@ -1140,7 +1135,7 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
                                                 subgate.sortedQubits.end());
                 }
                 nQubitFusionList.push_back(wrapper);
-                nowInfoList.reNewList(); // performance bottleneck
+                nowInfoList.reNewList();
             }
             return nQubitFusionList;
         }));
