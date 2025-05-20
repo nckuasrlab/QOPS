@@ -25,7 +25,7 @@ using qubit_size_t = unsigned short; // 65535 qubits
 // global variables
 qubit_size_t gMaxFusionSize;
 qubit_size_t gQubits;
-int gDFSCounter = 0;
+int gDFSCounter = 0, gSmallCircuitCounter = 0, gShortestPathCounter = 0;
 int gMethod = 0;
 double gCostFactor = 1.8;
 std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
@@ -1229,6 +1229,7 @@ void GetOptimalGFS(std::string &outputFileName,
             size_t smallCircuitSize = subFusionGateList[0].size();
             // choose different strategies with different circuit size
             if (smallCircuitSize < 26) {
+                gSmallCircuitCounter++;
                 double smallWeight = DBL_MAX;
                 std::vector<std::set<int>> dependencyList =
                     constructDependencyList(subFusionGateList[0]);
@@ -1239,9 +1240,9 @@ void GetOptimalGFS(std::string &outputFileName,
                 outputFusionCircuit(outputFileName, fusionGateList,
                                     finalGateList);
             } else {
+                gShortestPathCounter++;
                 DAG subDAG(smallCircuitSize);
                 subDAG.constructDAG(subFusionGateList[0]);
-                // subDAG.showInfo();
                 subDAG.shortestPath(subFusionGateList[0], outputFileName);
             }
             for (size_t i = 0; i < gMaxFusionSize; ++i) {
@@ -1359,5 +1360,8 @@ int main(int argc, char *argv[]) {
         std::cout << timers[key] << ", ";
     }
     std::cout << timers["total"] << "\n";
+    std::cout << "DFS: " << gDFSCounter << "; "
+              << "Small: " << gSmallCircuitCounter << "; "
+              << "Shortest: " << gShortestPathCounter << "\n";
     return 0;
 }
