@@ -9,15 +9,22 @@
 #include <iomanip>
 #include <iostream>
 #include <map>
-#include <mutex>
 #include <ostream>
 #include <queue>
 #include <random>
 #include <set>
+#include <shared_mutex>
 #include <sstream>
 #include <string>
 #include <unordered_set>
 #include <vector>
+
+#define DEBUG_getSmallWeight 0
+#define DEBUG_SECTION(x, y)                                                    \
+    if constexpr (x)                                                           \
+        do {                                                                   \
+            y                                                                  \
+    } while (0)
 
 using gate_size_t = unsigned short;  // 65535 gates
 using qubit_size_t = unsigned short; // 65535 qubits
@@ -25,13 +32,14 @@ using qubit_size_t = unsigned short; // 65535 qubits
 // global variables
 qubit_size_t gMaxFusionSize;
 qubit_size_t gQubits;
-int gDFSCounter = 0, gSmallCircuitCounter = 0, gShortestPathCounter = 0;
+int gDFSCounter = 0, gSmallCircuitCounter = 0, gShortestPathCounter = 0,
+    gEarlyStopCounter = 0;
 int gMethod = 0;
 double gCostFactor = 1.8;
 std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
 // Global mutex to protect shared resources (e.g., smallWeight and
 // finalGateList)
-std::mutex gMutex;
+std::shared_mutex gMutex;
 ThreadPool gPool(std::thread::hardware_concurrency());
 
 double cost(const std::string &gateType, const int fSize,
@@ -388,10 +396,11 @@ Matrix calculateFusionGate(const std::vector<Gate> &subGateList,
 
 void showFusionGateList(const std::vector<std::vector<Gate>> &fusionGateList,
                         const int start, const int end) {
+    std::cout << "showFusionGateList\n";
     for (int i = start - 1; i < end; ++i) {
         std::cout << "Number of fusion qubits: " << i + 1 << "\n";
         for (const auto &gate : fusionGateList[i]) {
-            std::cout << "=============================================\n";
+            std::cout << std::string(40, '=') << "\n";
             gate.dump();
             for (const auto &subgate : gate.subGateList) {
                 subgate.dump();
@@ -403,7 +412,8 @@ void showFusionGateList(const std::vector<std::vector<Gate>> &fusionGateList,
 }
 
 void showDependencyList(const std::vector<std::set<int>> &dependencyList) {
-    std::cout << "=============================================\n";
+    std::cout << "showDependencyList\n";
+    std::cout << std::string(40, '=') << "\n";
     for (size_t i = 0; i < dependencyList.size(); ++i) {
         std::cout << i << " || ";
         for (auto j : dependencyList[i]) {
@@ -536,28 +546,47 @@ class Node {
                         double nowWeight, double &smallWeight,
                         std::vector<Finfo> nowGateList,
                         std::vector<Finfo> &finalGateList, ThreadPool &pool,
-                        std::mutex &mutex, int depth = 0) {
+                        std::shared_mutex &mutex, int depth = 0) {
 
         gDFSCounter++;
         nowWeight += weight;
-        nowGateList.push_back(finfo);
-        if (parent != nullptr) {
-            auto &currentFusionList = fusionGateList[finfo.size - 1];
-            auto it =
-                std::find_if(currentFusionList.begin(), currentFusionList.end(),
-                             [this](const Gate &gate) {
-                                 return gate.finfo.fid == finfo.fid;
-                             });
-            if (it != currentFusionList.end()) {
-                deleteRelatedNode(fusionGateList, dependencyList, *it);
+        { // early stop if nowWeight > smallWeight
+            std::shared_lock<std::shared_mutex> lock(mutex);
+            if (nowWeight > smallWeight) {
+                gEarlyStopCounter++;
+                return;
             }
         }
 
+        nowGateList.push_back(finfo);
+        if (parent != nullptr)
+            [[likely]] {
+                auto &currentFusionList = fusionGateList[finfo.size - 1];
+                auto it = std::find_if(currentFusionList.begin(),
+                                       currentFusionList.end(),
+                                       [this](const Gate &gate) {
+                                           return gate.finfo.fid == finfo.fid;
+                                       });
+                if (it != currentFusionList.end()) {
+                    deleteRelatedNode(fusionGateList, dependencyList, *it);
+                }
+            }
+        else
+            [[unlikely]] {
+                DEBUG_SECTION(
+                    DEBUG_getSmallWeight, std::cout << "getSmallWeight\n"
+                                                    << std::string(40, 'O')
+                                                    << "\n";
+                    showFusionGateList(fusionGateList, 1, gMaxFusionSize););
+            }
+
         if (fusionGateList[0].empty()) {
-            std::lock_guard<std::mutex> lock(mutex);
+            DEBUG_SECTION(DEBUG_getSmallWeight, showFinfoList(nowGateList););
+            std::unique_lock<std::shared_mutex> lock(mutex);
             if (nowWeight < smallWeight) {
                 smallWeight = nowWeight;
                 finalGateList = nowGateList;
+                DEBUG_SECTION(DEBUG_getSmallWeight, std::cout << "update\n";);
             }
             return;
         }
@@ -575,7 +604,8 @@ class Node {
                 for (const auto &subgate : fusionGate.subGateList)
                     gateIndexes.insert(subgate.finfo.fid);
 
-                if (!hasDependency(gateIndexes, dependencyList, gateIndexes)) {
+                if (!hasDependency(gateIndexes, dependencyList,
+                                   gateIndexes)) { // pruning
                     Node nextNode(this, fusionGate.finfo,
                                   fusionGate.subGateList[0].gateType,
                                   fusionGate.subGateList[0].sortedQubits);
@@ -1143,7 +1173,6 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
             FusionList nowFusionList = fusionList; // Assume copy is cheap
             nowFusionList.reNewList();
             gate_size_t gateIndex = 0;
-            double in_loop_g = 0, in_loop_r = 0;
             while (!nowFusionList.infoList.empty()) {
                 Gate wrapper({fSize, gateIndex++});
                 std::vector<int> gateToFused =
@@ -1224,11 +1253,14 @@ void GetOptimalGFS(std::string &outputFileName,
         for (qubit_size_t fSize = 1; fSize < gMaxFusionSize - 1; ++fSize)
             if (!recordIndex[fSize].empty())
                 flag = 0;
-        if (flag) {
+        size_t smallCircuitSize = subFusionGateList[0].size();
+        if (flag && smallCircuitSize >= 5) { // TODO check the size
             // execute find weight
-            size_t smallCircuitSize = subFusionGateList[0].size();
             // choose different strategies with different circuit size
-            if (smallCircuitSize < 26) {
+            DEBUG_SECTION(DEBUG_getSmallWeight,
+                          std::cout << "smallCircuitSize: " << smallCircuitSize
+                                    << std::endl;);
+            if (smallCircuitSize < 10) {
                 gSmallCircuitCounter++;
                 double smallWeight = DBL_MAX;
                 std::vector<std::set<int>> dependencyList =
@@ -1360,8 +1392,11 @@ int main(int argc, char *argv[]) {
         std::cout << timers[key] << ", ";
     }
     std::cout << timers["total"] << "\n";
-    std::cout << "DFS: " << gDFSCounter << "; "
-              << "Small: " << gSmallCircuitCounter << "; "
+    std::cout << "Small: " << gSmallCircuitCounter << " (DFS: " << gDFSCounter
+              << ", "
+              << "Early stop: " << gEarlyStopCounter
+              << ")"
+                 "; "
               << "Shortest: " << gShortestPathCounter << "\n";
     return 0;
 }
