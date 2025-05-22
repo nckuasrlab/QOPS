@@ -1,3 +1,4 @@
+import time
 from dataclasses import dataclass
 from math import pow
 
@@ -200,11 +201,14 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     simulator = AerSimulator(
         method="statevector",
         seed_simulator=0,
-        fusion_enable=True,
+        fusion_enable=False,
     )
+    t_start1 = time.perf_counter()
     res1 = simulator.run(circ1, shots=shots).result().get_counts()
+    t_end1 = time.perf_counter()
+    t_start2 = time.perf_counter()
     res2 = simulator.run(circ2, shots=shots).result().get_counts()
-
+    t_end2 = time.perf_counter()
     # Convert counts to probability distributions
     prob1 = {k: v / shots for k, v in res1.items()}
     prob2 = {k: v / shots for k, v in res2.items()}
@@ -213,4 +217,4 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     all_keys = set(prob1.keys()).union(set(prob2.keys()))
     tvd = sum(abs(prob1.get(k, 0) - prob2.get(k, 0)) for k in all_keys) / 2
     print(f"TVD: {tvd:.4f}; {'' if tvd < tol else 'NOT '}Equivalent.")
-    return tvd < tol
+    return tvd < tol, t_end1 - t_start1, t_end2 - t_start2
