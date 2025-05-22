@@ -12,8 +12,9 @@ def main():
     circuit1 = load_circuit(args[1], total_qubit, "c1")
     circuit2 = load_circuit(args[2], total_qubit, "c2")
     t_start = time.perf_counter()
-    result = circuits_equivalent_by_samples(circuit1, circuit2)
+    result, t1, t2 = circuits_equivalent_by_samples(circuit1, circuit2)
     t_end = time.perf_counter()
+    print(f"t1: {t1}, t2: {t2}")
     print(f"Total time: {t_end - t_start}")
     if result:
         sys.exit(0)

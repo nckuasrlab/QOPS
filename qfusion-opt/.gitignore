@@ -21,4 +21,8 @@ txt/
 # generated tmp files
 diagonal.txt
 sub_cpu.ini
-out.txt
+out*.txt
+graph.dot
+graph.svg
+fusion_dump*.txt
+xxx*.txt

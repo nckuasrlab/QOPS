@@ -1246,9 +1246,10 @@ void searchAndOutputFusionCircuit(
 
 void GetOptimalGFS(const std::string &outputFileName,
                    const std::vector<std::vector<Gate>> &fusionGateList) {
-    // showFusionGateList(fusionGateList, 1, fusionGateList.size());
-    //  find best fusion conbination
-    //  execute small gate block one by one to reduce execution time
+    // find best fusion conbination
+    // execute small gate block one by one to reduce execution time
+    // because the getSmallWeight and shortestPath use different file output
+    // system, the output logic cannot be decoupled
     const std::string cmd = "rm " + outputFileName + " > /dev/null 2>&1";
     [[maybe_unused]] auto sysinfo = system(cmd.c_str());
 
