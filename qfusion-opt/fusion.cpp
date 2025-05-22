@@ -529,14 +529,15 @@ double cost(const std::string &gateType,
     return 0;
 }
 
-class Node {
+class SmallWeightNode {
   public:
-    Node *parent = nullptr;
+    SmallWeightNode *parent = nullptr;
     Finfo finfo = {0, 0};
     double weight = 0;
-    Node() = default; // root node
-    Node(Node *parent, const Finfo &finfo, std::string gateType,
-         const std::set<qubit_size_t> &sortedQubits)
+    SmallWeightNode() = default; // root node
+    SmallWeightNode(SmallWeightNode *parent, const Finfo &finfo,
+                    std::string gateType,
+                    const std::set<qubit_size_t> &sortedQubits)
         : parent(parent), finfo(finfo), weight(cost(gateType, sortedQubits)) {}
 
     void getSmallWeight(std::vector<std::vector<Gate>> fusionGateList,
@@ -602,9 +603,10 @@ class Node {
 
                 if (!hasDependency(gateIndexes, dependencyList,
                                    gateIndexes)) { // pruning
-                    Node nextNode(this, fusionGate.finfo,
-                                  fusionGate.subGateList[0].gateType,
-                                  fusionGate.subGateList[0].sortedQubits);
+                    SmallWeightNode nextNode(
+                        this, fusionGate.finfo,
+                        fusionGate.subGateList[0].gateType,
+                        fusionGate.subGateList[0].sortedQubits);
 
                     auto task = [&, nextNode, nowGateList,
                                  nowWeight]() mutable {
@@ -867,6 +869,7 @@ class DAG {
             }
         }
     }
+
     void shortestPath(const std::vector<Gate> &gateList,
                       const std::string &outputFileName) {
         struct DAGNode {
@@ -1239,8 +1242,9 @@ void searchAndOutputFusionCircuit(
     std::vector<std::set<int>> dependencyList =
         constructDependencyList(subFusionGateList[0]);
     std::vector<Finfo> finalGateList, nowGateList;
-    Node().getSmallWeight(subFusionGateList, dependencyList, 0, smallWeight,
-                          nowGateList, finalGateList, gPool, gMutex, 0);
+    SmallWeightNode().getSmallWeight(subFusionGateList, dependencyList, 0,
+                                     smallWeight, nowGateList, finalGateList,
+                                     gPool, gMutex, 0);
     outputFusionCircuit(outputFileName, fusionGateList, finalGateList);
 }
 
@@ -1362,6 +1366,9 @@ int main(int argc, char *argv[]) {
     if (argc == 6)
         gMethod = atoi(argv[5]);
 
+    if (gMethod == 3) {
+        gCostFactor = 4.0; // calibraction: 1.8 / (1287/1277) * (390/174)
+    }
     if (gMethod == 4 || gMethod == 6 || gMethod == 7 || gMethod == 8) {
         std::string gateTimeFilenamme = getEnvVariable("DYNAMIC_COST_FILENAME");
         std::ifstream gateTimeFile(gateTimeFilenamme);
