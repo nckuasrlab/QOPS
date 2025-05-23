@@ -22,7 +22,15 @@ txt/
 diagonal.txt
 sub_cpu.ini
 out*.txt
-graph.dot
+graph*.dot
 graph.svg
 fusion_dump*.txt
 xxx*.txt
+
+# perf
+*.svg
+out.perf
+out.folded
+perf.data
+perf.data.old
+*.pl

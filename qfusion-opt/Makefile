@@ -1,6 +1,6 @@
 CXX:=g++
 CXXFLAGS:=-std=c++2a -O3 -march=native -flto=auto -funroll-loops -pipe -Wall -Wextra -Wpedantic
-# CXXFLAGS:=-std=c++2a -g -O0 -pipe -Wall -Wextra -Wpedantic
+GDB_CXXFLAGS:=-std=c++2a -g -O0 -pipe -Wall -Wextra -Wpedantic
 
 TEST:=qv32.txt
 QUBIT:=32
@@ -18,10 +18,16 @@ run: fusion
 		./fusion ./circuit/${TEST} ./tmp/${TEST} 3 ${QUBIT} ${MODE}; \
 	done;
 
-# check: fusion fusion_ori
-# 	@./fusion ./circuit/${TEST} ./tmp/${TEST} 3 ${QUBIT} ${MODE};
-# 	@./fusion_ori ./circuit/${TEST} ./tmp/ori_${TEST} 3 ${QUBIT} ${MODE};
-# 	@(git --no-pager diff --no-index --color-words ./tmp/${TEST} ./tmp/ori_${TEST} && echo "\npassed!") || echo "\nfailed!"
+gdb: fusion.cpp
+	${CXX} ${GDB_CXXFLAGS} -o fusion $^ -lpthread
+	DYNAMIC_COST_FILENAME=./log/gate_exe_time_aer.csv gdb -q --args ./fusion ./circuit/sc32.txt ./xxx.txt 5 32 8
+
+perf: fusion.cpp
+	${CXX} ${CXXFLAGS} -fno-omit-frame-pointer -o fusion $^ -lpthread
+	DYNAMIC_COST_FILENAME=./log/gate_exe_time_aer.csv perf record -F 99 -g ./fusion ./circuit/sc32.txt ./xxx.txt 5 32 8
+	perf script > out.perf
+	./stackcollapse-perf.pl out.perf > out.folded
+	./flamegraph.pl out.folded > flamegraph.svg
 
 clean:
 	rm -f fusion

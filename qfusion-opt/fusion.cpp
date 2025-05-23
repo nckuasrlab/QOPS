@@ -21,6 +21,7 @@
 #include <vector>
 
 #define DEBUG_getSmallWeight 0
+#define DEBUG_getSmallWeightSingleThread 0
 #define DEBUG_shortestPath 0
 #define DEBUG_SECTION(x, y)                                                    \
     if constexpr (x)                                                           \
@@ -34,8 +35,8 @@ using qubit_size_t = unsigned short; // 65535 qubits
 // global variables
 qubit_size_t gMaxFusionSize;
 qubit_size_t gQubits;
-int gDFSCounter = 0, gSmallCircuitCounter = 0, gShortestPathCounter = 0,
-    gEarlyStopCounter = 0;
+std::atomic<unsigned long long> gDFSCounter = 0, gEarlyStopCounter = 0;
+std::atomic<unsigned int> gSmallCircuitCounter = 0, gShortestPathCounter = 0;
 int gMethod = 0;
 double gCostFactor = 1.8;
 std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
@@ -129,6 +130,7 @@ class Gate {
             qubits.push_back(stoi(gateInfo[i]));
         }
         sortedQubits = std::set<qubit_size_t>(qubits.begin(), qubits.end());
+        params.reserve(gateInfo.size() - i);
         for (; i < gateInfo.size(); ++i) {
             params.push_back(stod(gateInfo[i]));
         }
@@ -461,30 +463,32 @@ inline bool hasDependency(const std::set<int> &gateIndex,
 void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
                        std::vector<std::set<int>> &dependencyList,
                        const Gate wrapper) {
+    // Build a set of fids from wrapper for O(1) lookup
+    std::unordered_set<int> wrapperFids;
+    for (const auto &subgate : wrapper.subGateList) {
+        wrapperFids.insert(subgate.finfo.fid);
+    }
+
     // delete node in dependency list
-    for (const auto &subgate : wrapper.subGateList)
-        for (auto &dependencyList_i : dependencyList) {
-            dependencyList_i.erase(subgate.finfo.fid);
+    for (auto &dependencyList_i : dependencyList) {
+        for (int fid : wrapperFids) {
+            dependencyList_i.erase(fid);
         }
+    }
 
     // delete node in fusionGate list
-    for (auto &fusionList_i : fusionGateList) {
-        for (size_t index = 0; index < fusionList_i.size(); ++index) {
-            int flag = 0;
-            for (const auto &subgate_i : fusionList_i[index].subGateList) {
-                for (const auto &subgate_j : wrapper.subGateList)
-                    if (subgate_i.finfo.fid == subgate_j.finfo.fid) {
-                        flag = 1;
-                        break;
-                    }
-                if (flag)
-                    break;
-            }
-            if (flag) {
-                fusionList_i.erase(fusionList_i.begin() + index);
-                index--;
-            }
-        }
+    for (auto &fusionList : fusionGateList) {
+        fusionList.erase(
+            std::remove_if(fusionList.begin(), fusionList.end(),
+                           [&](const Gate &gate) {
+                               for (const auto &subgate : gate.subGateList) {
+                                   if (wrapperFids.count(subgate.finfo.fid)) {
+                                       return true; // Remove this gate
+                                   }
+                               }
+                               return false;
+                           }),
+            fusionList.end());
     }
 }
 
@@ -525,7 +529,6 @@ double cost(const std::string &gateType,
              // to estimate
         return gGateTime["U1"][targetQubit] * qSize;
     }
-    throw std::runtime_error("Should not reach here.");
     return 0;
 }
 
@@ -547,11 +550,11 @@ class SmallWeightNode {
                         std::vector<Finfo> &finalGateList, ThreadPool &pool,
                         std::mutex &mutex, int depth = 0) {
 
-        gDFSCounter++;
+        gDFSCounter.fetch_add(1, std::memory_order_relaxed);
         nowWeight += weight;
         // early stop if nowWeight > smallWeight
-        if (nowWeight > smallWeight.load()) {
-            gEarlyStopCounter++;
+        if (nowWeight > smallWeight.load(std::memory_order_relaxed)) {
+            gEarlyStopCounter.fetch_add(1, std::memory_order_relaxed);
             return;
         }
 
@@ -571,19 +574,21 @@ class SmallWeightNode {
         else
             [[unlikely]] {
                 DEBUG_SECTION(
-                    DEBUG_getSmallWeight, std::cout << "getSmallWeight\n"
-                                                    << std::string(40, 'O')
-                                                    << "\n";
+                    DEBUG_getSmallWeightSingleThread,
+                    std::cout << "getSmallWeight\n"
+                              << std::string(40, 'O') << "\n";
                     showFusionGateList(fusionGateList, 1, gMaxFusionSize););
             }
 
         if (fusionGateList[0].empty()) {
-            DEBUG_SECTION(DEBUG_getSmallWeight, showFinfoList(nowGateList););
+            DEBUG_SECTION(DEBUG_getSmallWeightSingleThread,
+                          showFinfoList(nowGateList););
             std::unique_lock<std::mutex> lock(mutex);
             if (nowWeight < smallWeight) {
                 smallWeight = nowWeight;
                 finalGateList = nowGateList;
-                DEBUG_SECTION(DEBUG_getSmallWeight, std::cout << "update\n";);
+                DEBUG_SECTION(DEBUG_getSmallWeightSingleThread,
+                              std::cout << "update\n";);
             }
             return;
         }
@@ -616,8 +621,7 @@ class SmallWeightNode {
                                                 pool, mutex, depth + 1);
                     };
 
-                    if (depth < 2) { // You may change this value to 0 in
-                                     // DEBUG_getSmallWeight
+                    if (depth < 2 && !DEBUG_getSmallWeightSingleThread) {
                         futures.emplace_back(pool.enqueue(task));
                     } else {
                         task(); // sequential
@@ -666,11 +670,14 @@ class Circuit {
         Matrix fusedGateMat =
             calculateFusionGate(gates, fusedGate.sortedQubits);
         if (isDiagonal) {
+            fusedGate.params.reserve(fusedGateMat.size() * 2);
             for (size_t i = 0; i < fusedGateMat.size(); i++) {
                 fusedGate.params.push_back(fusedGateMat[i][i].real());
                 fusedGate.params.push_back(fusedGateMat[i][i].imag());
             }
         } else {
+            fusedGate.params.reserve(fusedGateMat.size() *
+                                     fusedGateMat[0].size() * 2);
             for (size_t matRow = 0; matRow < fusedGateMat.size(); matRow++) {
                 for (const auto elem : fusedGateMat[matRow]) {
                     fusedGate.params.push_back(elem.real());
@@ -861,7 +868,12 @@ class DAG {
                         DEBUG_shortestPath, if (isAdded) {
                             std::cout << "Add edge: " << i << " -> " << j
                                       << " : " << gateType << " "
-                                      << cost(gateType, qubit) << "\n";
+                                      << cost(gateType, qubit) << " (";
+                            for (int k = i; k < j; k++)
+                                std::cout
+                                    << (k == i ? "" : " ")
+                                    << gateList[k].subGateList[0].gateType;
+                            std::cout << ")\n";
                         });
                 } else {
                     addEdge(i, -1, DBL_MAX);
@@ -1168,6 +1180,7 @@ void DoDiagonalFusion(Circuit &circuit) {
             }
 
             gate.finfo.fid = gate.subGateList[0].gids[0];
+            gate.gids.reserve(gate.subGateList.size());
             for (const auto &subgate : gate.subGateList) { // collect gids
                 gate.gids.push_back(subgate.gids[0]);
             }
@@ -1213,6 +1226,7 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
                     nowFusionList.getFusedGate(fSize);
                 // note: we don't need to check if the fused gate is diagonal
                 // and set the gateType of warpper here
+                wrapper.subGateList.reserve(gateToFused.size());
                 for (int index : gateToFused) {
                     auto &subgate = fusionGateList0[index].subGateList[0];
                     wrapper.subGateList.push_back(subgate);
@@ -1237,7 +1251,7 @@ void searchAndOutputFusionCircuit(
     const std::string &outputFileName,
     const std::vector<std::vector<Gate>> &subFusionGateList,
     const std::vector<std::vector<Gate>> &fusionGateList) {
-    gSmallCircuitCounter++;
+    gSmallCircuitCounter.fetch_add(1, std::memory_order_relaxed);
     std::atomic<double> smallWeight = DBL_MAX;
     std::vector<std::set<int>> dependencyList =
         constructDependencyList(subFusionGateList[0]);
@@ -1264,6 +1278,7 @@ void GetOptimalGFS(const std::string &outputFileName,
     }
     std::vector<std::vector<Gate>> subFusionGateList(gMaxFusionSize);
     std::vector<std::vector<int>> recordIndex(gMaxFusionSize);
+    constexpr int SMALL_CIRCUIT_SIZE = 8, BIG_CIRCUIT_SIZE = 15;
     for (const auto &maxFGate : fusionGateList[gMaxFusionSize - 1]) {
         for (const auto &subgate : maxFGate.subGateList) {
             subFusionGateList[0].push_back(
@@ -1275,6 +1290,7 @@ void GetOptimalGFS(const std::string &outputFileName,
             for (const auto &wrapper : fusionGateList[fSize]) {
                 int flag = 1;
                 std::vector<int> reIndex;
+                reIndex.reserve(wrapper.subGateList.size());
                 for (const auto &subgate : wrapper.subGateList) {
                     // Check if all fusion indices of the sub-gates are a
                     // subset of the recordIndex for this fusion size.
@@ -1302,23 +1318,30 @@ void GetOptimalGFS(const std::string &outputFileName,
                 flag = 0;
         size_t smallCircuitSize = subFusionGateList[0].size();
 
-        if (flag && smallCircuitSize >= 6) {
+        if (flag && smallCircuitSize >= SMALL_CIRCUIT_SIZE) {
             // choose different strategies with different circuit size
-            DEBUG_SECTION(DEBUG_shortestPath || DEBUG_getSmallWeight,
-                          std::cout << "smallCircuitSize: " << smallCircuitSize
-                                    << std::endl;);
-            if (smallCircuitSize < 10) {
+            DEBUG_SECTION(
+                DEBUG_shortestPath || DEBUG_getSmallWeight, int allsize = 0;
+                for (const auto &s
+                     : subFusionGateList) { allsize += s.size(); } std::cout
+                << "smallCircuitSize: " << smallCircuitSize
+                << ", allsize: " << allsize << std::endl;);
+            if (smallCircuitSize < BIG_CIRCUIT_SIZE) {
                 searchAndOutputFusionCircuit(outputFileName, subFusionGateList,
                                              fusionGateList);
             } else {
-                gShortestPathCounter++;
+                gShortestPathCounter.fetch_add(1, std::memory_order_relaxed);
                 DAG subDAG(smallCircuitSize);
                 subDAG.constructDAG(subFusionGateList[0]);
                 subDAG.shortestPath(subFusionGateList[0], outputFileName);
                 DEBUG_SECTION(DEBUG_shortestPath,
                               Circuit(subFusionGateList[0]).dump(););
                 DEBUG_SECTION(DEBUG_shortestPath, subDAG.dump(););
-                DEBUG_SECTION(DEBUG_shortestPath, subDAG.dumpDot(););
+                DEBUG_SECTION(
+                    DEBUG_shortestPath,
+                    subDAG.dumpDot("graph_" +
+                                   std::to_string(gShortestPathCounter) +
+                                   ".dot"););
             }
             for (size_t i = 0; i < gMaxFusionSize; ++i) {
                 subFusionGateList[i].clear();
@@ -1326,7 +1349,7 @@ void GetOptimalGFS(const std::string &outputFileName,
             }
         }
     }
-    if (subFusionGateList[0].size() >= 10)
+    if (subFusionGateList[0].size() >= BIG_CIRCUIT_SIZE)
         throw std::runtime_error(
             "subFusionGateList[0].size() should not >= 10");
     if (std::any_of(subFusionGateList.begin(), subFusionGateList.end(),
