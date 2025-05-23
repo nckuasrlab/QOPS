@@ -995,6 +995,16 @@ class DAG {
     }
 };
 
+bool isSubset(const std::unordered_set<qubit_size_t> &a,
+              const std::unordered_set<qubit_size_t> &b) {
+    for (const auto &elem : b) {
+        if (a.find(elem) == a.end()) {
+            return false; // element in b not found in a
+        }
+    }
+    return true; // all elements in b are in a
+}
+
 class FusionList {
   public:
     struct Info {
@@ -1004,7 +1014,7 @@ class FusionList {
         gate_size_t gateIndex;
         int maxGateNumber = 0;
         std::set<qubit_size_t> sortedQubits;
-        std::set<qubit_size_t> relatedQubits;
+        std::unordered_set<qubit_size_t> relatedQubits;
     };
 
     std::vector<Info> infoList;
@@ -1024,19 +1034,22 @@ class FusionList {
     FusionList(const FusionList &rhs) { infoList = rhs.infoList; }
 
     void reNewList() {
-        std::vector<std::vector<int>> qubitDependency(gQubits);
-        std::vector<std::unordered_set<int>> preGate(gQubits);
-        for (auto &info : infoList) {
-            info.relatedQubits = info.sortedQubits;
-            for (int element : info.sortedQubits) {
-                info.relatedQubits.insert(qubitDependency[element].begin(),
-                                          qubitDependency[element].end());
+        std::vector<std::unordered_set<qubit_size_t>> qubitDependency(gQubits);
+        std::vector<std::unordered_set<size_t>> preGate(gQubits);
+        for (size_t i = 0; i < infoList.size(); ++i) {
+            auto &info = infoList[i];
+            std::unordered_set<qubit_size_t> relatedQubits(
+                info.sortedQubits.begin(), info.sortedQubits.end());
+            for (int q : info.sortedQubits) {
+                relatedQubits.insert(qubitDependency[q].begin(),
+                                     qubitDependency[q].end());
             }
+
+            info.relatedQubits = std::move(relatedQubits);
             std::unordered_set<int> allPreGate;
             for (int element : info.relatedQubits) {
-                qubitDependency[element].assign(info.relatedQubits.begin(),
-                                                info.relatedQubits.end());
-                preGate[element].insert(&info - &infoList[0]);
+                qubitDependency[element] = info.relatedQubits;
+                preGate[element].insert(i);
                 allPreGate.insert(preGate[element].begin(),
                                   preGate[element].end());
             }
@@ -1055,7 +1068,7 @@ class FusionList {
 
         while (fSize) {
             int nowMaxGateNumber = 0;
-            std::set<qubit_size_t> tmpFusionQubit;
+            std::unordered_set<qubit_size_t> tmpFusionQubit;
             for (const auto &info : infoList) {
                 if (info.maxGateNumber > nowMaxGateNumber &&
                     info.relatedQubits.size() <= fSize) {
@@ -1066,9 +1079,10 @@ class FusionList {
             fSize -= tmpFusionQubit.size();
 
             for (auto it = infoList.begin(); it != infoList.end();) {
-                if (includes(tmpFusionQubit.begin(), tmpFusionQubit.end(),
-                             it->relatedQubits.begin(),
-                             it->relatedQubits.end())) {
+                // if (includes(tmpFusionQubit.begin(), tmpFusionQubit.end(),
+                //              it->relatedQubits.begin(),
+                //              it->relatedQubits.end())) {
+                if (isSubset(tmpFusionQubit, it->relatedQubits)) {
                     gateToFused.push_back(it->gateIndex);
                     it = infoList.erase(it);
                 } else {
