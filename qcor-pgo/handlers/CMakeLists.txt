@@ -7,6 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 add_library(${LIBRARY_NAME}
             SHARED
             qcor_syntax_handler.cpp)
+target_link_libraries(${LIBRARY_NAME} PUBLIC xacc::xacc)
 
 target_include_directories(${LIBRARY_NAME}
                            PUBLIC .

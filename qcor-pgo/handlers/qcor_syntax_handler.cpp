@@ -357,6 +357,18 @@ void QCORSyntaxHandler::GetReplacement(
   OS << "myfile << staq_str;\n";
   OS << "myfile.close();\n";
   OS << "}\n";
+  
+  // Apply fusion pass after translation
+  OS << "// Apply fusion optimization pass\n";
+  OS << "auto fusion_transform = qcor::__internal__::get_transformation(\"fusion\");\n";
+  OS << "if (xacc::internal_compiler::__fusion_enable) {\n";
+  OS << "  xacc::HeterogeneousMap m;\n";
+  OS << "  m.insert(\"kernel_name\", kernel_name);\n";
+  OS << "  m.insert(\"max_fusion_qubit\", xacc::internal_compiler::__fusion_max_fusion_qubit);\n";
+  OS << "  m.insert(\"total_qubit\", xacc::internal_compiler::__fusion_total_qubit);\n";
+  OS << "  m.insert(\"mode\", xacc::internal_compiler::__fusion_mode);\n";
+  OS << "  fusion_transform->apply(parent_kernel->as_xacc(), nullptr, m);\n";
+  OS << "}\n";
   OS << "}\n";
 
   OS << "}\n";
