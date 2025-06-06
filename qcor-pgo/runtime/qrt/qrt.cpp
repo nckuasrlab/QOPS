@@ -41,6 +41,10 @@ std::string __qrt_env = "nisq";
 bool __print_final_submission = false;
 std::string __print_final_submission_filename = "";
 bool __validate_nisq_execution = false;
+bool __fusion_enable = false;
+int __fusion_mode = -1;
+int __fusion_total_qubit = -1;
+int __fusion_max_fusion_qubit = -1;
 
 void execute_pass_manager(
     std::shared_ptr<qcor::CompositeInstruction> optional_composite) {
@@ -64,9 +68,16 @@ void execute_pass_manager(
   }
 
   // Runs user-specified passes
-  for (const auto &user_pass : user_passes) {
+  for (auto it = user_passes.begin(); it != user_passes.end(); it++) {
+    if (*it == "fusion") {
+      __fusion_enable = true;
+      __fusion_max_fusion_qubit = std::stoi(*(++it));
+      __fusion_total_qubit = std::stoi(*(++it));
+      __fusion_mode = std::stoi(*(++it));
+      continue;
+    }
     optData.emplace_back(
-        qcor::internal::PassManager::runPass(user_pass, kernelToExecute));
+        qcor::internal::PassManager::runPass(*it, kernelToExecute));
   }
 
   if (__print_opt_stats) {
