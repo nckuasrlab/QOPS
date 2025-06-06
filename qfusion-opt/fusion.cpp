@@ -632,6 +632,137 @@ class SmallWeightNode {
         for (auto &f : futures)
             f.get();
     }
+
+    void getSmallWeightBeam(std::vector<std::vector<Gate>> fusionGateList,
+                            std::vector<std::set<int>> dependencyList,
+                            double nowWeight, std::atomic<double> &smallWeight,
+                            std::vector<Finfo> nowGateList,
+                            std::vector<Finfo> &finalGateList, ThreadPool &pool,
+                            std::mutex &mutex, int depth = 0,
+                            int beamWidth = 5) {
+
+        gDFSCounter.fetch_add(1, std::memory_order_relaxed);
+        nowWeight += weight;
+
+        if (nowWeight > smallWeight.load(std::memory_order_relaxed)) {
+            gEarlyStopCounter.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+
+        nowGateList.push_back(finfo);
+
+        if (parent != nullptr) {
+            auto &currentFusionList = fusionGateList[finfo.size - 1];
+            auto it =
+                std::find_if(currentFusionList.begin(), currentFusionList.end(),
+                             [this](const Gate &gate) {
+                                 return gate.finfo.fid == finfo.fid;
+                             });
+            if (it != currentFusionList.end()) {
+                deleteRelatedNode(fusionGateList, dependencyList, *it);
+            }
+        } else {
+            DEBUG_SECTION(
+                DEBUG_getSmallWeightSingleThread,
+                std::cout << "getSmallWeight\n"
+                          << std::string(40, 'O') << "\n";
+                showFusionGateList(fusionGateList, 1, gMaxFusionSize););
+        }
+
+        if (fusionGateList[0].empty()) {
+            std::unique_lock<std::mutex> lock(mutex);
+            if (nowWeight < smallWeight) {
+                smallWeight = nowWeight;
+                finalGateList = nowGateList;
+            }
+            return;
+        }
+
+        struct BeamCandidate {
+            double weight;
+            Gate gate;
+        };
+
+        std::vector<BeamCandidate> candidates;
+
+        for (int fSize = gMaxFusionSize - 1; fSize >= 0; --fSize) {
+            for (const auto &fusionGate : fusionGateList[fSize]) {
+                if (finfo.size == fSize + 1 &&
+                    finfo.fid > fusionGate.finfo.fid &&
+                    (gMethod != 0 && gMethod != 2))
+                    break;
+
+                std::set<int> gateIndexes;
+                for (const auto &subgate : fusionGate.subGateList)
+                    gateIndexes.insert(subgate.finfo.fid);
+
+                if (!hasDependency(gateIndexes, dependencyList, gateIndexes)) {
+                    auto remainingGates = fusionGateList;
+                    std::unordered_set<int> wrapperFids;
+                    for (const auto &subgate : fusionGate.subGateList) {
+                        wrapperFids.insert(subgate.finfo.fid);
+                    }
+                    for (auto &fusionList : remainingGates) {
+                        fusionList.erase(
+                            std::remove_if(
+                                fusionList.begin(), fusionList.end(),
+                                [&](const Gate &gate) {
+                                    for (const auto &subgate :
+                                         gate.subGateList) {
+                                        if (wrapperFids.count(
+                                                subgate.finfo.fid)) {
+                                            return true; // Remove this gate
+                                        }
+                                    }
+                                    return false;
+                                }),
+                            fusionList.end());
+                    }
+                    double estWeight =
+                        nowWeight +
+                        cost(fusionGate.gateType, fusionGate.sortedQubits); // +
+                    // heuristicEstimate(remainingGates);
+                    candidates.push_back({estWeight, fusionGate});
+                }
+            }
+        }
+
+        std::sort(candidates.begin(), candidates.end(),
+                  [](const BeamCandidate &a, const BeamCandidate &b) {
+                      return a.weight < b.weight;
+                  });
+
+        if ((int)candidates.size() > beamWidth)
+            candidates.resize(beamWidth);
+
+        std::vector<std::future<void>> futures;
+
+        for (const auto &candidate : candidates) {
+            auto nextGate = candidate.gate;
+
+            auto task = [&, nextGate, nowGateList, nowWeight]() mutable {
+                // Deep copy mutable state
+                auto copiedFusionGateList = fusionGateList;
+                auto copiedDependencyList = dependencyList;
+                SmallWeightNode nextNode(this, nextGate.finfo,
+                                         nextGate.gateType,
+                                         nextGate.sortedQubits);
+
+                nextNode.getSmallWeightBeam(
+                    copiedFusionGateList, copiedDependencyList, nowWeight,
+                    smallWeight, nowGateList, finalGateList, pool, mutex,
+                    depth + 1, beamWidth);
+            };
+
+            if (depth < 2 && !DEBUG_getSmallWeightSingleThread)
+                futures.emplace_back(pool.enqueue(task));
+            else
+                task();
+        }
+
+        for (auto &f : futures)
+            f.get();
+    }
 };
 
 class Circuit {
@@ -1272,9 +1403,9 @@ void searchAndOutputFusionCircuit(
     std::vector<std::set<int>> dependencyList =
         constructDependencyList(subFusionGateList[0]);
     std::vector<Finfo> finalGateList, nowGateList;
-    SmallWeightNode().getSmallWeight(subFusionGateList, dependencyList, 0,
-                                     smallWeight, nowGateList, finalGateList,
-                                     gPool, gMutex, 0);
+    SmallWeightNode().getSmallWeightBeam(subFusionGateList, dependencyList, 0,
+                                         smallWeight, nowGateList,
+                                         finalGateList, gPool, gMutex, 0);
     outputFusionCircuit(outputFileName, fusionGateList, finalGateList);
 }
 
