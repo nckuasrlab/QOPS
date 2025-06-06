@@ -1409,6 +1409,27 @@ void searchAndOutputFusionCircuit(
     outputFusionCircuit(outputFileName, fusionGateList, finalGateList);
 }
 
+void shortestPathAndOutputFusionCircuit(
+    const std::string &outputFileName,
+    const std::vector<Gate> &subFusionGateList0) {
+    gShortestPathCounter.fetch_add(1, std::memory_order_relaxed);
+    DAG subDAG(subFusionGateList0.size());
+    DEBUG_SECTION(DEBUG_shortestPath, std::cout << "shortest path: \n";
+                  std::cout << Circuit(subFusionGateList0).str() << "\n";
+                  std::cout << "shortest path schedule: \n";
+                  std::cout << Circuit(subFusionGateList0).schedule().str()
+                            << "\n";
+                  std::cout << "shortest path schedule end\n";);
+    auto shortCircuit = Circuit(subFusionGateList0).schedule().gates;
+    subDAG.constructDAG(shortCircuit);
+    subDAG.shortestPath(shortCircuit, outputFileName);
+    DEBUG_SECTION(
+        DEBUG_shortestPath, Circuit(shortCircuit).dump(); subDAG.dump();
+
+        subDAG.dumpDot("graph_" + std::to_string(gShortestPathCounter) +
+                       ".dot"););
+}
+
 void GetOptimalGFS(const std::string &outputFileName,
                    const std::vector<std::vector<Gate>> &fusionGateList) {
     // find best fusion conbination
@@ -1477,18 +1498,8 @@ void GetOptimalGFS(const std::string &outputFileName,
                 searchAndOutputFusionCircuit(outputFileName, subFusionGateList,
                                              fusionGateList);
             } else {
-                gShortestPathCounter.fetch_add(1, std::memory_order_relaxed);
-                DAG subDAG(smallCircuitSize);
-                subDAG.constructDAG(subFusionGateList[0]);
-                subDAG.shortestPath(subFusionGateList[0], outputFileName);
-                DEBUG_SECTION(DEBUG_shortestPath,
-                              Circuit(subFusionGateList[0]).dump(););
-                DEBUG_SECTION(DEBUG_shortestPath, subDAG.dump(););
-                DEBUG_SECTION(
-                    DEBUG_shortestPath,
-                    subDAG.dumpDot("graph_" +
-                                   std::to_string(gShortestPathCounter) +
-                                   ".dot"););
+                shortestPathAndOutputFusionCircuit(outputFileName,
+                                                   subFusionGateList[0]);
             }
             for (size_t i = 0; i < gMaxFusionSize; ++i) {
                 subFusionGateList[i].clear();
@@ -1496,11 +1507,12 @@ void GetOptimalGFS(const std::string &outputFileName,
             }
         }
     }
-    if (subFusionGateList[0].size() >= BIG_CIRCUIT_SIZE)
-        throw std::runtime_error(
-            "subFusionGateList[0].size() should not >= 10");
-    if (std::any_of(subFusionGateList.begin(), subFusionGateList.end(),
-                    [](const std::vector<Gate> &v) { return !v.empty(); })) {
+    if (subFusionGateList[0].size() >= BIG_CIRCUIT_SIZE) {
+        shortestPathAndOutputFusionCircuit(outputFileName,
+                                           subFusionGateList[0]);
+    } else if (std::any_of(
+                   subFusionGateList.begin(), subFusionGateList.end(),
+                   [](const std::vector<Gate> &v) { return !v.empty(); })) {
         // The subFusionGateList is not empty; however, it is being ignored
         // because smallCircuitSize is less than 6.
         searchAndOutputFusionCircuit(outputFileName, subFusionGateList,
