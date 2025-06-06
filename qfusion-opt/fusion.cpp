@@ -987,26 +987,27 @@ class DAG {
                             isDiagonal = false;
                         qubit = testQubit; // update fused qubits
                         j++;
+                        if (j > i + 1) { // means more than one gate to be fused
+                            std::string gateType = (isDiagonal ? "D" : "U") +
+                                                   std::to_string(qubit.size());
+                            bool isAdded = addEdge(i, j, cost(gateType, qubit));
+                            DEBUG_SECTION(
+                                DEBUG_shortestPath, if (isAdded) {
+                                    std::cout << "Add edge: " << i << " -> "
+                                              << j << " : " << gateType << " "
+                                              << cost(gateType, qubit) << " (";
+                                    for (int k = i; k < j; k++)
+                                        std::cout << (k == i ? "" : " ")
+                                                  << gateList[k]
+                                                         .subGateList[0]
+                                                         .gateType;
+                                    std::cout << ")\n";
+                                });
+                        } else {
+                            addEdge(i, -1, DBL_MAX);
+                        }
                     } else
                         break;
-                }
-                if (j > i + 1) { // means more than one gate to be fused
-                    std::string gateType =
-                        (isDiagonal ? "D" : "U") + std::to_string(qubit.size());
-                    bool isAdded = addEdge(i, j, cost(gateType, qubit));
-                    DEBUG_SECTION(
-                        DEBUG_shortestPath, if (isAdded) {
-                            std::cout << "Add edge: " << i << " -> " << j
-                                      << " : " << gateType << " "
-                                      << cost(gateType, qubit) << " (";
-                            for (int k = i; k < j; k++)
-                                std::cout
-                                    << (k == i ? "" : " ")
-                                    << gateList[k].subGateList[0].gateType;
-                            std::cout << ")\n";
-                        });
-                } else {
-                    addEdge(i, -1, DBL_MAX);
                 }
             }
         }
