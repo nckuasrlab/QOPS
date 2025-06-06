@@ -1156,13 +1156,15 @@ class FusionList {
                                   gate.subGateList[0].sortedQubits);
         }
     }
-    // copy assignment operator
-    FusionList &operator=(const FusionList &rhs) {
-        infoList = rhs.infoList;
-        return *this;
-    }
     // copy constructor
     FusionList(const FusionList &rhs) { infoList = rhs.infoList; }
+
+    // copy assignment operator
+    FusionList &operator=(const FusionList &rhs) {
+        FusionList tmp(rhs);
+        std::swap(infoList, tmp.infoList);
+        return *this;
+    }
 
     void reNewList() {
         std::vector<std::unordered_set<qubit_size_t>> qubitDependency(gQubits);
