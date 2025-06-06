@@ -608,10 +608,9 @@ class SmallWeightNode {
 
                 if (!hasDependency(gateIndexes, dependencyList,
                                    gateIndexes)) { // pruning
-                    SmallWeightNode nextNode(
-                        this, fusionGate.finfo,
-                        fusionGate.subGateList[0].gateType,
-                        fusionGate.subGateList[0].sortedQubits);
+                    SmallWeightNode nextNode(this, fusionGate.finfo,
+                                             fusionGate.gateType,
+                                             fusionGate.sortedQubits);
 
                     auto task = [&, nextNode, nowGateList,
                                  nowWeight]() mutable {
@@ -1238,15 +1237,18 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
                 Gate wrapper({fSize, gateIndex++});
                 std::vector<int> gateToFused =
                     nowFusionList.getFusedGate(fSize);
-                // note: we don't need to check if the fused gate is diagonal
-                // and set the gateType of warpper here
+                bool isDiagonal = true;
                 wrapper.subGateList.reserve(gateToFused.size());
                 for (int index : gateToFused) {
                     auto &subgate = fusionGateList0[index].subGateList[0];
                     wrapper.subGateList.push_back(subgate);
                     wrapper.sortedQubits.insert(subgate.sortedQubits.begin(),
                                                 subgate.sortedQubits.end());
+                    if (!isDiagonalGate(subgate.gateType))
+                        isDiagonal = false;
                 }
+                wrapper.gateType = (isDiagonal ? "D" : "U") +
+                                   std::to_string(wrapper.sortedQubits.size());
                 nQubitFusionList.push_back(wrapper);
                 nowFusionList.reNewList();
             }
