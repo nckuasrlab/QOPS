@@ -93,6 +93,7 @@ class Gate {
     std::vector<gate_size_t> gids; // index to the original circuit
     std::vector<Gate> subGateList;
 
+    Gate() = default;
     Gate(Finfo finfo) : finfo(finfo) {}
     Gate(const std::string &gateType,
          const std::set<qubit_size_t> &sortedQubits, Finfo finfo,
