@@ -142,8 +142,18 @@ class Gate {
         for (int qubit : qubits) {
             ss << " " << qubit;
         }
+        if (qubits.empty()) {
+            for (int qubit : sortedQubits) {
+                ss << " " << qubit;
+            }
+        }
         for (double param : params) {
             ss << " " << std::fixed << std::setprecision(16) << param;
+        }
+        if (params.empty() && !subGateList.empty()) {
+            for (double param : subGateList[0].params) {
+                ss << " " << std::fixed << std::setprecision(16) << param;
+            }
         }
         return ss.str();
     }
@@ -442,6 +452,24 @@ void showFinfoList(const std::vector<Finfo> &finfoList) {
         std::cout << info.size << "-" << info.fid << " ";
     }
     std::cout << "\n";
+}
+
+void showQubitGateQueues(const std::vector<std::queue<int>> &qubitGateQueues,
+                         const std::vector<Gate> &gates) {
+    std::cout << "showQubitGateQueues\n";
+    auto copy = qubitGateQueues;
+    for (size_t i = 0; i < copy.size(); ++i) {
+        std::cout << "qubit " << i << ": ";
+        while (!copy[i].empty()) {
+            int gateIdx = copy[i].front();
+            copy[i].pop();
+            int partnerQubit = copy[i].front();
+            copy[i].pop();
+            std::cout << gates[gateIdx].finfo.fid << " (" << i << ", "
+                      << partnerQubit << ") ";
+        }
+        std::cout << "\n";
+    }
 }
 
 /* Check if the gate has dependency, scheduled gates are excluded */
@@ -967,6 +995,13 @@ class DAG {
             addEdge(i, i + 1,
                     cost(gateList[i].subGateList[0].gateType,
                          gateList[i].subGateList[0].sortedQubits));
+            DEBUG_SECTION(DEBUG_shortestPath,
+                          std::cout
+                              << "Add edge: " << i << " -> " << i + 1 << " : "
+                              << gateList[i].subGateList[0].gateType << " "
+                              << cost(gateList[i].subGateList[0].gateType,
+                                      gateList[i].subGateList[0].sortedQubits)
+                              << "\n";);
             // muti qubit fusion edge
             for (size_t fSize = 2; fSize <= gMaxFusionSize; ++fSize) {
                 std::set<qubit_size_t> qubit;
