@@ -1,4 +1,4 @@
-CXX:=g++
+CXX:=g++-10
 CXXFLAGS:=-std=c++2a -O3 -march=native -flto=auto -funroll-loops -pipe -Wall -Wextra -Wpedantic
 GDB_CXXFLAGS:=-std=c++2a -g -O0 -pipe -Wall -Wextra -Wpedantic
 

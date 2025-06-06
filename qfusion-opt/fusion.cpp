@@ -1442,11 +1442,12 @@ void GetOptimalGFS(const std::string &outputFileName,
     const std::string cmd = "rm " + outputFileName + " > /dev/null 2>&1";
     [[maybe_unused]] auto sysinfo = system(cmd.c_str());
 
-    [[unlikely]] if (gMethod <= 1) { // legacy; not tested
-        searchAndOutputFusionCircuit(outputFileName, fusionGateList,
-                                     fusionGateList);
-        return;
-    }
+    if (gMethod <= 1)
+        [[unlikely]] { // legacy; not tested
+            searchAndOutputFusionCircuit(outputFileName, fusionGateList,
+                                         fusionGateList);
+            return;
+        }
     std::vector<std::vector<Gate>> subFusionGateList(gMaxFusionSize);
     std::vector<std::vector<int>> recordIndex(gMaxFusionSize);
     constexpr int SMALL_CIRCUIT_SIZE = 8, BIG_CIRCUIT_SIZE = 15;
