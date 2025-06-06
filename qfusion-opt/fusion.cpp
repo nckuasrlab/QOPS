@@ -858,7 +858,7 @@ class Circuit {
                 int pendingIdx = (*it).finfo.fid;
                 if (!hasDependency({pendingIdx}, dependencyList,
                                    scheduledGates)) {
-                    reorderedCircuit.gates.push_back(gates[pendingIdx]);
+                    reorderedCircuit.gates.push_back(*it);
                     scheduledGates.insert(pendingIdx);
                     it = waitingGates.erase(it); // Remove and advance
                 } else {
