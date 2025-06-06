@@ -1626,7 +1626,7 @@ int main(int argc, char *argv[]) {
     // diagonal fusion
     time_start = std::chrono::steady_clock::now();
     if (gMethod > 4 && gMethod != 7) {
-        DoDiagonalFusion(newCircuit);
+        // DoDiagonalFusion(newCircuit);
     }
 
     time_end = std::chrono::steady_clock::now();
