@@ -798,6 +798,44 @@ class SmallWeightNode {
     }
 };
 
+class QubitLRUCache {
+  public:
+    QubitLRUCache(size_t capacity) : capacity_(capacity) {
+        // Initialize cache with all qubits (0 to capacity-1), most recent at
+        // front
+        for (qubit_size_t q = 0; q < capacity_; ++q) {
+            qubit_size_t rq =
+                capacity_ - 1 - q; // Reverse order for most recent at front
+            cache_list_.push_front(rq);
+            cache_map_[rq] = cache_list_.begin();
+        }
+    }
+
+    // Mark a qubit as recently used
+    void use(const qubit_size_t &qubit) {
+        auto it = cache_map_.find(qubit);
+        if (it != cache_map_.end()) {
+            cache_list_.erase(it->second);
+        } else if (cache_list_.size() >= capacity_) {
+            qubit_size_t lru = cache_list_.back();
+            cache_list_.pop_back();
+            cache_map_.erase(lru);
+        }
+        cache_list_.push_front(qubit);
+        cache_map_[qubit] = cache_list_.begin();
+    }
+
+    // Iterate from most recent to least recent
+    auto begin() const { return cache_list_.begin(); }
+    auto end() const { return cache_list_.end(); }
+
+  private:
+    size_t capacity_;
+    std::list<qubit_size_t> cache_list_;
+    std::unordered_map<qubit_size_t, typename std::list<qubit_size_t>::iterator>
+        cache_map_;
+};
+
 class Circuit {
   public:
     std::vector<Gate> gates;
@@ -858,6 +896,7 @@ class Circuit {
         std::vector<Gate> waitingGates;
         std::set<int> scheduledGates;
         int currentQubit = 0;
+        QubitLRUCache qubitCache(gQubits);
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(gates);
         std::vector<std::list<int>> qubitGateQueues = buildQubitGateLists();
@@ -888,21 +927,31 @@ class Circuit {
                     << "\n";);
                 gate_size_t minDepth = 65535; // Arbitrary large number
                 for (int q = 0; q < gQubits; ++q) {
-                    if (depthList[q] < minDepth) {
+                    if (depthList[q] < minDepth &&
+                        !qubitGateQueues[q].empty()) {
+                        DEBUG_SECTION(
+                            DEBUG_schedule,
+                            std::cout << "Found a shallower depth for qubit "
+                                      << q << ": " << depthList[q]
+                                      << std::endl;);
                         minDepth = depthList[q];
                         currentQubit = q; // Get index of min depth
                     }
                 }
             }
             // If the current qubit's queue is empty, find the next non-empty
-            // queue
+            // queue based on LRU cache
             if (qubitGateQueues[currentQubit].empty()) {
-                currentQubit = 0;
-                while (currentQubit < gQubits &&
-                       qubitGateQueues[currentQubit].empty()) {
-                    ++currentQubit;
+                for (auto qcacheIt = qubitCache.begin();
+                     qcacheIt != qubitCache.end(); ++qcacheIt) {
+                    if (!qubitGateQueues[*qcacheIt].empty()) {
+                        currentQubit = *qcacheIt; // Get the first non-empty
+                                                  // qubit from the cache
+                        break;
+                    }
                 }
             }
+            qubitCache.use(currentQubit); // Mark current qubit as used
             DEBUG_SECTION(
                 DEBUG_schedule, showQubitGateQueues(qubitGateQueues, gates);
                 std::cout << "currentQubit: " << currentQubit << std::endl;);
