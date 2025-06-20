@@ -903,19 +903,34 @@ class Circuit {
         DEBUG_SECTION(DEBUG_schedule, showDependencyList(dependencyList);
                       showQubitGateQueues(qubitGateQueues, gates););
         int iteration = 0;
-        bool qubitSwitched = false;
+        bool qubitSwitched = false; // check if the qubit is switched in the
+                                    // previous iteration, if yes, we don't need
+                                    // to find a new qubit to process
+        bool hasScheduled = false;
         while (true) {
             DEBUG_SECTION(DEBUG_schedule, std::cout << "\nschedule iteration "
                                                     << iteration++
                                                     << std::endl;);
-
+            // finish scheduling
             if (std::all_of(
                     qubitGateQueues.begin(), qubitGateQueues.end(),
                     [](const std::list<int> &q) { return q.empty(); })) {
                 break; // All gates processed
             }
-
-            if (!qubitSwitched) {
+            // if some gate is scheduled and the next gate is single qubit gate,
+            // no need to switch qubit
+            if (hasScheduled &&
+                *std::next(qubitGateQueues[currentQubit].begin(), 1) ==
+                    currentQubit) {
+                DEBUG_SECTION(
+                    DEBUG_schedule,
+                    std::cout
+                        << "currentQubit: " << currentQubit << "; "
+                        << gates[qubitGateQueues[currentQubit].front()]
+                               .finfo.fid
+                        << " is not a two-qubit gate, so not choose new one"
+                        << std::endl;);
+            } else if (!qubitSwitched && waitingGates.empty()) {
                 // Choose a better qubit to process
                 // Find the qubit with the shallowest two-qubit gate depth
                 auto depthList =
@@ -939,6 +954,7 @@ class Circuit {
                     }
                 }
             }
+            hasScheduled = false; // Reset for this iteration
             // If the current qubit's queue is empty, find the next non-empty
             // queue based on LRU cache
             if (qubitGateQueues[currentQubit].empty()) {
@@ -951,7 +967,7 @@ class Circuit {
                     }
                 }
             }
-            qubitCache.use(currentQubit); // Mark current qubit as used
+            qubitCache.use(currentQubit); // Mark current qubit as used in cache
             DEBUG_SECTION(
                 DEBUG_schedule, showQubitGateQueues(qubitGateQueues, gates);
                 std::cout << "currentQubit: " << currentQubit << std::endl;);
@@ -961,6 +977,71 @@ class Circuit {
             qubitGateQueues[currentQubit].pop_front();
             int partnerQubit = qubitGateQueues[currentQubit].front();
             qubitGateQueues[currentQubit].pop_front();
+
+            // Try to schedule the gate; if dependencies are not resolved, add
+            // it and any subsequent single-qubit gates to waitingGates
+            if (!hasDependency({gates[gateIdx].finfo.fid}, dependencyList,
+                               scheduledGates)) {
+                reorderedCircuit.gates.push_back(gates[gateIdx]);
+                scheduledGates.insert(gates[gateIdx].finfo.fid);
+                hasScheduled = true;
+                DEBUG_SECTION(DEBUG_schedule,
+                              std::cout << "Scheduled "
+                                        << gates[gateIdx].finfo.fid << "\n";);
+            } else {
+                waitingGates.push_back(gates[gateIdx]);
+                DEBUG_SECTION(DEBUG_schedule,
+                              std::cout << "Waiting for "
+                                        << gates[gateIdx].finfo.fid
+                                        << " on qubit " << partnerQubit
+                                        << " to be scheduled" << std::endl;);
+                // if the gates behind the waiting gate are one-qubit gates,
+                // we can add them to the waitingGates
+                for (auto waitingQubit :
+                     {currentQubit,
+                      partnerQubit}) { // TODO: two-qubit shares same qubits can
+                                       // be added to waitingGates
+                    for (auto gateInWaitingQubitIt =
+                             qubitGateQueues[waitingQubit].begin();
+                         gateInWaitingQubitIt !=
+                         qubitGateQueues[waitingQubit].end();) {
+                        if (qubitGateQueues[waitingQubit].empty() ||
+                            *std::next(gateInWaitingQubitIt) != waitingQubit) {
+                            break; // Stop at the first gate that is not a
+                                   // two-qubit gate
+                        }
+                        if (*gateInWaitingQubitIt !=
+                            gateIdx) {              // TODO: make the ++ pretty
+                            ++gateInWaitingQubitIt; // Move to the gate index
+                            ++gateInWaitingQubitIt; // Move to the partner qubit
+                                                    // index
+                            continue;
+                        }
+                        if (*std::next(gateInWaitingQubitIt) == waitingQubit) {
+                            // if the next gate is not a two-qubit gate, we can
+                            // add it to the waitingGates
+                            ++gateInWaitingQubitIt; // Move to the gate index
+                            ++gateInWaitingQubitIt; // Move to the partner qubit
+                                                    // index
+                            int childGateIdx =
+                                qubitGateQueues[waitingQubit].front();
+                            waitingGates.push_back(gates[childGateIdx]);
+                            qubitGateQueues[waitingQubit]
+                                .pop_front(); // Remove the gate
+                            qubitGateQueues[waitingQubit]
+                                .pop_front(); // Remove the partner qubit
+                            DEBUG_SECTION(
+                                DEBUG_schedule,
+                                std::cout << "Waiting for "
+                                          << gates[childGateIdx].finfo.fid
+                                          << " on gate "
+                                          << gates[gateIdx].finfo.fid
+                                          << " to be scheduled" << std::endl;);
+                        }
+                    }
+                }
+            }
+            // remove the scheduled or waiting gate from other queues
             for (auto &queue : qubitGateQueues) {
                 for (auto it = queue.begin(); it != queue.end();) {
                     if (*it == gateIdx) {
@@ -973,28 +1054,13 @@ class Circuit {
                     }
                 }
             }
-            if (!hasDependency({gates[gateIdx].finfo.fid}, dependencyList,
-                               scheduledGates)) {
-                reorderedCircuit.gates.push_back(gates[gateIdx]);
-                scheduledGates.insert(gates[gateIdx].finfo.fid);
-                DEBUG_SECTION(DEBUG_schedule,
-                              std::cout << "Scheduled "
-                                        << gates[gateIdx].finfo.fid << "\n";);
-            } else {
-                waitingGates.push_back(gates[gateIdx]);
-                DEBUG_SECTION(DEBUG_schedule,
-                              std::cout << "Waiting for "
-                                        << gates[gateIdx].finfo.fid
-                                        << " on qubit " << partnerQubit
-                                        << " to be scheduled" << std::endl;);
-            }
             DEBUG_SECTION(
                 DEBUG_schedule, std::cout << "waitingGates: ";
                 for (auto gate
                      : waitingGates) {
                     std::cout << gate.finfo.fid << " ";
                 } std::cout
-                << "\n";);
+                << std::endl;);
 
             // Try to schedule waiting gates whose dependencies are now resolved
             for (auto it = waitingGates.begin(); it != waitingGates.end();) {
@@ -1003,6 +1069,7 @@ class Circuit {
                                    scheduledGates)) {
                     reorderedCircuit.gates.push_back(*it);
                     scheduledGates.insert(pendingIdx);
+                    hasScheduled = true;
                     waitingGates.erase(it); // Remove and advance
                     it = waitingGates
                              .begin(); // Reset iterator to start to check any
@@ -1020,7 +1087,7 @@ class Circuit {
                      : reorderedCircuit.gates) {
                     std::cout << gate.finfo.fid << " ";
                 } std::cout
-                << "\n";);
+                << std::endl;);
             qubitSwitched = currentQubit != partnerQubit;
             currentQubit = partnerQubit; // Continue with the next related qubit
         }
@@ -1068,6 +1135,30 @@ class Circuit {
         }
         return qubitGateLists;
     }
+    // struct GQ {
+    //     gate_size_t gateIdx;
+    //     qubit_size_t partnerQubit;
+    // };
+    // std::vector<std::list<int>> buildQubitGateLists() const {
+    //     std::vector<std::list<int>> qubitGateLists(gQubits);
+    //     for (size_t gateIdx = 0; gateIdx < gates.size(); ++gateIdx) {
+    //         const auto &qubits = gates[gateIdx].sortedQubits;
+    //         int prevQubit = -1;
+    //         int firstQubit = *qubits.begin();
+    //         // Add the gate to each involved qubit's queue in reverse order
+    //         for (auto it = qubits.rbegin(); it != qubits.rend(); ++it) {
+    //             int qubit = *it;
+    //             qubitGateLists[qubit].push_back(gateIdx);
+    //             if (prevQubit == -1) {
+    //                 qubitGateLists[qubit].push_back(firstQubit);
+    //             } else {
+    //                 qubitGateLists[qubit].push_back(prevQubit);
+    //             }
+    //             prevQubit = qubit;
+    //         }
+    //     }
+    //     return qubitGateLists;
+    // }
 
     std::vector<gate_size_t> getDepthOfShallowTwoQubitGates(
         std::vector<std::list<int>> qubitGateQueues) const {
