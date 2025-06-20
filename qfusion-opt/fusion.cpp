@@ -1449,15 +1449,18 @@ class FusionList {
         std::vector<std::unordered_set<size_t>> preGate(gQubits);
         for (size_t i = 0; i < infoList.size(); ++i) {
             auto &info = infoList[i];
-            std::unordered_set<qubit_size_t> relatedQubits(
-                info.sortedQubits.begin(), info.sortedQubits.end());
+            info.relatedQubits.clear();
+            info.relatedQubits.reserve(info.sortedQubits.size() * 2);
+            info.relatedQubits.insert(info.sortedQubits.begin(),
+                                      info.sortedQubits.end());
             for (int q : info.sortedQubits) {
-                relatedQubits.insert(qubitDependency[q].begin(),
-                                     qubitDependency[q].end());
+                auto &deps = qubitDependency[q];
+                info.relatedQubits.insert(deps.begin(), deps.end());
             }
 
-            info.relatedQubits = std::move(relatedQubits);
             std::unordered_set<int> allPreGate;
+            allPreGate.reserve(info.relatedQubits.size() * 2);
+
             for (int element : info.relatedQubits) {
                 qubitDependency[element] = info.relatedQubits;
                 preGate[element].insert(i);
@@ -1468,8 +1471,8 @@ class FusionList {
         }
     }
 
-    std::vector<int> getFusedGate(size_t fSize) {
-        std::vector<int> gateToFused;
+    std::vector<gate_size_t> getFusedGate(size_t fSize) {
+        std::vector<gate_size_t> gateToFused;
 
         if (infoList[0].sortedQubits.size() > fSize) {
             gateToFused.push_back(infoList[0].gateIndex);
@@ -1490,9 +1493,6 @@ class FusionList {
             fSize -= tmpFusionQubit.size();
 
             for (auto it = infoList.begin(); it != infoList.end();) {
-                // if (includes(tmpFusionQubit.begin(), tmpFusionQubit.end(),
-                //              it->relatedQubits.begin(),
-                //              it->relatedQubits.end())) {
                 if (isSubset(tmpFusionQubit, it->relatedQubits)) {
                     gateToFused.push_back(it->gateIndex);
                     it = infoList.erase(it);
@@ -1647,11 +1647,11 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
             gate_size_t gateIndex = 0;
             while (!nowFusionList.infoList.empty()) {
                 Gate wrapper({fSize, gateIndex++});
-                std::vector<int> gateToFused =
+                std::vector<gate_size_t> gateToFused =
                     nowFusionList.getFusedGate(fSize);
                 bool isDiagonal = true;
                 wrapper.subGateList.reserve(gateToFused.size());
-                for (int index : gateToFused) {
+                for (gate_size_t index : gateToFused) {
                     auto &subgate = fusionGateList0[index].subGateList[0];
                     wrapper.subGateList.push_back(subgate);
                     wrapper.sortedQubits.insert(subgate.sortedQubits.begin(),
