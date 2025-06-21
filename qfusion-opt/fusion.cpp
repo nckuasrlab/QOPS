@@ -899,7 +899,7 @@ class Circuit {
         QubitLRUCache qubitCache(gQubits);
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(gates);
-        std::vector<std::list<int>> qubitGateQueues = buildQubitGateLists();
+        std::vector<std::list<GQ>> qubitGateQueues = buildQubitGateLists();
         DEBUG_SECTION(DEBUG_schedule, showDependencyList(dependencyList);
                       showQubitGateQueues(qubitGateQueues, gates););
         int iteration = 0;
@@ -912,21 +912,20 @@ class Circuit {
                                                     << iteration++
                                                     << std::endl;);
             // finish scheduling
-            if (std::all_of(
-                    qubitGateQueues.begin(), qubitGateQueues.end(),
-                    [](const std::list<int> &q) { return q.empty(); })) {
+            if (std::all_of(qubitGateQueues.begin(), qubitGateQueues.end(),
+                            [](const std::list<GQ> &q) { return q.empty(); })) {
                 break; // All gates processed
             }
             // if some gate is scheduled and the next gate is single qubit gate,
             // no need to switch qubit
             if (hasScheduled &&
-                *std::next(qubitGateQueues[currentQubit].begin(), 1) ==
+                qubitGateQueues[currentQubit].front().partnerQubit ==
                     currentQubit) {
                 DEBUG_SECTION(
                     DEBUG_schedule,
                     std::cout
                         << "currentQubit: " << currentQubit << "; "
-                        << gates[qubitGateQueues[currentQubit].front()]
+                        << gates[qubitGateQueues[currentQubit].front().gateIdx]
                                .finfo.fid
                         << " is not a two-qubit gate, so not choose new one"
                         << std::endl;);
@@ -973,10 +972,10 @@ class Circuit {
                 std::cout << "currentQubit: " << currentQubit << std::endl;);
 
             // Extract gate index and its partner qubit
-            int gateIdx = qubitGateQueues[currentQubit].front();
-            qubitGateQueues[currentQubit].pop_front();
-            int partnerQubit = qubitGateQueues[currentQubit].front();
-            qubitGateQueues[currentQubit].pop_front();
+            GQ gq = qubitGateQueues[currentQubit].front();
+            int gateIdx = gq.gateIdx;
+            int partnerQubit = gq.partnerQubit;
+            // qubitGateQueues[currentQubit].pop_front();
 
             // Try to schedule the gate; if dependencies are not resolved, add
             // it and any subsequent single-qubit gates to waitingGates
@@ -997,62 +996,91 @@ class Circuit {
                                         << " to be scheduled" << std::endl;);
                 // if the gates behind the waiting gate are one-qubit gates,
                 // we can add them to the waitingGates
-                for (auto waitingQubit :
-                     {currentQubit,
-                      partnerQubit}) { // TODO: two-qubit shares same qubits can
-                                       // be added to waitingGates
-                    for (auto gateInWaitingQubitIt =
-                             qubitGateQueues[waitingQubit].begin();
-                         gateInWaitingQubitIt !=
-                         qubitGateQueues[waitingQubit].end();) {
-                        if (qubitGateQueues[waitingQubit].empty() ||
-                            *std::next(gateInWaitingQubitIt) != waitingQubit) {
-                            break; // Stop at the first gate that is not a
-                                   // two-qubit gate
-                        }
-                        if (*gateInWaitingQubitIt !=
-                            gateIdx) {              // TODO: make the ++ pretty
-                            ++gateInWaitingQubitIt; // Move to the gate index
-                            ++gateInWaitingQubitIt; // Move to the partner qubit
-                                                    // index
-                            continue;
-                        }
-                        if (*std::next(gateInWaitingQubitIt) == waitingQubit) {
-                            // if the next gate is not a two-qubit gate, we can
-                            // add it to the waitingGates
-                            ++gateInWaitingQubitIt; // Move to the gate index
-                            ++gateInWaitingQubitIt; // Move to the partner qubit
-                                                    // index
-                            int childGateIdx =
-                                qubitGateQueues[waitingQubit].front();
-                            waitingGates.push_back(gates[childGateIdx]);
-                            qubitGateQueues[waitingQubit]
-                                .pop_front(); // Remove the gate
-                            qubitGateQueues[waitingQubit]
-                                .pop_front(); // Remove the partner qubit
-                            DEBUG_SECTION(
-                                DEBUG_schedule,
-                                std::cout << "Waiting for "
-                                          << gates[childGateIdx].finfo.fid
-                                          << " on gate "
-                                          << gates[gateIdx].finfo.fid
-                                          << " to be scheduled" << std::endl;);
-                        }
-                    }
-                }
+                // for (auto waitingQubit :
+                //      {currentQubit,
+                //       partnerQubit}) { // TODO: two-qubit shares same qubits can
+                //                        // be added to waitingGates
+                //     for (auto gateInWaitingQubitIt =
+                //              qubitGateQueues[waitingQubit].begin();
+                //          gateInWaitingQubitIt !=
+                //          qubitGateQueues[waitingQubit].end();) {
+                //         if (qubitGateQueues[waitingQubit].empty() ||
+                //             (*gateInWaitingQubitIt).partnerQubit !=
+                //                 waitingQubit) {
+                //             break; // Stop at the first gate that is not a
+                //                    // two-qubit gate
+                //         }
+                //         if ((*gateInWaitingQubitIt).gateIdx !=
+                //             gateIdx) {              // TODO: make the ++ pretty
+                //             ++gateInWaitingQubitIt; // Move to the gate index
+                //             continue;
+                //         }
+                //         if ((*gateInWaitingQubitIt).partnerQubit ==
+                //             waitingQubit) {
+                //             // if the next gate is not a two-qubit gate, we can
+                //             // add it to the waitingGates
+                //             ++gateInWaitingQubitIt; // Move to the gate index
+                //             int childGateIdx =
+                //                 qubitGateQueues[waitingQubit].front().gateIdx;
+                //             waitingGates.push_back(gates[childGateIdx]);
+                //             qubitGateQueues[waitingQubit]
+                //                 .pop_front(); // Remove the gate
+                //             qubitGateQueues[waitingQubit]
+                //                 .pop_front(); // Remove the partner qubit
+                //             DEBUG_SECTION(
+                //                 DEBUG_schedule,
+                //                 std::cout << "Waiting for "
+                //                           << gates[childGateIdx].finfo.fid
+                //                           << " on gate "
+                //                           << gates[gateIdx].finfo.fid
+                //                           << " to be scheduled" << std::endl;);
+                //         }
+                //     }
+                // }
             }
             // remove the scheduled or waiting gate from other queues
+            // for (auto &queue : qubitGateQueues) {
+            //     // Remove the gate from other qubit queues
+            //     queue.remove_if([gateIdx](const GQ &gq) {
+            //         return gq.gateIdx == gateIdx;
+            //     });
+            // }
+            // for (int q = 0; q < gQubits; ++q) {
+            //     bool afterTargetGate = false;
+            //     bool isFrontTargetGate = qubitGateQueues[q].front().gateIdx == gateIdx;
+            //     for (auto it = qubitGateQueues[q].begin(); it != qubitGateQueues[q].end();) {
+            //         if (!isFrontTargetGate) break;
+            //         if (!afterTargetGate) {
+            //             if ((*it).gateIdx == gateIdx) {
+            //                 // Found the scheduled/waiting gate, erase it
+            //                 it = qubitGateQueues[q].erase(it);
+            //                 std::cout << "Removed gate "
+            //                           << gates[gateIdx].finfo.fid
+            //                           << " from qubit " << q << std::endl;
+            //                 afterTargetGate = true;
+            //             } else {
+            //                 ++it;
+            //             }
+            //             continue;
+            //         }
+            //         // After the target gate, erase all subsequent single-qubit gates
+            //         if ((*it).partnerQubit == q) {
+            //             std::cout << "lookahead " << gates[(*it).gateIdx].finfo.fid << std::endl;
+            //             waitingGates.push_back(gates[(*it).gateIdx]); // Add the gate to waitingGates
+            //             it = qubitGateQueues[q].erase(it);
+            //         } else {
+            //             // Stop if the next gate is not a single-qubit gate
+            //             break;
+            //         }
+            //     }
+            // }
             for (auto &queue : qubitGateQueues) {
-                for (auto it = queue.begin(); it != queue.end();) {
-                    if (*it == gateIdx) {
-                        queue.erase(it++);
-                        queue.erase(it);
-                        break;
-                    } else {
-                        ++it;
-                        ++it; // Skip partner qubit
-                    }
-                }
+                // Remove the gate from other qubit queues
+                // note: using lookahead to add more single-qubit gates to
+                // waitingGates is not a good idea, causing worse performance
+                queue.remove_if([gateIdx](const GQ &gq) {
+                    return gq.gateIdx == gateIdx;
+                });
             }
             DEBUG_SECTION(
                 DEBUG_schedule, std::cout << "waitingGates: ";
