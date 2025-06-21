@@ -31,6 +31,7 @@
         do {                                                                   \
             y                                                                  \
     } while (0)
+#define USE_SHORTEST_PATH_ONLY 1
 
 using gate_size_t = unsigned short;  // 65535 gates
 using qubit_size_t = unsigned short; // 65535 qubits
@@ -1663,37 +1664,25 @@ void searchAndOutputFusionCircuit(
     outputFusionCircuit(outputFileName, fusionGateList, finalGateList);
 }
 
-void shortestPathAndOutputFusionCircuit(
-    const std::string &outputFileName,
-    const std::vector<Gate> &subFusionGateList0) {
+void shortestPathAndOutputFusionCircuit(const std::string &outputFileName,
+                                        const std::vector<Gate> &gateList) {
     gShortestPathCounter.fetch_add(1, std::memory_order_relaxed);
-    DAG subDAG(subFusionGateList0.size());
-    DEBUG_SECTION(DEBUG_shortestPath || DEBUG_schedule,
-                  std::cout << "shortest path begin: \n";
-                  std::cout << Circuit(subFusionGateList0).str() << "\n";
-                  std::cout << "shortest path schedule: " << std::endl;
-                  std::cout << Circuit(subFusionGateList0).schedule().str()
-                            << std::endl;
-                  std::cout << "shortest path schedule end" << std::endl;);
-    auto shortCircuit = Circuit(subFusionGateList0).schedule().gates;
-    subDAG.constructDAG(shortCircuit);
-    subDAG.shortestPath(shortCircuit, outputFileName);
-    DEBUG_SECTION(
-        DEBUG_shortestPath, Circuit(shortCircuit).dump(); subDAG.dump();
-
-        subDAG.dumpDot("graph_" + std::to_string(gShortestPathCounter) +
-                       ".dot"););
+    DAG subDAG(gateList.size());
+    subDAG.constructDAG(gateList);
+    subDAG.shortestPath(gateList, outputFileName);
+    DEBUG_SECTION(DEBUG_shortestPath, Circuit(gateList).dump(); subDAG.dump();
+                  subDAG.dumpDot("graph_" +
+                                 std::to_string(gShortestPathCounter) +
+                                 ".dot"););
 }
 
+#if !USE_SHORTEST_PATH_ONLY
 void GetOptimalGFS(const std::string &outputFileName,
                    const std::vector<std::vector<Gate>> &fusionGateList) {
     // find best fusion conbination
     // execute small gate block one by one to reduce execution time
     // because the getSmallWeight and shortestPath use different file output
     // system, the output logic cannot be decoupled
-    const std::string cmd = "rm " + outputFileName + " > /dev/null 2>&1";
-    [[maybe_unused]] auto sysinfo = system(cmd.c_str());
-
     if (gMethod <= 1)
         [[unlikely]] { // legacy; not tested
             searchAndOutputFusionCircuit(outputFileName, fusionGateList,
@@ -1809,6 +1798,7 @@ void GetOptimalGFS(const std::string &outputFileName,
                                      fusionGateList);
     }
 }
+#endif // !USE_SHORTEST_PATH_ONLY
 
 std::string getEnvVariable(const std::string &var_name) {
     const char *var_value_cstr = std::getenv(var_name.c_str());
@@ -1867,6 +1857,14 @@ int main(int argc, char *argv[]) {
     DEBUG_SECTION(DEBUG_INFO, std::cout << "reorder start" << std::endl;);
     auto time_start = std::chrono::steady_clock::now();
     Circuit circuit(inputFileName);
+#if USE_SHORTEST_PATH_ONLY
+    DEBUG_SECTION(DEBUG_shortestPath || DEBUG_schedule,
+                  std::cout << "shortest path begin: \n";
+                  std::cout << circuit.str() << "\n";
+                  std::cout << "shortest path schedule: " << std::endl;
+                  std::cout << circuit.schedule().str() << std::endl;
+                  std::cout << "shortest path schedule end" << std::endl;);
+#endif
     Circuit newCircuit = circuit.schedule();
     auto time_end = std::chrono::steady_clock::now();
     timers["reorder"] =
@@ -1886,8 +1884,12 @@ int main(int argc, char *argv[]) {
 
     DEBUG_SECTION(DEBUG_INFO, std::cout << "GetPGFS start" << std::endl;);
     time_start = std::chrono::steady_clock::now();
+#if !USE_SHORTEST_PATH_ONLY
     std::vector<std::vector<Gate>> fusionGateList =
         GetPGFS(newCircuit, gMaxFusionSize);
+#else
+    std::vector<std::vector<Gate>> fusionGateList = GetPGFS(newCircuit, 1);
+#endif
     time_end = std::chrono::steady_clock::now();
     timers["GetPGFS"] =
         std::chrono::duration<double>(time_end - time_start).count();
@@ -1897,6 +1899,7 @@ int main(int argc, char *argv[]) {
     // do reorder
     DEBUG_SECTION(DEBUG_INFO, std::cout << "reorder2 start" << std::endl;);
     time_start = std::chrono::steady_clock::now();
+#if !USE_SHORTEST_PATH_ONLY
     for (size_t fSize = 1; fSize < gMaxFusionSize; ++fSize) {
         Circuit cc(fusionGateList[fSize]); // build circuit of fSize
         fusionGateList[fSize] = cc.schedule().gates;
@@ -1904,6 +1907,7 @@ int main(int argc, char *argv[]) {
         for (auto &wrapper : fusionGateList[fSize])
             wrapper.finfo.fid = index++;
     }
+#endif
     time_end = std::chrono::steady_clock::now();
     timers["reorder2"] =
         std::chrono::duration<double>(time_end - time_start).count();
@@ -1911,8 +1915,15 @@ int main(int argc, char *argv[]) {
                                         << std::endl;);
 
     DEBUG_SECTION(DEBUG_INFO, std::cout << "GetOptimalGFS start" << std::endl;);
+    const std::string cmd = "rm " + outputFileName + " > /dev/null 2>&1";
+    [[maybe_unused]] auto sysinfo = system(cmd.c_str());
     time_start = std::chrono::steady_clock::now();
+#if !USE_SHORTEST_PATH_ONLY
     GetOptimalGFS(outputFileName, fusionGateList);
+#else
+    shortestPathAndOutputFusionCircuit(outputFileName, fusionGateList[0]);
+#endif
+
     time_end = std::chrono::steady_clock::now();
     timers["GetOptimalGFS"] =
         std::chrono::duration<double>(time_end - time_start).count();
