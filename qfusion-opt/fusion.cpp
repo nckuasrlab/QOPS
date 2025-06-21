@@ -458,24 +458,6 @@ void showFinfoList(const std::vector<Finfo> &finfoList) {
     std::cout << "\n";
 }
 
-void showQubitGateQueues(const std::vector<std::list<int>> &qubitGateQueues,
-                         const std::vector<Gate> &gates) {
-    std::cout << "showQubitGateQueues\n";
-    auto copy = qubitGateQueues;
-    for (size_t i = 0; i < copy.size(); ++i) {
-        std::cout << "qubit " << i << ": ";
-        while (!copy[i].empty()) {
-            int gateIdx = copy[i].front();
-            copy[i].pop_front();
-            int partnerQubit = copy[i].front();
-            copy[i].pop_front();
-            std::cout << gates[gateIdx].finfo.fid << " (" << i << ", "
-                      << partnerQubit << ") ";
-        }
-        std::cout << "\n";
-    }
-}
-
 /* Check if the gate has dependency, scheduled gates are excluded */
 // note: dependencyList is needed to copy
 inline bool hasDependency(const std::set<int> &gateIndex, // TODO rename: fids
@@ -787,7 +769,7 @@ class SmallWeightNode {
                     depth + 1, beamWidth);
             };
 
-            if (depth < 2 && !DEBUG_getSmallWeightSingleThread)
+            if (depth < 3 && !DEBUG_getSmallWeightSingleThread)
                 futures.emplace_back(pool.enqueue(task));
             else
                 task();
@@ -891,6 +873,57 @@ class Circuit {
         return fusedGate;
     }
 
+    Circuit schedule_simple() const {
+        Circuit reorderedCircuit;
+        std::vector<Gate> waitingGates;
+        std::set<int> scheduledGates;
+        int currentQubit = 0;
+        std::vector<std::set<int>> dependencyList =
+            constructDependencyList(gates);
+        std::vector<std::list<GQ>> gqLists = buildQubitGateLists();
+
+        while (true) {
+            // Skip empty qubit lists
+            while (currentQubit < gQubits && gqLists[currentQubit].empty()) {
+                ++currentQubit;
+            }
+
+            if (currentQubit == gQubits)
+                break; // All gates processed
+
+            // Extract gate index and its partner qubit
+            GQ gq = gqLists[currentQubit].front();
+            int gateIdx = gq.gateIdx;
+            int partnerQubit = gq.partnerQubit;
+            gqLists[currentQubit].pop_front();
+
+            if (currentQubit >= partnerQubit) {
+                if (!hasDependency({gates[gateIdx].finfo.fid}, dependencyList,
+                                   scheduledGates)) {
+                    reorderedCircuit.gates.push_back(gates[gateIdx]);
+                    scheduledGates.insert(gates[gateIdx].finfo.fid);
+                } else {
+                    waitingGates.push_back(gates[gateIdx]);
+                }
+            }
+
+            // Try to schedule waiting gates whose dependencies are now resolved
+            for (auto it = waitingGates.begin(); it != waitingGates.end();) {
+                int pendingIdx = (*it).finfo.fid;
+                if (!hasDependency({pendingIdx}, dependencyList,
+                                   scheduledGates)) {
+                    reorderedCircuit.gates.push_back(*it);
+                    scheduledGates.insert(pendingIdx);
+                    it = waitingGates.erase(it); // Remove and advance
+                } else {
+                    ++it;
+                }
+            }
+            currentQubit = partnerQubit; // Continue with the next related qubit
+        }
+        return reorderedCircuit;
+    }
+
     Circuit schedule() const {
         Circuit reorderedCircuit;
         std::vector<Gate> waitingGates;
@@ -899,9 +932,9 @@ class Circuit {
         QubitLRUCache qubitCache(gQubits);
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(gates);
-        std::vector<std::list<GQ>> qubitGateQueues = buildQubitGateLists();
+        std::vector<std::list<GQ>> gqLists = buildQubitGateLists();
         DEBUG_SECTION(DEBUG_schedule, showDependencyList(dependencyList);
-                      showQubitGateQueues(qubitGateQueues, gates););
+                      showGQLists(gqLists, gates););
         int iteration = 0;
         bool qubitSwitched = false; // check if the qubit is switched in the
                                     // previous iteration, if yes, we don't need
@@ -912,28 +945,26 @@ class Circuit {
                                                     << iteration++
                                                     << std::endl;);
             // finish scheduling
-            if (std::all_of(qubitGateQueues.begin(), qubitGateQueues.end(),
+            if (std::all_of(gqLists.begin(), gqLists.end(),
                             [](const std::list<GQ> &q) { return q.empty(); })) {
                 break; // All gates processed
             }
             // if some gate is scheduled and the next gate is single qubit gate,
             // no need to switch qubit
             if (hasScheduled &&
-                qubitGateQueues[currentQubit].front().partnerQubit ==
-                    currentQubit) {
+                gqLists[currentQubit].front().partnerQubit == currentQubit) {
                 DEBUG_SECTION(
                     DEBUG_schedule,
                     std::cout
                         << "currentQubit: " << currentQubit << "; "
-                        << gates[qubitGateQueues[currentQubit].front().gateIdx]
+                        << gates[gqLists[currentQubit].front().gateIdx]
                                .finfo.fid
                         << " is not a two-qubit gate, so not choose new one"
                         << std::endl;);
             } else if (!qubitSwitched && waitingGates.empty()) {
                 // Choose a better qubit to process
                 // Find the qubit with the shallowest two-qubit gate depth
-                auto depthList =
-                    getDepthOfShallowTwoQubitGates(qubitGateQueues);
+                auto depthList = getDepthOfShallowTwoQubitGates(gqLists);
                 DEBUG_SECTION(
                     DEBUG_schedule, std::cout << "depthList: ";
                     for (auto d
@@ -941,8 +972,7 @@ class Circuit {
                     << "\n";);
                 gate_size_t minDepth = 65535; // Arbitrary large number
                 for (int q = 0; q < gQubits; ++q) {
-                    if (depthList[q] < minDepth &&
-                        !qubitGateQueues[q].empty()) {
+                    if (depthList[q] < minDepth && !gqLists[q].empty()) {
                         DEBUG_SECTION(
                             DEBUG_schedule,
                             std::cout << "Found a shallower depth for qubit "
@@ -954,12 +984,12 @@ class Circuit {
                 }
             }
             hasScheduled = false; // Reset for this iteration
-            // If the current qubit's queue is empty, find the next non-empty
-            // queue based on LRU cache
-            if (qubitGateQueues[currentQubit].empty()) {
+            // If the current qubit's list is empty, find the next non-empty
+            // list based on LRU cache
+            if (gqLists[currentQubit].empty()) {
                 for (auto qcacheIt = qubitCache.begin();
                      qcacheIt != qubitCache.end(); ++qcacheIt) {
-                    if (!qubitGateQueues[*qcacheIt].empty()) {
+                    if (!gqLists[*qcacheIt].empty()) {
                         currentQubit = *qcacheIt; // Get the first non-empty
                                                   // qubit from the cache
                         break;
@@ -967,15 +997,14 @@ class Circuit {
                 }
             }
             qubitCache.use(currentQubit); // Mark current qubit as used in cache
-            DEBUG_SECTION(
-                DEBUG_schedule, showQubitGateQueues(qubitGateQueues, gates);
-                std::cout << "currentQubit: " << currentQubit << std::endl;);
+            DEBUG_SECTION(DEBUG_schedule, showGQLists(gqLists, gates);
+                          std::cout << "currentQubit: " << currentQubit
+                                    << std::endl;);
 
             // Extract gate index and its partner qubit
-            GQ gq = qubitGateQueues[currentQubit].front();
+            GQ gq = gqLists[currentQubit].front();
             int gateIdx = gq.gateIdx;
             int partnerQubit = gq.partnerQubit;
-            // qubitGateQueues[currentQubit].pop_front();
 
             // Try to schedule the gate; if dependencies are not resolved, add
             // it and any subsequent single-qubit gates to waitingGates
@@ -994,93 +1023,15 @@ class Circuit {
                                         << gates[gateIdx].finfo.fid
                                         << " on qubit " << partnerQubit
                                         << " to be scheduled" << std::endl;);
-                // if the gates behind the waiting gate are one-qubit gates,
-                // we can add them to the waitingGates
-                // for (auto waitingQubit :
-                //      {currentQubit,
-                //       partnerQubit}) { // TODO: two-qubit shares same qubits can
-                //                        // be added to waitingGates
-                //     for (auto gateInWaitingQubitIt =
-                //              qubitGateQueues[waitingQubit].begin();
-                //          gateInWaitingQubitIt !=
-                //          qubitGateQueues[waitingQubit].end();) {
-                //         if (qubitGateQueues[waitingQubit].empty() ||
-                //             (*gateInWaitingQubitIt).partnerQubit !=
-                //                 waitingQubit) {
-                //             break; // Stop at the first gate that is not a
-                //                    // two-qubit gate
-                //         }
-                //         if ((*gateInWaitingQubitIt).gateIdx !=
-                //             gateIdx) {              // TODO: make the ++ pretty
-                //             ++gateInWaitingQubitIt; // Move to the gate index
-                //             continue;
-                //         }
-                //         if ((*gateInWaitingQubitIt).partnerQubit ==
-                //             waitingQubit) {
-                //             // if the next gate is not a two-qubit gate, we can
-                //             // add it to the waitingGates
-                //             ++gateInWaitingQubitIt; // Move to the gate index
-                //             int childGateIdx =
-                //                 qubitGateQueues[waitingQubit].front().gateIdx;
-                //             waitingGates.push_back(gates[childGateIdx]);
-                //             qubitGateQueues[waitingQubit]
-                //                 .pop_front(); // Remove the gate
-                //             qubitGateQueues[waitingQubit]
-                //                 .pop_front(); // Remove the partner qubit
-                //             DEBUG_SECTION(
-                //                 DEBUG_schedule,
-                //                 std::cout << "Waiting for "
-                //                           << gates[childGateIdx].finfo.fid
-                //                           << " on gate "
-                //                           << gates[gateIdx].finfo.fid
-                //                           << " to be scheduled" << std::endl;);
-                //         }
-                //     }
-                // }
             }
-            // remove the scheduled or waiting gate from other queues
-            // for (auto &queue : qubitGateQueues) {
-            //     // Remove the gate from other qubit queues
-            //     queue.remove_if([gateIdx](const GQ &gq) {
-            //         return gq.gateIdx == gateIdx;
-            //     });
-            // }
-            // for (int q = 0; q < gQubits; ++q) {
-            //     bool afterTargetGate = false;
-            //     bool isFrontTargetGate = qubitGateQueues[q].front().gateIdx == gateIdx;
-            //     for (auto it = qubitGateQueues[q].begin(); it != qubitGateQueues[q].end();) {
-            //         if (!isFrontTargetGate) break;
-            //         if (!afterTargetGate) {
-            //             if ((*it).gateIdx == gateIdx) {
-            //                 // Found the scheduled/waiting gate, erase it
-            //                 it = qubitGateQueues[q].erase(it);
-            //                 std::cout << "Removed gate "
-            //                           << gates[gateIdx].finfo.fid
-            //                           << " from qubit " << q << std::endl;
-            //                 afterTargetGate = true;
-            //             } else {
-            //                 ++it;
-            //             }
-            //             continue;
-            //         }
-            //         // After the target gate, erase all subsequent single-qubit gates
-            //         if ((*it).partnerQubit == q) {
-            //             std::cout << "lookahead " << gates[(*it).gateIdx].finfo.fid << std::endl;
-            //             waitingGates.push_back(gates[(*it).gateIdx]); // Add the gate to waitingGates
-            //             it = qubitGateQueues[q].erase(it);
-            //         } else {
-            //             // Stop if the next gate is not a single-qubit gate
-            //             break;
-            //         }
-            //     }
-            // }
-            for (auto &queue : qubitGateQueues) {
-                // Remove the gate from other qubit queues
+
+            // Remove the gate from other qubit lists, the list's front is
+            // popped here
+            for (auto &list : gqLists) {
                 // note: using lookahead to add more single-qubit gates to
                 // waitingGates is not a good idea, causing worse performance
-                queue.remove_if([gateIdx](const GQ &gq) {
-                    return gq.gateIdx == gateIdx;
-                });
+                list.remove_if(
+                    [gateIdx](const GQ &gq) { return gq.gateIdx == gateIdx; });
             }
             DEBUG_SECTION(
                 DEBUG_schedule, std::cout << "waitingGates: ";
@@ -1141,64 +1092,40 @@ class Circuit {
     }
 
   private:
-    // Build a queue of gate indices for each qubit
-    // for each gate, a qubit is pushed as a pair (gate, qubit)
-    std::vector<std::list<int>> buildQubitGateLists() const {
-        std::vector<std::list<int>> qubitGateLists(gQubits);
+    struct GQ {
+        gate_size_t gateIdx;
+        qubit_size_t partnerQubit;
+    };
+
+    // Build lists of gate indices for each qubit
+    std::vector<std::list<GQ>> buildQubitGateLists() const {
+        std::vector<std::list<GQ>> qubitGateLists(gQubits);
         for (size_t gateIdx = 0; gateIdx < gates.size(); ++gateIdx) {
             const auto &qubits = gates[gateIdx].sortedQubits;
             int prevQubit = -1;
             int firstQubit = *qubits.begin();
-            // Add the gate to each involved qubit's queue in reverse order
+            // Add the gate to each involved qubit's list in reverse order
             for (auto it = qubits.rbegin(); it != qubits.rend(); ++it) {
                 int qubit = *it;
-                qubitGateLists[qubit].push_back(gateIdx);
-                if (prevQubit == -1) {
-                    qubitGateLists[qubit].push_back(firstQubit);
-                } else {
-                    qubitGateLists[qubit].push_back(prevQubit);
-                }
+                qubitGateLists[qubit].emplace_back(
+                    gateIdx, prevQubit == -1 ? firstQubit : prevQubit);
                 prevQubit = qubit;
             }
         }
         return qubitGateLists;
     }
-    // struct GQ {
-    //     gate_size_t gateIdx;
-    //     qubit_size_t partnerQubit;
-    // };
-    // std::vector<std::list<int>> buildQubitGateLists() const {
-    //     std::vector<std::list<int>> qubitGateLists(gQubits);
-    //     for (size_t gateIdx = 0; gateIdx < gates.size(); ++gateIdx) {
-    //         const auto &qubits = gates[gateIdx].sortedQubits;
-    //         int prevQubit = -1;
-    //         int firstQubit = *qubits.begin();
-    //         // Add the gate to each involved qubit's queue in reverse order
-    //         for (auto it = qubits.rbegin(); it != qubits.rend(); ++it) {
-    //             int qubit = *it;
-    //             qubitGateLists[qubit].push_back(gateIdx);
-    //             if (prevQubit == -1) {
-    //                 qubitGateLists[qubit].push_back(firstQubit);
-    //             } else {
-    //                 qubitGateLists[qubit].push_back(prevQubit);
-    //             }
-    //             prevQubit = qubit;
-    //         }
-    //     }
-    //     return qubitGateLists;
-    // }
 
-    std::vector<gate_size_t> getDepthOfShallowTwoQubitGates(
-        std::vector<std::list<int>> qubitGateQueues) const {
+    std::vector<gate_size_t>
+    getDepthOfShallowTwoQubitGates(std::vector<std::list<GQ>> gqLists) const {
         std::vector<gate_size_t> depthList;
-        for (size_t currentQubit = 0; currentQubit < qubitGateQueues.size();
+        for (size_t currentQubit = 0; currentQubit < gqLists.size();
              currentQubit++) {
             int depth = 0;
             bool foundFirstTwoQubitGate = false;
-            for (auto it = qubitGateQueues[currentQubit].begin();
-                 it != qubitGateQueues[currentQubit].end(); ++it) {
-                int gateIdx = *it;
-                int partnerQubit = *(++it);
+            for (auto it = gqLists[currentQubit].begin();
+                 it != gqLists[currentQubit].end(); ++it) {
+                int gateIdx = (*it).gateIdx;
+                int partnerQubit = (*it).partnerQubit;
                 depth++; // Increment depth for each gate on this qubit
                 if (currentQubit != partnerQubit) {
                     foundFirstTwoQubitGate = true;
@@ -1209,6 +1136,23 @@ class Circuit {
             depthList.push_back(foundFirstTwoQubitGate ? depth : 0);
         }
         return depthList;
+    }
+
+    void showGQLists(const std::vector<std::list<GQ>> &gqLists,
+                     const std::vector<Gate> &gates) const {
+        std::cout << "showGQLists\n";
+        auto copy = gqLists;
+        for (size_t i = 0; i < copy.size(); ++i) {
+            std::cout << "qubit " << i << ": ";
+            while (!copy[i].empty()) {
+                int gateIdx = copy[i].front().gateIdx;
+                int partnerQubit = copy[i].front().partnerQubit;
+                copy[i].pop_front();
+                std::cout << gates[gateIdx].finfo.fid << " (" << i << ", "
+                          << partnerQubit << ") ";
+            }
+            std::cout << "\n";
+        }
     }
 };
 
@@ -1648,7 +1592,8 @@ void DoDiagonalFusion(Circuit &circuit) {
     }
 }
 
-std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
+std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit,
+                                       const int maxFusionSize) {
     std::vector<std::vector<Gate>> fusionGateList;
     // Step 1: construct 1-qubit fusion list (sequential, fast)
     std::vector<Gate> NQubitFusionList;
@@ -1666,7 +1611,7 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit) {
     std::vector<std::future<std::vector<Gate>>> futures;
     FusionList fusionList(fusionGateList[0]);
     const auto &fusionGateList0 = fusionGateList[0];
-    for (qubit_size_t fSize = 2; fSize <= gMaxFusionSize; ++fSize) {
+    for (qubit_size_t fSize = 2; fSize <= maxFusionSize; ++fSize) {
         futures.push_back(std::async(std::launch::async, [fSize, fusionList,
                                                           fusionGateList0]() {
             std::vector<Gate> nQubitFusionList;
@@ -1723,12 +1668,13 @@ void shortestPathAndOutputFusionCircuit(
     const std::vector<Gate> &subFusionGateList0) {
     gShortestPathCounter.fetch_add(1, std::memory_order_relaxed);
     DAG subDAG(subFusionGateList0.size());
-    DEBUG_SECTION(DEBUG_shortestPath, std::cout << "shortest path: \n";
+    DEBUG_SECTION(DEBUG_shortestPath || DEBUG_schedule,
+                  std::cout << "shortest path begin: \n";
                   std::cout << Circuit(subFusionGateList0).str() << "\n";
-                  std::cout << "shortest path schedule: \n";
+                  std::cout << "shortest path schedule: " << std::endl;
                   std::cout << Circuit(subFusionGateList0).schedule().str()
-                            << "\n";
-                  std::cout << "shortest path schedule end\n";);
+                            << std::endl;
+                  std::cout << "shortest path schedule end" << std::endl;);
     auto shortCircuit = Circuit(subFusionGateList0).schedule().gates;
     subDAG.constructDAG(shortCircuit);
     subDAG.shortestPath(shortCircuit, outputFileName);
@@ -1762,18 +1708,24 @@ void GetOptimalGFS(const std::string &outputFileName,
     // circuit; otherwise, use shortestPath to find the best fusion circuit
     constexpr int SMALL_CIRCUIT_SIZE = 6, BIG_CIRCUIT_SIZE = 10;
 
+    auto hasFidInSubFusionGateList = [&](int fsize, int fid) {
+        return std::find_if(subFusionGateList[fsize].begin(),
+                            subFusionGateList[fsize].end(),
+                            [fid](const Gate &g) {
+                                return g.finfo.fid == fid;
+                            }) != subFusionGateList[fsize].end();
+    };
+
     for (const auto &maxFGate : fusionGateList[gMaxFusionSize - 1]) {
         for (const auto &subgateOfMaxFGate : maxFGate.subGateList) {
             // Check if any gate in subFusionGateList[0] has the same finfo.fid
             // as fusionGateList[0][subgateOfMaxFGate.finfo.fid].finfo.fid
             auto fid_to_check =
                 fusionGateList[0][subgateOfMaxFGate.finfo.fid].finfo.fid;
-            auto it = std::find_if(subFusionGateList[0].begin(),
-                                   subFusionGateList[0].end(),
-                                   [fid_to_check](const Gate &g) {
-                                       return g.finfo.fid == fid_to_check;
-                                   });
-            if (it == subFusionGateList[0].end()) {
+            // Define a reusable lambda for checking if a gate with a given fid
+            // exists in subFusionGateList[0]
+
+            if (!hasFidInSubFusionGateList(0, fid_to_check)) {
                 subFusionGateList[0].push_back(
                     fusionGateList[0][subgateOfMaxFGate.finfo.fid]);
             }
@@ -1783,7 +1735,7 @@ void GetOptimalGFS(const std::string &outputFileName,
         }
         for (qubit_size_t fSize = 1; fSize < gMaxFusionSize - 1; ++fSize) {
             for (const auto &wrapper : fusionGateList[fSize]) {
-                int flag = 1;
+                bool selfContained = true;
                 std::vector<int> reIndex;
                 reIndex.reserve(wrapper.subGateList.size());
                 for (const auto &subgate : wrapper.subGateList) {
@@ -1792,7 +1744,7 @@ void GetOptimalGFS(const std::string &outputFileName,
                     if (find(recordIndex[fSize].begin(),
                              recordIndex[fSize].end(),
                              subgate.finfo.fid) == recordIndex[fSize].end()) {
-                        flag = 0;
+                        selfContained = false;
                         recordIndex[fSize].insert(recordIndex[fSize].end(),
                                                   reIndex.begin(),
                                                   reIndex.end());
@@ -1801,26 +1753,37 @@ void GetOptimalGFS(const std::string &outputFileName,
                     reIndex.push_back(subgate.finfo.fid);
                     std::erase(recordIndex[fSize], subgate.finfo.fid);
                 }
-                if (flag)
+                if (selfContained)
                     subFusionGateList[fSize].push_back(wrapper);
             }
         }
-        subFusionGateList[gMaxFusionSize - 1].push_back(maxFGate);
+        if (!hasFidInSubFusionGateList(gMaxFusionSize - 1,
+                                       maxFGate.finfo.fid)) {
+            subFusionGateList[gMaxFusionSize - 1].push_back(maxFGate);
+        }
 
-        int flag = 1;
-        for (qubit_size_t fSize = 1; fSize < gMaxFusionSize - 1; ++fSize)
-            if (!recordIndex[fSize].empty())
-                flag = 0;
+        // Determine if all recordIndex vectors (except for 0 and max) are empty
+        bool isAllRecordIndexEmpty = true;
+        for (qubit_size_t fSize = 1; fSize < gMaxFusionSize - 1; ++fSize) {
+            if (!recordIndex[fSize].empty()) {
+                isAllRecordIndexEmpty = false;
+                break;
+            }
+        }
         size_t smallCircuitSize = subFusionGateList[0].size();
+        DEBUG_SECTION(
+            DEBUG_shortestPath || DEBUG_getSmallWeight, int allsize = 0;
+            for (const auto &s
+                 : subFusionGateList) { allsize += s.size(); } std::cout
+            << "smallCircuitSize: " << smallCircuitSize
+            << ", allsize: " << allsize << std::endl;);
 
-        if (flag && smallCircuitSize >= SMALL_CIRCUIT_SIZE) {
+        if (isAllRecordIndexEmpty && smallCircuitSize >= SMALL_CIRCUIT_SIZE) {
             // choose different strategies with different circuit size
             DEBUG_SECTION(
-                DEBUG_shortestPath || DEBUG_getSmallWeight, int allsize = 0;
-                for (const auto &s
-                     : subFusionGateList) { allsize += s.size(); } std::cout
-                << "smallCircuitSize: " << smallCircuitSize
-                << ", allsize: " << allsize << std::endl;);
+                DEBUG_shortestPath || DEBUG_getSmallWeight,
+                std::cout << "flag && smallCircuitSize >= SMALL_CIRCUIT_SIZE"
+                          << std::endl;);
             if (smallCircuitSize < BIG_CIRCUIT_SIZE) {
                 searchAndOutputFusionCircuit(outputFileName, subFusionGateList,
                                              fusionGateList);
@@ -1923,7 +1886,8 @@ int main(int argc, char *argv[]) {
 
     DEBUG_SECTION(DEBUG_INFO, std::cout << "GetPGFS start" << std::endl;);
     time_start = std::chrono::steady_clock::now();
-    std::vector<std::vector<Gate>> fusionGateList = GetPGFS(newCircuit);
+    std::vector<std::vector<Gate>> fusionGateList =
+        GetPGFS(newCircuit, gMaxFusionSize);
     time_end = std::chrono::steady_clock::now();
     timers["GetPGFS"] =
         std::chrono::duration<double>(time_end - time_start).count();
