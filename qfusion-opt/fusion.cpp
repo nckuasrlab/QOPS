@@ -826,6 +826,11 @@ class Circuit {
     Circuit(const std::vector<Gate> &gates) : gates(gates) {}
     Circuit(const std::string &fileName) {
         std::ifstream tmpInputFile(fileName);
+        if (!tmpInputFile.is_open()) {
+            std::cerr << "Error: Could not open the file " << fileName
+                      << std::endl;
+            exit(1);
+        }
         std::string line;
         for (size_t gateIndex = 0; getline(tmpInputFile, line); ++gateIndex) {
             if (line.empty() || (line[0] == '/' && line[1] == '/'))
@@ -1801,8 +1806,9 @@ void GetOptimalGFS(const std::string &outputFileName,
 std::string getEnvVariable(const std::string &var_name) {
     const char *var_value_cstr = std::getenv(var_name.c_str());
     if (var_value_cstr == nullptr) {
-        throw std::runtime_error("Environment variable '" + var_name +
-                                 "' not found.");
+        std::cerr << "Error: Environment variable '" << var_name
+                  << "' not found." << std::endl;
+        exit(1);
     }
     return std::string(var_value_cstr);
 }
@@ -1917,6 +1923,10 @@ int main(int argc, char *argv[]) {
 #if !USE_SHORTEST_PATH_ONLY
     GetOptimalGFS(outputFileName, fusionGateList);
 #else
+    DEBUG_SECTION(DEBUG_shortestPath || DEBUG_schedule,
+                  std::cout << "schedule again begin: \n";
+                  Circuit(fusionGateList[0]).schedule();
+                  std::cout << "schedule again end" << std::endl;);
     shortestPathAndOutputFusionCircuit(outputFileName, fusionGateList[0]);
 #endif
 
