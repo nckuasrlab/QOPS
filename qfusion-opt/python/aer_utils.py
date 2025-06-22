@@ -82,6 +82,8 @@ def load_circuit(
     line_count = 0
     for line in lines:
         line_count = line_count + 1
+        if line.startswith("//") or line.strip() == "":
+            continue
         line = line.split()
         if line[0] == "U1" and len(line) == 5:
             circuit.u(float(line[2]), float(line[3]), float(line[4]), int(line[1]))

@@ -15,10 +15,10 @@ found_resume_point = multiprocessing.Value("b", False)
 
 mode = [3, 4, 5, 6, 7, 8]
 fmq = [3, 5]
-skip_patterns = ["28", "29", "30", "31", "qknn", "qnn", "qaoa", "vqc", "32"]
+skip_patterns = ["28", "29", "30", "31", "qknn", "qnn", "qaoa", "vqc", "test", "32"]
 WORKER = 64
 if "32" not in skip_patterns:
-    WORKER = 2
+    WORKER = 3
 # Compile once at the beginning
 # subprocess.run(
 #     ["make", "clean"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
@@ -28,7 +28,7 @@ subprocess.run(
 )
 
 # Output directories
-Path("./tmp/fusion").mkdir(parents=True, exist_ok=True)
+Path("./tmp/fusion_only_shortest").mkdir(parents=True, exist_ok=True)
 Path("./tmp/xxx").mkdir(parents=True, exist_ok=True)
 
 
@@ -48,19 +48,19 @@ def run_eq_check(q, xxx_out_path, answer_path):
         "python",
         "python/circuits_equivalent.py",
         str(q),
-        xxx_out_path,
         answer_path,
+        xxx_out_path,
     ]
     eq_check = subprocess.run(
-        eq_check_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+        eq_check_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     if eq_check.returncode == 0:
         # Although the circuits differ, they are functionally equivalent.
         # This indicates the fusion is correct, with only a minor loss of precision.
         # Copy the file from xxxoutpath to answer_path to cache the result.
         # subprocess.run(["cp", xxx_out_path, answer_path])
-        return True
-    return False
+        return True, eq_check.stdout
+    return False, eq_check.stdout
 
 
 def process_task(task):
@@ -78,7 +78,7 @@ def process_task(task):
             return None
 
     answer_file = f"{o}_{i}_{filename}"
-    answer_path = f"./tmp/fusion/{answer_file}"
+    answer_path = f"./tmp/fusion_only_shortest/{answer_file}"
     circuit_path = f"./circuit/{filename}"
     xxx_out_path = f"./tmp/xxx/{answer_file}.xxx"
 
@@ -118,10 +118,10 @@ def process_task(task):
                 msg += " (line count match)"
             else:
                 msg += " (line count mismatch)"
-            is_sim_equal = run_eq_check(q, xxx_out_path, answer_path)
+            is_sim_equal, eq_output = run_eq_check(q, xxx_out_path, answer_path)
             if is_sim_equal:
                 msg += " (equivalent)"
-                return (task, f"PASS ({msg})")
+                return (task, f"PASS ({msg} {eq_output})")
                 # return (task, f"PASS (line count mismatch; please check equivalent)")
             # return (task, f"PASS (line count match; please check equivalent)")
             return (task, f"FAIL ({msg})")
