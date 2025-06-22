@@ -1855,18 +1855,16 @@ int main(int argc, char *argv[]) {
     DEBUG_SECTION(DEBUG_INFO, std::cout << "reorder start" << std::endl;);
     auto time_start = std::chrono::steady_clock::now();
     Circuit circuit(inputFileName);
-#if USE_SHORTEST_PATH_ONLY
-    DEBUG_SECTION(DEBUG_shortestPath || DEBUG_schedule,
-                  std::cout << "shortest path begin: \n";
-                  std::cout << circuit.str() << "\n";
-                  std::cout << "shortest path schedule: " << std::endl;
-                  std::cout << circuit.schedule().str() << std::endl;
-                  std::cout << "shortest path schedule end" << std::endl;);
-#endif
     Circuit newCircuit = circuit.schedule();
     auto time_end = std::chrono::steady_clock::now();
     timers["reorder"] =
         std::chrono::duration<double>(time_end - time_start).count();
+    DEBUG_SECTION(DEBUG_shortestPath || DEBUG_schedule,
+                  std::cout << "schedule begin: \n";
+                  std::cout << circuit.str() << "\n";
+                  std::cout << "after schedule: " << std::endl;
+                  std::cout << newCircuit.str() << std::endl;
+                  std::cout << "schedule end" << std::endl;);
     DEBUG_SECTION(DEBUG_INFO, std::cout << "reorder end " << timers["reorder"]
                                         << std::endl;);
 
