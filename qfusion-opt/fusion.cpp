@@ -1030,14 +1030,45 @@ class Circuit {
                                         << " to be scheduled" << std::endl;);
             }
 
-            // Remove the gate from other qubit lists, the list's front is
-            // popped here
-            for (auto &list : gqLists) {
-                // note: using lookahead to add more single-qubit gates to
-                // waitingGates is not a good idea, causing worse performance
-                list.remove_if(
-                    [gateIdx](const GQ &gq) { return gq.gateIdx == gateIdx; });
+            // Remove the scheduled gate from the qubit's list and look ahead
+            // for subsequent single-qubit gates
+            for (int q = 0; q < gQubits; ++q) {
+                bool afterTargetGate = false;
+                for (auto it = gqLists[q].begin(); it != gqLists[q].end();) {
+                    if (!afterTargetGate) {
+                        if ((*it).gateIdx == gateIdx) {
+                            // Found the scheduled/waiting gate, erase it
+                            it = gqLists[q].erase(it);
+                            DEBUG_SECTION(DEBUG_schedule,
+                                          std::cout << "Removed gate "
+                                                    << gates[gateIdx].finfo.fid
+                                                    << " from qubit " << q
+                                                    << std::endl;);
+                            afterTargetGate = true;
+                        } else {
+                            ++it;
+                        }
+                        continue;
+                    }
+                    // After the target gate, erase all subsequent single-qubit
+                    // gates
+                    if ((*it).partnerQubit == q) {
+                        DEBUG_SECTION(DEBUG_schedule,
+                                      std::cout
+                                          << "lookahead "
+                                          << gates[(*it).gateIdx].finfo.fid
+                                          << std::endl;);
+                        waitingGates.push_back(
+                            gates[(*it).gateIdx]); // Add the gate to
+                                                   // waitingGates
+                        it = gqLists[q].erase(it);
+                    } else {
+                        // Stop if the next gate is not a single-qubit gate
+                        break;
+                    }
+                }
             }
+
             DEBUG_SECTION(
                 DEBUG_schedule, std::cout << "waitingGates: ";
                 for (auto gate
@@ -1047,17 +1078,20 @@ class Circuit {
                 << std::endl;);
 
             // Try to schedule waiting gates whose dependencies are now resolved
-            for (auto it = waitingGates.begin(); it != waitingGates.end();) {
+            // note: we reverse the waitingGates to schedule the latest, making
+            // better performance for varitional circuits
+            for (auto it = waitingGates.rbegin(); it != waitingGates.rend();) {
                 int pendingIdx = (*it).finfo.fid;
                 if (!hasDependency({pendingIdx}, dependencyList,
                                    scheduledGates)) {
                     reorderedCircuit.gates.push_back(*it);
                     scheduledGates.insert(pendingIdx);
                     hasScheduled = true;
-                    waitingGates.erase(it); // Remove and advance
+                    waitingGates.erase(
+                        std::next(it).base()); // Remove and advance
                     it = waitingGates
-                             .begin(); // Reset iterator to start to check any
-                                       // gates that can be scheduled
+                             .rbegin(); // Reset iterator to start to check any
+                                        // gates that can be scheduled
                     DEBUG_SECTION(DEBUG_schedule,
                                   std::cout << "Scheduled waitingGates "
                                             << pendingIdx << "\n";);
