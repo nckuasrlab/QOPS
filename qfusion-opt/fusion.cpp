@@ -461,13 +461,12 @@ void showFinfoList(const std::vector<Finfo> &finfoList) {
 
 /* Check if the gate has dependency, scheduled gates are excluded */
 // note: dependencyList is needed to copy
-inline bool hasDependency(const std::set<int> &gateIndex, // TODO rename: fids
+inline bool hasDependency(const std::set<int> &gateFids,
                           std::vector<std::set<int>> dependencyList,
                           const std::set<int> &scheduledGates) {
-    for (int i : gateIndex) {
+    for (int i : gateFids) {
         for (int gate : scheduledGates)
-            dependencyList[i].erase(
-                gate); // TODO: copy and erase might not need
+            dependencyList[i].erase(gate);
         if (!dependencyList[i].empty())
             return true;
     }
@@ -1353,7 +1352,6 @@ class DAG {
 
     void dumpDot(const std::string &outputFileName = "graph.dot") const {
         // generate dot file; use `dot -Tsvg graph.dot > graph.svg` to get svg
-        // TODO: if there are more than one shortest path
         std::ofstream outputFile(outputFileName);
         outputFile << "strict digraph {\n";
         for (size_t i = 0; i < edge.size(); ++i) {
