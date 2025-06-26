@@ -1,0 +1,14 @@
+dill==0.4.0
+numpy==2.3.1
+pbr==6.1.1
+psutil==7.0.0
+python-dateutil==2.9.0.post0
+qiskit==2.1.0
+qiskit-aer==0.17.1
+qiskit-algorithms==0.3.1
+rustworkx==0.16.0
+scipy==1.16.0
+setuptools==80.9.0
+six==1.17.0
+stevedore==5.4.1
+typing-extensions==4.14.0
