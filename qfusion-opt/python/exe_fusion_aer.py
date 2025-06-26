@@ -111,7 +111,7 @@ def run_benchmark(
     exec_config: ExecConfig,
     logfile,
     compare_circuit: QuantumCircuit = None,
-    repeat_num: int = 3,
+    repeat_num: int = 5,
 ):
     fusion_method = fusion_config.fusion_method
 
@@ -195,7 +195,7 @@ if __name__ == "__main__":
     print(f"running {__file__ }")
     fusion_max_qubit = 5  # max_fusion_qubits
     total_qubit = 32
-    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"]  # , "ising"
+    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "vqc", "ising", "qaoa"]
 
     os.makedirs("./qiskitFusionCircuit", exist_ok=True)
 

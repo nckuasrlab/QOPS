@@ -120,7 +120,7 @@ def run_benchmark(
     exec_config: ExecConfig,
     logfile,
     compare_circuit: QuantumCircuit = None,
-    repeat_num: int = 3,
+    repeat_num: int = 5,
 ):
     fusion_method = fusion_config.fusion_method
 
@@ -217,7 +217,7 @@ if __name__ == "__main__":
     fusion_max_qubit = 5  # max_fusion_qubits
     total_qubit = 32
     best_chunk_size = get_best_chunk_size(MICROBENCHMARK_RESULT_FILE, total_qubit)
-    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"]  # , "ising"
+    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "vqc", "ising", "qaoa"]
 
     os.makedirs("./queenFusionCircuit", exist_ok=True)
 
@@ -255,6 +255,17 @@ if __name__ == "__main__":
             qc1,
         )
 
+        # static Qiskit with best_chunk_size
+        fusion_method = "static_qiskit"
+        run_benchmark(
+            circuit_name,
+            total_qubit,
+            FusionConfig(fusion_method, fusion_max_qubit),
+            ExecConfig(False, fusion_max_qubit, best_chunk_size),
+            logfile,
+            qc1,
+        )
+
         # dynamic Qiskit
         fusion_method = "dynamic_qiskit"
         run_benchmark(
@@ -262,6 +273,17 @@ if __name__ == "__main__":
             total_qubit,
             FusionConfig(fusion_method, fusion_max_qubit),
             ExecConfig(False, fusion_max_qubit),
+            logfile,
+            qc1,
+        )
+
+        # dynamic Qiskit with best_chunk_size
+        fusion_method = "dynamic_qiskit"
+        run_benchmark(
+            circuit_name,
+            total_qubit,
+            FusionConfig(fusion_method, fusion_max_qubit),
+            ExecConfig(False, fusion_max_qubit, best_chunk_size),
             logfile,
             qc1,
         )
