@@ -153,7 +153,7 @@ class Gate {
         }
     }
 
-    std::string str() const {
+    std::string str(bool skipParams = false) const {
         std::stringstream ss;
         ss << gateType;
         for (int qubit : qubits) {
@@ -164,6 +164,8 @@ class Gate {
                 ss << " " << qubit;
             }
         }
+        if (skipParams)
+            return ss.str();
         for (double param : params) {
             ss << " " << std::fixed << std::setprecision(16) << param;
         }
@@ -872,6 +874,9 @@ class Circuit {
         }
         fusedGate.qubits = std::vector(fusedGate.sortedQubits.begin(),
                                        fusedGate.sortedQubits.end());
+        fusedGate.gids = std::vector<gate_size_t>();
+        for (const auto &subgate : gates)
+            fusedGate.gids.push_back(subgate.gids[0]);
         fusedGate.gateType = (isDiagonal ? "D" : "U") +
                              std::to_string(fusedGate.sortedQubits.size());
 
@@ -1140,9 +1145,9 @@ class Circuit {
     std::string str_with_original_line() const {
         std::stringstream ss;
         for (const auto &gate : gates) {
-            ss << gate.str() << " //";
+            ss << gate.str(true) << " //";
             for (auto &gid : gate.gids) {
-                ss << " "
+                ss << " id:"
                    << gid + 1; // convert to 1-based index as the line number
             }
             ss << "\n";
@@ -1391,6 +1396,7 @@ class DAG {
 
         DEBUG_SECTION(DEBUG_shortestPath,
                       std::cout << "fid: " << idx + fidOffset << " \n";);
+        Circuit fusedCircuit;
         while (idx > 0) {
             if (nodeList[idx].fSize >
                 1) { // means more than one gate to be fused
@@ -1406,6 +1412,8 @@ class DAG {
                 DEBUG_SECTION(DEBUG_shortestPath,
                               std::cout << "Merge to -> " << tmpStr << "\n";);
                 outputStr.push_back(tmpStr);
+                DEBUG_SECTION(DEBUG_ir, fusedCircuit.gates.push_back(
+                                            gatesToFused.fusedToGate()););
             } else {
                 int predecessorIndex = nodeList[idx].predecessor;
                 std::string tmpStr =
@@ -1413,6 +1421,9 @@ class DAG {
                 DEBUG_SECTION(DEBUG_shortestPath,
                               std::cout << "Single -> " << tmpStr << "\n";);
                 outputStr.push_back(tmpStr);
+                DEBUG_SECTION(DEBUG_ir,
+                              fusedCircuit.gates.push_back(
+                                  gateList[predecessorIndex].subGateList[0]););
             }
             finalShortestPath.push_back(idx);
             DEBUG_SECTION(DEBUG_shortestPath,
@@ -1425,6 +1436,13 @@ class DAG {
         for (auto it = outputStr.rbegin(); it != outputStr.rend(); ++it)
             outputFile << *it << "\n";
         outputFile.close();
+
+        DEBUG_SECTION(
+            DEBUG_ir,
+            std::ofstream outputFile("./xxx_fused.txt", std::ios_base::out);
+            std::reverse(fusedCircuit.gates.begin(), fusedCircuit.gates.end());
+            outputFile << fusedCircuit.str_with_original_line();
+            outputFile.close(););
     }
 
     void dump() const {
