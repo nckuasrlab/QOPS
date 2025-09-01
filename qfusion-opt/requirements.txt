@@ -12,3 +12,5 @@ setuptools==80.9.0
 six==1.17.0
 stevedore==5.4.1
 typing-extensions==4.14.0
+matplotlib==3.10.6
+pylatexenc==2.10
