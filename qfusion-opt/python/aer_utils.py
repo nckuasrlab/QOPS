@@ -72,7 +72,7 @@ def random_diagonal_matrix(num_qubits):
 
 
 def load_circuit(
-    filename: str, total_qubit: int, circuit_name: str, use_random_matrix=False
+    filename: str, total_qubit: int, circuit_name: str, use_random_matrix=False, skip_measurement=False
 ) -> QuantumCircuit:
     circuit = QuantumCircuit(total_qubit)
     circuit.name = circuit_name
@@ -125,8 +125,8 @@ def load_circuit(
             circuit.rzz(float(line[3]), int(line[1]), int(line[2]))
         else:
             raise Exception(f"{line[0]} is not supported ({line})")
-
-    circuit.measure_all()
+    if not skip_measurement:
+        circuit.measure_all()
     return circuit
 
 
