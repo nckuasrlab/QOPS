@@ -27,9 +27,10 @@ subprocess.run(
     ["make"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
 )
 
-# Output directories
-Path("./tmp/fusion_only_shortest").mkdir(parents=True, exist_ok=True)
-Path("./tmp/xxx").mkdir(parents=True, exist_ok=True)
+# Directories
+answer_dir = "./tmp/fusion_only_shortest_0901"
+gen_dir = "./tmp/xxx"
+Path(gen_dir).mkdir(parents=True, exist_ok=True)
 
 
 def should_skip(filename):
@@ -43,13 +44,13 @@ def check_line_count_equal(file1, file2):
     return lines1 == lines2
 
 
-def run_eq_check(q, xxx_out_path, answer_path):
+def run_eq_check(q, gen_out_path, answer_path):
     eq_check_cmd = [
         "python",
         "python/circuits_equivalent.py",
         str(q),
         answer_path,
-        xxx_out_path,
+        gen_out_path,
     ]
     eq_check = subprocess.run(
         eq_check_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -57,8 +58,8 @@ def run_eq_check(q, xxx_out_path, answer_path):
     if eq_check.returncode == 0:
         # Although the circuits differ, they are functionally equivalent.
         # This indicates the fusion is correct, with only a minor loss of precision.
-        # Copy the file from xxxoutpath to answer_path to cache the result.
-        # subprocess.run(["cp", xxx_out_path, answer_path])
+        # Copy the file from gen_out_path to answer_path to cache the result manually.
+        # subprocess.run(["cp", gen_out_path, answer_path])
         return True, eq_check.stdout
     return False, eq_check.stdout
 
@@ -77,17 +78,17 @@ def process_task(task):
         else:
             return None
 
-    answer_file = f"{o}_{i}_{filename}"
-    answer_path = f"./tmp/fusion_only_shortest/{answer_file}"
+    output_filename = f"{o}_{i}_{filename}"
+    answer_path = f"{answer_dir}/{output_filename}"
     circuit_path = f"./circuit/{filename}"
-    xxx_out_path = f"./tmp/xxx/{answer_file}.xxx"
+    gen_out_path = f"{gen_dir}/{output_filename}.xxx"
 
     if "24" in filename:
         q = 24
     elif "32" in filename:
         q = 32
 
-    cmd = ["./fusion", circuit_path, xxx_out_path, str(i), str(q), str(o)]
+    cmd = ["./fusion", circuit_path, gen_out_path, str(i), str(q), str(o)]
     # print("Running:", " ".join(cmd), end="", flush=True)
 
     env = os.environ.copy()
@@ -102,11 +103,11 @@ def process_task(task):
             stderr=subprocess.STDOUT,
         )
     except subprocess.CalledProcessError as e:
-        return (task, f"{answer_file} FAIL: ERROR (fusion crash)\n")
+        return (task, f"{output_filename} FAIL: ERROR (fusion crash)\n")
 
     try:
         result = subprocess.run(
-            ["diff", "-wq", answer_path, xxx_out_path],
+            ["diff", "-wq", answer_path, gen_out_path],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
@@ -114,11 +115,11 @@ def process_task(task):
             return (task, f"PASS")
         else:
             msg = "diff failed"
-            if check_line_count_equal(answer_path, xxx_out_path):
+            if check_line_count_equal(answer_path, gen_out_path):
                 msg += " (line count match)"
             else:
                 msg += " (line count mismatch)"
-            is_sim_equal, eq_output = run_eq_check(q, xxx_out_path, answer_path)
+            is_sim_equal, eq_output = run_eq_check(q, gen_out_path, answer_path)
             if is_sim_equal:
                 msg += " (equivalent)"
                 return (task, f"PASS ({msg} {eq_output})")
@@ -126,7 +127,7 @@ def process_task(task):
             # return (task, f"PASS (line count match; please check equivalent)")
             return (task, f"FAIL ({msg})")
     except Exception as e:
-        return (task, f"{answer_file} FAIL: ERROR (diff failed): {e}")
+        return (task, f"{output_filename} FAIL: ERROR (diff failed): {e}")
 
 
 def main():
