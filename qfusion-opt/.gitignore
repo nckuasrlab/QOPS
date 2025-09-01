@@ -25,7 +25,8 @@ out*.txt
 graph*.dot
 graph.svg
 fusion_dump*.txt
-xxx*.txt
+*xxx*.txt
+*test*.txt
 
 # perf
 *.svg
