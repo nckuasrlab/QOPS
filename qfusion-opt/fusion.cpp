@@ -1,4 +1,3 @@
-#include "ThreadPool.h"
 #include <algorithm>
 #include <atomic>
 #include <cfloat>
@@ -11,7 +10,6 @@
 #include <iostream>
 #include <list>
 #include <map>
-#include <mutex>
 #include <ostream>
 #include <random>
 #include <set>
@@ -32,6 +30,14 @@
             y                                                                  \
     } while (0)
 #define USE_SHORTEST_PATH_ONLY 1
+#if !USE_SHORTEST_PATH_ONLY
+#include "ThreadPool.h"
+#include <mutex>
+// Global mutex to protect shared resources (e.g., smallWeight and
+// finalGateList)
+std::mutex gMutex;
+ThreadPool gPool(std::thread::hardware_concurrency());
+#endif /* !USE_SHORTEST_PATH_ONLY */
 
 using gate_size_t = unsigned short;  // 65535 gates
 using qubit_size_t = unsigned short; // 65535 qubits
@@ -44,10 +50,6 @@ std::atomic<unsigned int> gSmallCircuitCounter = 0, gShortestPathCounter = 0;
 int gMethod = 0;
 double gCostFactor = 1.8;
 std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
-// Global mutex to protect shared resources (e.g., smallWeight and
-// finalGateList)
-std::mutex gMutex;
-ThreadPool gPool(std::thread::hardware_concurrency());
 
 bool isDiagonalGate(const std::string &gateType) {
     static const std::set<std::string> kDiagonalGates = {"S",  "Z",  "T",  "RZ",
@@ -556,6 +558,7 @@ double cost(const std::string &gateType,
     return 0;
 }
 
+#if !USE_SHORTEST_PATH_ONLY
 class SmallWeightNode {
   public:
     SmallWeightNode *parent = nullptr;
@@ -788,6 +791,7 @@ class SmallWeightNode {
             f.get();
     }
 };
+#endif /* !USE_SHORTEST_PATH_ONLY */
 
 class QubitLRUCache {
   public:
@@ -1732,6 +1736,7 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit,
     return fusionGateList;
 }
 
+#if !USE_SHORTEST_PATH_ONLY
 void searchAndOutputFusionCircuit(
     const std::string &outputFileName,
     const std::vector<std::vector<Gate>> &subFusionGateList,
@@ -1746,6 +1751,7 @@ void searchAndOutputFusionCircuit(
                                          finalGateList, gPool, gMutex, 0);
     outputFusionCircuit(outputFileName, fusionGateList, finalGateList);
 }
+#endif /* !USE_SHORTEST_PATH_ONLY */
 
 void shortestPathAndOutputFusionCircuit(const std::string &outputFileName,
                                         const std::vector<Gate> &gateList) {
