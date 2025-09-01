@@ -70,7 +70,7 @@ struct Finfo {
     gate_size_t fid;   // fusion gate index
 };
 
-int targetQubitCounter(const std::string &gateType) {
+size_t targetQubitCounter(const std::string &gateType) {
     static const std::set<std::string> k1QubitGates = {
         "H", "X", "Y", "Z", "I2", "S", "Z", "T", "RX", "RY", "RZ", "D1", "U1"};
     static const std::set<std::string> k2QubitGates = {"CX", "CP", "CZ", "RZZ",
@@ -138,7 +138,7 @@ class Gate {
         }
 
         gateType = gateInfo[0];
-        int i = 1;
+        size_t i = 1;
         for (; i <= targetQubitCounter(gateType); ++i) {
             qubits.push_back(stoi(gateInfo[i]));
         }
@@ -233,7 +233,7 @@ Matrix twoQubitsGateMat(const Gate &gate,
         uint32_t controlledBit = 1 << higherQubit;
         uint32_t targetBit = 1 << lowerQubit;
         uint32_t changeTarget = controlledBit | targetBit;
-        for (int i = 0; i < resMat.size(); i++) {
+        for (size_t i = 0; i < resMat.size(); i++) {
             if ((i & changeTarget) == changeTarget)
                 resMat[i][i] = {cos(gate.params[0]), sin(gate.params[0])};
         }
@@ -245,7 +245,7 @@ Matrix twoQubitsGateMat(const Gate &gate,
         uint32_t controlledBit = 1 << higherQubit;
         uint32_t targetBit = 1 << lowerQubit;
         uint32_t changeTarget = controlledBit | targetBit;
-        for (int i = 0; i < resMat.size(); i++) {
+        for (size_t i = 0; i < resMat.size(); i++) {
             if ((i & changeTarget) == changeTarget)
                 resMat[i][i] = -1;
         }
@@ -257,22 +257,21 @@ Matrix twoQubitsGateMat(const Gate &gate,
         rzzTmp[3][3] = rzzTmp[0][0];
         uint32_t firstQubitMask = 1 << reorderQubits[0];
         uint32_t secondQubitMask = 1 << reorderQubits[1];
-        for (int i = 0; i < resMat.size(); i++) {
+        for (size_t i = 0; i < resMat.size(); i++) {
             uint32_t target =
-                ((i & secondQubitMask) >> (reorderQubits[1]) - 1) |
+                ((i & secondQubitMask) >> (reorderQubits[1] - 1)) |
                 ((i & firstQubitMask) >> (reorderQubits[0]));
             resMat[i][i] = rzzTmp[target][target];
         }
     } else if (gate.gateType[0] == 'D') {
-        int matSize = 1 << fusedQubits.size();
-        for (int i = 0; i < resMat.size(); i++)
+        for (size_t i = 0; i < resMat.size(); i++)
             resMat[i][i] = 1;
         uint32_t targetMask = 0;
 
         for (auto qubit : reorderQubits)
             targetMask |= (1 << qubit);
 
-        for (int i = 0; i < resMat.size(); i++) {
+        for (size_t i = 0; i < resMat.size(); i++) {
             uint32_t target = i & targetMask;
             /* sortTarget is used while the gate.targetQubit would cross a
              * qubit. For example, if gate.targetQubit = {0 ,2}, and the
@@ -281,7 +280,7 @@ Matrix twoQubitsGateMat(const Gate &gate,
              * which is 5. But the original target should be "11b". So here is
              * how we handle it.*/
             uint32_t sortTarget = 0;
-            for (int idx = 0; idx < reorderQubits.size(); idx++)
+            for (size_t idx = 0; idx < reorderQubits.size(); idx++)
                 sortTarget |= ((target >> reorderQubits[idx]) & 1) << idx;
             std::complex<double> elem = {gate.params[sortTarget * 2],
                                          gate.params[sortTarget * 2 + 1]};
@@ -340,18 +339,18 @@ Matrix gateMatrix(const std::string &gateType,
 }
 
 Matrix tensorProduct(const Matrix &matA, const Matrix &matB) {
-    int resRow = matA.size() * matB.size();
-    int resCol = matA[0].size() * matB[0].size();
+    size_t resRow = matA.size() * matB.size();
+    size_t resCol = matA[0].size() * matB[0].size();
     Matrix resMat(resRow, std::vector<std::complex<double>>(resCol, {0, 0}));
 
-    for (int rowA = 0; rowA < matA.size(); rowA++) {
-        for (int colA = 0; colA < matA[0].size(); colA++) {
+    for (size_t rowA = 0; rowA < matA.size(); rowA++) {
+        for (size_t colA = 0; colA < matA[0].size(); colA++) {
             std::complex<double> elemA = matA[rowA][colA];
-            for (int rowB = 0; rowB < matB.size(); rowB++) {
-                for (int colB = 0; colB < matB[0].size(); colB++) {
+            for (size_t rowB = 0; rowB < matB.size(); rowB++) {
+                for (size_t colB = 0; colB < matB[0].size(); colB++) {
                     std::complex<double> elemB = matB[rowB][colB];
-                    int newRow = rowA * matB.size() + rowB;
-                    int newCol = colA * matB[0].size() + colB;
+                    size_t newRow = rowA * matB.size() + rowB;
+                    size_t newCol = colA * matB[0].size() + colB;
                     resMat[newRow][newCol] = elemA * elemB;
                 }
             }
@@ -380,9 +379,9 @@ Matrix gateExpansion(const Gate &targetGate,
     }
     /* Use tensor product to expand a gate. Notice that we have to calculate it
      * from MSB to LSB */
-    for (int i = expandedGateList.size() - 1; i >= 0; i--) {
+    for (int i = static_cast<int>(expandedGateList.size()) - 1; i >= 0; i--) {
         rhsMat = gateMatrix(expandedGateList[i], targetGate.params);
-        if (i == expandedGateList.size() - 1)
+        if (i == static_cast<int>(expandedGateList.size()) - 1)
             resMat = rhsMat;
         else {
             resMat = tensorProduct(resMat, rhsMat);
@@ -402,10 +401,10 @@ Matrix matrixMul(const Matrix &matA, const Matrix &matB) {
                   << std::endl;
         exit(1);
     }
-    for (int i = 0; i < matA.size(); i++) {
-        for (int j = 0; j < matB[0].size(); j++) {
+    for (size_t i = 0; i < matA.size(); i++) {
+        for (size_t j = 0; j < matB[0].size(); j++) {
             std::complex<double> tmp(0, 0);
-            for (int k = 0; k < matB.size(); k++) {
+            for (size_t k = 0; k < matB.size(); k++) {
                 tmp += (matA[i][k] * matB[k][j]);
             }
             resMat[i][j] = tmp;
@@ -422,9 +421,9 @@ Matrix calculateFusionGate(const std::vector<Gate> &subGateList,
     /* We have to multiply these gates reversly. For example, if the subGateList
      * is H, X, Y, we should reverse the multiplication, it would be Y * X * H.
      */
-    for (int i = subGateList.size() - 1; i >= 0; i--) {
+    for (int i = static_cast<int>(subGateList.size()) - 1; i >= 0; i--) {
         expandedGate = gateExpansion(subGateList[i], sortedQubits);
-        if (i == subGateList.size() - 1) {
+        if (i == static_cast<int>(subGateList.size() - 1)) {
             resGate = expandedGate;
             continue;
         }
@@ -1176,8 +1175,7 @@ class Circuit {
             bool foundFirstTwoQubitGate = false;
             for (auto it = gqLists[currentQubit].begin();
                  it != gqLists[currentQubit].end(); ++it) {
-                int gateIdx = (*it).gateIdx;
-                int partnerQubit = (*it).partnerQubit;
+                qubit_size_t partnerQubit = (*it).partnerQubit;
                 depth++; // Increment depth for each gate on this qubit
                 if (currentQubit != partnerQubit) {
                     foundFirstTwoQubitGate = true;
@@ -1603,12 +1601,12 @@ void DoDiagonalFusion(Circuit &circuit) {
         const auto &subgate = circuit[i];
         if (subgate.gateType == "RZ") {
             bool firstInset = targetQubits.contains(subgate.qubits[0]);
-            if (firstInset && targetQubits.size() <= gMaxFusionSize) {
+            if (firstInset && static_cast<int>(targetQubits.size()) <= gMaxFusionSize) {
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
                 i--;
             } else if (!firstInset &&
-                       targetQubits.size() <= gMaxFusionSize - 1) {
+                       static_cast<int>(targetQubits.size()) <= gMaxFusionSize - 1) {
                 targetQubits.insert(subgate.qubits[0]);
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
@@ -1621,20 +1619,20 @@ void DoDiagonalFusion(Circuit &circuit) {
             bool firstInset = targetQubits.contains(subgate.qubits[0]);
             bool secondInset = targetQubits.contains(subgate.qubits[1]);
             if (!firstInset && !secondInset &&
-                targetQubits.size() <= gMaxFusionSize - 2) {
+                static_cast<int>(targetQubits.size()) <= gMaxFusionSize - 2) {
                 targetQubits.insert(subgate.qubits[0]);
                 targetQubits.insert(subgate.qubits[1]);
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
                 i--;
             } else if (firstInset && !secondInset &&
-                       targetQubits.size() <= gMaxFusionSize - 1) {
+                       static_cast<int>(targetQubits.size()) <= gMaxFusionSize - 1) {
                 targetQubits.insert(subgate.qubits[1]);
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
                 i--;
             } else if ((firstInset ^ secondInset) &&
-                       targetQubits.size() <= gMaxFusionSize - 1) {
+                       static_cast<int>(targetQubits.size()) <= gMaxFusionSize - 1) {
                 targetQubits.insert(subgate.qubits[firstInset ? 1 : 0]);
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);

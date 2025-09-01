@@ -15,7 +15,8 @@ found_resume_point = multiprocessing.Value("b", False)
 
 mode = [3, 4, 5, 6, 7, 8]
 fmq = [3, 5]
-skip_patterns = ["28", "29", "30", "31", "qknn", "qnn", "qaoa", "vqc", "test", "32"]
+
+skip_patterns = ["28", "29", "30", "31", "qknn", "qnn", "vqc", "test", "32"]
 WORKER = 64
 if "32" not in skip_patterns:
     WORKER = 3
@@ -111,10 +112,19 @@ def process_task(task):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
         )
+        msg = ""
+        # if "qaoa" in gen_out_path:
+        #     is_sim_equal, eq_output = run_eq_check(q, gen_out_path, circuit_path)
+        #     if is_sim_equal:
+        #         msg += "(eq to original circuit) "
+        #     else:
+        #         msg += "(not eq to original circuit) "
+
         if result.returncode == 0:
-            return (task, f"PASS")
+            msg += "PASS"
+            return (task, msg)
         else:
-            msg = "diff failed"
+            msg += "diff failed"
             if check_line_count_equal(answer_path, gen_out_path):
                 msg += " (line count match)"
             else:
