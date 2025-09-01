@@ -483,6 +483,7 @@ inline bool hasDependency(const std::set<int> &gateFids,
     return false;
 }
 
+#if !USE_SHORTEST_PATH_ONLY
 // note: fusionGateList and dependencyList is modedified and wrapper is
 // needed to copy
 void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
@@ -516,6 +517,7 @@ void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
             fusionList.end());
     }
 }
+#endif  /* !USE_SHORTEST_PATH_ONLY */
 
 /* Construct dependency gate set for each gate */
 inline std::vector<std::set<int>>
@@ -1206,26 +1208,6 @@ class Circuit {
     }
 };
 
-void outputFusionCircuit(const std::string &outputFileName,
-                         const std::vector<std::vector<Gate>> &fusionGateList,
-                         const std::vector<Finfo> &finalGateList) {
-    std::ofstream outputFile(outputFileName, std::ios_base::app);
-    for (const auto &finfo : finalGateList) {
-        if (finfo.size == 0) { // root node
-            continue;
-        } else {
-            const auto &wrapper = fusionGateList[finfo.size - 1][finfo.fid];
-            if (wrapper.subGateList.size() == 1) { // no fusion
-                outputFile << wrapper.subGateList[0].str() << "\n";
-                continue;
-            }
-            outputFile << Circuit(wrapper.subGateList).fusedToGate().str()
-                       << "\n";
-        }
-    }
-    outputFile.close();
-}
-
 class DAG {
   public:
     int graphSize;
@@ -1733,6 +1715,28 @@ std::vector<std::vector<Gate>> GetPGFS(const Circuit &circuit,
     }
     return fusionGateList;
 }
+
+#if !USE_SHORTEST_PATH_ONLY
+void outputFusionCircuit(const std::string &outputFileName,
+                         const std::vector<std::vector<Gate>> &fusionGateList,
+                         const std::vector<Finfo> &finalGateList) {
+    std::ofstream outputFile(outputFileName, std::ios_base::app);
+    for (const auto &finfo : finalGateList) {
+        if (finfo.size == 0) { // root node
+            continue;
+        } else {
+            const auto &wrapper = fusionGateList[finfo.size - 1][finfo.fid];
+            if (wrapper.subGateList.size() == 1) { // no fusion
+                outputFile << wrapper.subGateList[0].str() << "\n";
+                continue;
+            }
+            outputFile << Circuit(wrapper.subGateList).fusedToGate().str()
+                       << "\n";
+        }
+    }
+    outputFile.close();
+}
+#endif /* !USE_SHORTEST_PATH_ONLY */
 
 #if !USE_SHORTEST_PATH_ONLY
 void searchAndOutputFusionCircuit(
