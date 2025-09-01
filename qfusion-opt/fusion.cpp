@@ -69,20 +69,26 @@ struct Finfo {
 };
 
 int targetQubitCounter(const std::string &gateType) {
-    if (gateType == "H" || gateType == "X" || gateType == "RY" ||
-        gateType == "RX" || gateType == "U1" || gateType == "RZ" ||
-        gateType == "D1")
+    static const std::set<std::string> k1QubitGates = {
+        "H", "X", "Y", "Z", "I2", "S", "Z", "T", "RX", "RY", "RZ", "D1", "U1"};
+    static const std::set<std::string> k2QubitGates = {"CX", "CP", "CZ", "RZZ",
+                                                       "D2"};
+    static const std::set<std::string> k3QubitGates = {"D3", "U3"};
+    static const std::set<std::string> k4QubitGates = {"D4", "U4"};
+    static const std::set<std::string> k5QubitGates = {"D5", "U5"};
+    if (k1QubitGates.contains(gateType))
         return 1;
-    else if (gateType == "CX" || gateType == "CP" || gateType == "CZ" ||
-             gateType == "RZZ" || gateType == "D2")
+    else if (k2QubitGates.contains(gateType))
         return 2;
-    else if (gateType == "D3")
+    else if (k3QubitGates.contains(gateType))
         return 3;
-    else if (gateType == "D4")
+    else if (k4QubitGates.contains(gateType))
         return 4;
-    else if (gateType == "D5")
+    else if (k5QubitGates.contains(gateType))
         return 5;
-    return 0;
+
+    std::cerr << gateType << " gate doesn't support!\n";
+    exit(1);
 }
 
 class Gate {
@@ -293,6 +299,9 @@ Matrix gateMatrix(const std::string &gateType,
     } else if (gateType == "Y") {
         mat[0].assign({{0, 0}, {0, -1}});
         mat[1].assign({{0, 1}, {0, 0}});
+    } else if (gateType == "S") {
+        mat[0].assign({{1, 0}, {0, 0}});
+        mat[1].assign({{0, 0}, {0, 1}});
     } else if (gateType == "Z") {
         mat[0].assign({{1, 0}, {0, 0}});
         mat[1].assign({{0, 0}, {-1, 0}});
@@ -1270,34 +1279,71 @@ class DAG {
                     // note: diagonal gate's subgate has sorted qubits
                     testQubit.insert(subgate.sortedQubits.begin(),
                                      subgate.sortedQubits.end());
-                    if (testQubit.size() <=
-                        fSize) { // test if the fusion is valid
-                        if (!isDiagonalGate(subgate.gateType))
-                            isDiagonal = false;
-                        qubit = testQubit; // update fused qubits
-                        j++;
-                        if (j > i + 1) { // means more than one gate to be fused
-                            std::string gateType = (isDiagonal ? "D" : "U") +
-                                                   std::to_string(qubit.size());
-                            bool isAdded = addEdge(i, j, cost(gateType, qubit));
-                            DEBUG_SECTION(
-                                DEBUG_shortestPath, if (isAdded) {
-                                    std::cout << "Add edge: " << i << " -> "
-                                              << j << " : " << gateType << " "
-                                              << cost(gateType, qubit) << " (";
-                                    for (int k = i; k < j; k++)
-                                        std::cout << (k == i ? "" : " ")
-                                                  << gateList[k]
-                                                         .subGateList[0]
-                                                         .gateType;
-                                    std::cout << ")\n";
-                                });
-                        } else {
-                            addEdge(i, -1, DBL_MAX);
-                        }
-                    } else
-                        break;
+
+                    if (testQubit.size() > fSize) {
+                        break; // test if the fusion is valid
+                    }
+                    if (!isDiagonalGate(subgate.gateType))
+                        isDiagonal = false;
+                    qubit = testQubit; // update fused qubits
+                    j++;
+#define MULTIPLE_OUTPUTS_PER_GATE
+#ifdef MULTIPLE_OUTPUTS_PER_GATE
+                    if (j > i + 1) { // means more than one gate to be fused
+                        std::string gateType = (isDiagonal ? "D" : "U") +
+                                               std::to_string(qubit.size());
+                        bool isAdded = addEdge(i, j, cost(gateType, qubit));
+                        DEBUG_SECTION(
+                            DEBUG_shortestPath, if (isAdded) {
+                                std::cout << "Add edge: " << i << " -> " << j
+                                          << " : " << gateType;
+                                for (const auto &q : qubit)
+                                    std::cout << " " << q;
+                                std::cout << "; cost: " << cost(gateType, qubit)
+                                          << " (";
+                                for (int k = i; k < j; k++) {
+                                    std::cout
+                                        << (k == i ? "" : ", ")
+                                        << gateList[k].subGateList[0].gateType;
+                                    for (const auto &q : gateList[k]
+                                                             .subGateList[0]
+                                                             .sortedQubits)
+                                        std::cout << " " << q;
+                                }
+                                std::cout << ")\n";
+                            });
+                    } else {
+                        addEdge(i, -1, DBL_MAX);
+                    }
+#endif /* MULTIPLE_OUTPUTS_PER_GATE */
                 }
+#ifndef MULTIPLE_OUTPUTS_PER_GATE
+                if (j > i + 1) { // means more than one gate to be fused
+                    std::string gateType =
+                        (isDiagonal ? "D" : "U") + std::to_string(qubit.size());
+                    bool isAdded = addEdge(i, j, cost(gateType, qubit));
+                    DEBUG_SECTION(
+                        DEBUG_shortestPath, if (isAdded) {
+                            std::cout << "Add edge: " << i << " -> " << j
+                                      << " : " << gateType;
+                            for (const auto &q : qubit)
+                                std::cout << " " << q;
+                            std::cout << "; cost: " << cost(gateType, qubit)
+                                      << " (";
+                            for (int k = i; k < j; k++) {
+                                std::cout
+                                    << (k == i ? "" : ", ")
+                                    << gateList[k].subGateList[0].gateType;
+                                for (const auto &q :
+                                     gateList[k].subGateList[0].sortedQubits)
+                                    std::cout << " " << q;
+                            }
+                            std::cout << ")\n";
+                        });
+                } else {
+                    addEdge(i, -1, DBL_MAX);
+                }
+#endif /* !MULTIPLE_OUTPUTS_PER_GATE */
             }
         }
     }
