@@ -23,6 +23,7 @@
 #define DEBUG_getSmallWeightSingleThread 0
 #define DEBUG_shortestPath 0
 #define DEBUG_schedule 0
+#define DEBUG_ir 0
 #define DEBUG_SECTION(x, y)                                                    \
     if constexpr (x)                                                           \
         /* std::cout << #x << ": " << __LINE__ << "\n"; */                     \
@@ -43,6 +44,8 @@ std::atomic<unsigned int> gSmallCircuitCounter = 0;
 
 using gate_size_t = unsigned short;  // 65535 gates
 using qubit_size_t = unsigned short; // 65535 qubits
+template <typename T>
+using qvector = std::vector<T>; // size of vector is fixed to gQubits
 
 // global variables
 qubit_size_t gMaxFusionSize;
@@ -521,9 +524,9 @@ void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
 #endif /* !USE_SHORTEST_PATH_ONLY */
 
 /* Construct dependency gate set for each gate */
-inline std::vector<std::set<int>>
+inline qvector<std::set<int>>
 constructDependencyList(const std::vector<Gate> &gates) {
-    std::vector<int> gateOnQubit(gQubits, -1); // record the last gate on qubit
+    qvector<int> gateOnQubit(gQubits, -1); // record the last gate on qubit
     unsigned short maxIndex = 0;
     for (const auto &gate : gates)
         maxIndex = std::max(maxIndex, gate.finfo.fid);
@@ -952,7 +955,7 @@ class Circuit {
         QubitLRUCache qubitCache(gQubits);
         std::vector<std::set<int>> dependencyList =
             constructDependencyList(gates);
-        std::vector<std::list<GQ>> gqLists = buildQubitGateLists();
+        qvector<std::list<GQ>> gqLists = buildQubitGateLists();
         DEBUG_SECTION(DEBUG_schedule, showDependencyList(dependencyList);
                       showGQLists(gqLists, gates););
         int iteration = 0;
@@ -971,8 +974,7 @@ class Circuit {
             }
             // if some gate is scheduled and the next gate is single qubit gate,
             // no need to switch qubit
-            if (hasScheduled &&
-                gqLists[currentQubit].front().partnerQubit == currentQubit) {
+            if (hasScheduled) {
                 DEBUG_SECTION(
                     DEBUG_schedule,
                     std::cout
@@ -1135,6 +1137,19 @@ class Circuit {
         return ss.str();
     }
 
+    std::string str_with_original_line() const {
+        std::stringstream ss;
+        for (const auto &gate : gates) {
+            ss << gate.str() << " //";
+            for (auto &gid : gate.gids) {
+                ss << " "
+                   << gid + 1; // convert to 1-based index as the line number
+            }
+            ss << "\n";
+        }
+        return ss.str();
+    }
+
     void dump() const {
         for (const auto &gate : gates) {
             std::cout << "gids: ";
@@ -1152,8 +1167,8 @@ class Circuit {
     };
 
     // Build lists of gate indices for each qubit
-    std::vector<std::list<GQ>> buildQubitGateLists() const {
-        std::vector<std::list<GQ>> qubitGateLists(gQubits);
+    qvector<std::list<GQ>> buildQubitGateLists() const {
+        qvector<std::list<GQ>> qubitGateLists(gQubits);
         for (size_t gateIdx = 0; gateIdx < gates.size(); ++gateIdx) {
             const auto &qubits = gates[gateIdx].sortedQubits;
             int prevQubit = -1;
@@ -1169,29 +1184,40 @@ class Circuit {
         return qubitGateLists;
     }
 
-    std::vector<gate_size_t>
-    getDepthOfShallowTwoQubitGates(std::vector<std::list<GQ>> gqLists) const {
-        std::vector<gate_size_t> depthList;
+    qvector<gate_size_t>
+    getDepthOfShallowTwoQubitGates(qvector<std::list<GQ>> gqLists) const {
+        qvector<gate_size_t> depthList(gQubits, 0);
         for (size_t currentQubit = 0; currentQubit < gqLists.size();
              currentQubit++) {
-            int depth = 0;
-            bool foundFirstTwoQubitGate = false;
+            int depth = 0, depthOnPartner = 0;
             for (auto it = gqLists[currentQubit].begin();
                  it != gqLists[currentQubit].end(); ++it) {
                 qubit_size_t partnerQubit = (*it).partnerQubit;
                 depth++; // Increment depth for each gate on this qubit
                 if (currentQubit != partnerQubit) {
-                    foundFirstTwoQubitGate = true;
+                    // Found a two-qubit gate, now count depth on partner qubit
+                    // because the idle gap is not counted as depth, we need to
+                    // count the depth on partner qubit until the corresponding
+                    // gate is found
+                    for (auto it2 = gqLists[partnerQubit].begin();
+                         it2 != gqLists[partnerQubit].end(); ++it2) {
+                        depthOnPartner++; // Increment depth for each gate on
+                                          // partner qubit until the matching
+                                          // gate is found
+                        if ((*it2).gateIdx == (*it).gateIdx) {
+                            break; // Found the corresponding gate
+                        }
+                    }
                     break; // Only count depth for the first two-qubit gate on
                            // this qubit
                 }
             }
-            depthList.push_back(foundFirstTwoQubitGate ? depth : 0);
+            depthList[currentQubit] = std::max(depth, depthOnPartner);
         }
         return depthList;
     }
 
-    void showGQLists(const std::vector<std::list<GQ>> &gqLists,
+    void showGQLists(const qvector<std::list<GQ>> &gqLists,
                      const std::vector<Gate> &gates) const {
         std::cout << "showGQLists\n";
         auto copy = gqLists;
@@ -1961,8 +1987,12 @@ int main(int argc, char *argv[]) {
                   std::cout << "schedule begin: \n";
                   std::cout << circuit.str() << "\n";
                   std::cout << "after schedule: " << std::endl;
-                  std::cout << newCircuit.str() << std::endl;
+                  std::cout << newCircuit.str_with_original_line() << std::endl;
                   std::cout << "schedule end" << std::endl;);
+    DEBUG_SECTION(DEBUG_ir, std::ofstream outputFile("./xxx_sched.txt",
+                                                     std::ios_base::out);
+                  outputFile << newCircuit.str_with_original_line();
+                  outputFile.close(););
     DEBUG_SECTION(DEBUG_INFO, std::cout << "reorder end " << timers["reorder"]
                                         << std::endl;);
 
@@ -2047,8 +2077,6 @@ int main(int argc, char *argv[]) {
               << ")"
                  "; "
               << "Shortest: " << gShortestPathCounter << "\n";
-#else
-    std::cout << "Shortest: " << gShortestPathCounter << "\n";
 #endif /* !USE_SHORTEST_PATH_ONLY */
     return 0;
 }
