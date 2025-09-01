@@ -37,6 +37,8 @@
 // finalGateList)
 std::mutex gMutex;
 ThreadPool gPool(std::thread::hardware_concurrency());
+std::atomic<unsigned long long> gDFSCounter = 0, gEarlyStopCounter = 0;
+std::atomic<unsigned int> gSmallCircuitCounter = 0;
 #endif /* !USE_SHORTEST_PATH_ONLY */
 
 using gate_size_t = unsigned short;  // 65535 gates
@@ -45,8 +47,7 @@ using qubit_size_t = unsigned short; // 65535 qubits
 // global variables
 qubit_size_t gMaxFusionSize;
 qubit_size_t gQubits;
-std::atomic<unsigned long long> gDFSCounter = 0, gEarlyStopCounter = 0;
-std::atomic<unsigned int> gSmallCircuitCounter = 0, gShortestPathCounter = 0;
+std::atomic<unsigned int> gShortestPathCounter = 0;
 int gMethod = 0;
 double gCostFactor = 1.8;
 std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
@@ -517,7 +518,7 @@ void deleteRelatedNode(std::vector<std::vector<Gate>> &fusionGateList,
             fusionList.end());
     }
 }
-#endif  /* !USE_SHORTEST_PATH_ONLY */
+#endif /* !USE_SHORTEST_PATH_ONLY */
 
 /* Construct dependency gate set for each gate */
 inline std::vector<std::set<int>>
@@ -1583,12 +1584,13 @@ void DoDiagonalFusion(Circuit &circuit) {
         const auto &subgate = circuit[i];
         if (subgate.gateType == "RZ") {
             bool firstInset = targetQubits.contains(subgate.qubits[0]);
-            if (firstInset && static_cast<int>(targetQubits.size()) <= gMaxFusionSize) {
+            if (firstInset &&
+                static_cast<int>(targetQubits.size()) <= gMaxFusionSize) {
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
                 i--;
-            } else if (!firstInset &&
-                       static_cast<int>(targetQubits.size()) <= gMaxFusionSize - 1) {
+            } else if (!firstInset && static_cast<int>(targetQubits.size()) <=
+                                          gMaxFusionSize - 1) {
                 targetQubits.insert(subgate.qubits[0]);
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
@@ -1608,13 +1610,15 @@ void DoDiagonalFusion(Circuit &circuit) {
                 circuit.gates.erase(circuit.gates.begin() + i);
                 i--;
             } else if (firstInset && !secondInset &&
-                       static_cast<int>(targetQubits.size()) <= gMaxFusionSize - 1) {
+                       static_cast<int>(targetQubits.size()) <=
+                           gMaxFusionSize - 1) {
                 targetQubits.insert(subgate.qubits[1]);
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
                 i--;
             } else if ((firstInset ^ secondInset) &&
-                       static_cast<int>(targetQubits.size()) <= gMaxFusionSize - 1) {
+                       static_cast<int>(targetQubits.size()) <=
+                           gMaxFusionSize - 1) {
                 targetQubits.insert(subgate.qubits[firstInset ? 1 : 0]);
                 subGateList.push_back(subgate);
                 circuit.gates.erase(circuit.gates.begin() + i);
@@ -2036,11 +2040,15 @@ int main(int argc, char *argv[]) {
         std::cout << timers[key] << ", ";
     }
     std::cout << timers["total"] << "\n";
+#if !USE_SHORTEST_PATH_ONLY
     std::cout << "Small: " << gSmallCircuitCounter << " (DFS: " << gDFSCounter
               << ", "
               << "Early stop: " << gEarlyStopCounter
               << ")"
                  "; "
               << "Shortest: " << gShortestPathCounter << "\n";
+#else
+    std::cout << "Shortest: " << gShortestPathCounter << "\n";
+#endif /* !USE_SHORTEST_PATH_ONLY */
     return 0;
 }
