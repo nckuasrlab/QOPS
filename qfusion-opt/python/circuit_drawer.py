@@ -1,7 +1,7 @@
 import argparse
 import os
-import sys
 
+import qiskit
 from python.aer_utils import load_circuit
 from qiskit.visualization import circuit_drawer
 
@@ -21,7 +21,14 @@ def draw_circuit(input_path: str, filename: str, total_qubit: int = 24):
         use_random_matrix=False,
         skip_measurement=True,
     )
+    dummy_circ = qiskit.QuantumCircuit(total_qubit)
+    # check https://github.com/Qiskit/qiskit/pull/3224/files to customize gate name with latex
+    for i, gate in enumerate(circuit):
+        qubit_list = [q._index for q in gate.qubits]
+        # print(i, gate.name, [q._index for q in gate.qubits])
+        dummy_circ.append(qiskit.circuit.Gate(name=f'{gate.name}\n{i}', num_qubits=len(qubit_list), params=[]), qubit_list)
     circuit_img = circuit_drawer(circuit, output="mpl", scale=2, fold=-1, style="bw")
+    # circuit_img = circuit_drawer(dummy_circ, output="mpl", scale=2, fold=-1, style="bw")
     circuit_img.savefig(filename)
 
 

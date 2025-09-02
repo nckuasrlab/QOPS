@@ -24,6 +24,7 @@ def print_matrix(matrix):
 
 def read_unitary_matrix(num_qubits, matrix_1d):
     dim = int(pow(2, num_qubits))
+    assert len(matrix_1d) == dim * dim * 2, f"{len(matrix_1d)} != {dim*dim*2}"
     matrix = []
     for i in range(dim):
         row = []
@@ -41,6 +42,7 @@ def read_unitary_matrix(num_qubits, matrix_1d):
 
 def read_diagonal_matrix(num_qubits, matrix_1d):
     dim = int(pow(2, num_qubits))
+    assert len(matrix_1d) == dim * 2, f"{len(matrix_1d)} != {dim*2}"
     matrix = []
     for i in range(0, dim * 2, 2):
         matrix.append(float(matrix_1d[i]) + float(matrix_1d[i + 1]) * 1j)
