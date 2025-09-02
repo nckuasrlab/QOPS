@@ -31,6 +31,8 @@
             y                                                                  \
     } while (0)
 #define USE_SHORTEST_PATH_ONLY 1
+#define MULTIPLE_OUTPUTS_PER_GATE 1
+
 #if !USE_SHORTEST_PATH_ONLY
 #include "ThreadPool.h"
 #include <mutex>
@@ -977,18 +979,27 @@ class Circuit {
                             [](const std::list<GQ> &q) { return q.empty(); })) {
                 break; // All gates processed
             }
-            // if some gate is scheduled and the next gate is single qubit gate,
+            // if some gate is scheduled and the current qubit still has gate,
             // no need to switch qubit
-            if (hasScheduled) {
+            DEBUG_SECTION(DEBUG_schedule,
+                          std::cout << "qubitSwitched: " << qubitSwitched
+                                    << "; hasScheduled: " << hasScheduled
+                                    << "; gqLists[currentQubit].empty(): "
+                                    << gqLists[currentQubit].empty()
+                                    << "; waitingGates.empty(): "
+                                    << waitingGates.empty() << std::endl;);
+            if ((hasScheduled || !waitingGates.empty()) &&
+                !gqLists[currentQubit].empty()) {
                 DEBUG_SECTION(
                     DEBUG_schedule,
-                    std::cout
-                        << "currentQubit: " << currentQubit << "; "
-                        << gates[gqLists[currentQubit].front().gateIdx]
-                               .finfo.fid
-                        << " is not a two-qubit gate, so not choose new one"
-                        << std::endl;);
-            } else if (!qubitSwitched && waitingGates.empty()) {
+                    std::cout << "currentQubit: " << currentQubit
+                              << "; still has gate: "
+                              << gates[gqLists[currentQubit].front().gateIdx]
+                                     .finfo.fid
+                              << " , so we won't pick another one"
+                              << std::endl;);
+            } else if ((!qubitSwitched && waitingGates.empty()) ||
+                       gqLists[currentQubit].empty()) {
                 // Choose a better qubit to process
                 // Find the qubit with the shallowest two-qubit gate depth
                 auto depthList = getDepthOfShallowTwoQubitGates(gqLists);
@@ -1303,8 +1314,7 @@ class DAG {
                         isDiagonal = false;
                     qubit = testQubit; // update fused qubits
                     j++;
-#define MULTIPLE_OUTPUTS_PER_GATE
-#ifdef MULTIPLE_OUTPUTS_PER_GATE
+#if MULTIPLE_OUTPUTS_PER_GATE
                     if (j > i + 1) { // means more than one gate to be fused
                         std::string gateType = (isDiagonal ? "D" : "U") +
                                                std::to_string(qubit.size());
@@ -1317,7 +1327,7 @@ class DAG {
                                     std::cout << " " << q;
                                 std::cout << "; cost: " << cost(gateType, qubit)
                                           << " (";
-                                for (int k = i; k < j; k++) {
+                                for (size_t k = i; k < j; k++) {
                                     std::cout
                                         << (k == i ? "" : ", ")
                                         << gateList[k].subGateList[0].gateType;
@@ -1333,7 +1343,7 @@ class DAG {
                     }
 #endif /* MULTIPLE_OUTPUTS_PER_GATE */
                 }
-#ifndef MULTIPLE_OUTPUTS_PER_GATE
+#if !MULTIPLE_OUTPUTS_PER_GATE
                 if (j > i + 1) { // means more than one gate to be fused
                     std::string gateType =
                         (isDiagonal ? "D" : "U") + std::to_string(qubit.size());
@@ -1346,7 +1356,7 @@ class DAG {
                                 std::cout << " " << q;
                             std::cout << "; cost: " << cost(gateType, qubit)
                                       << " (";
-                            for (int k = i; k < j; k++) {
+                            for (size_t k = i; k < j; k++) {
                                 std::cout
                                     << (k == i ? "" : ", ")
                                     << gateList[k].subGateList[0].gateType;
