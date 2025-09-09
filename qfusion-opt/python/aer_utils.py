@@ -125,8 +125,14 @@ def load_circuit(
             circuit.rz(float(line[2]), int(line[1]))
         elif line[0] == "RZZ":
             circuit.rzz(float(line[3]), int(line[1]), int(line[2]))
+        elif line[0] == "U1Gate":
+            circuit.u(0, 0, float(line[2]), int(line[1]))
+        elif line[0] == "U2Gate":
+            circuit.u(np.pi/2, float(line[2]), float(line[3]), int(line[1]))
+        elif line[0] == "U3Gate":
+            circuit.u(float(line[2]), float(line[3]), float(line[4]), int(line[1]))
         else:
-            raise Exception(f"{line[0]} is not supported ({line})")
+            raise Exception(f"{line[0]} is not supported ({line}), in {filename}:{line_count}")
     if not skip_measurement:
         circuit.measure_all()
     return circuit
