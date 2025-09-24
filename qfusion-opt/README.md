@@ -63,5 +63,20 @@ $ PATH_TO/Queen -i ../circuit/sub0/32/cpu.ini -c xxx_finder.txt
 ## Test on Aer and Queen simulators with fusion methods
 
 ```bash
-$ python python/exe_fusion_aer.py >> out.txt; python python/exe_fusion_queen.py >> out.txt
+$ date +"%Y%m%d_%H%M%S" >> out.txt; python python/exe_fusion_aer.py >> out.txt; date +"%Y%m%d_%H%M%S" >> out.txt; python python/exe_fusion_queen.py >> out.txt; date +"%Y%m%d_%H%M%S" >> out.txt
 ```
+
+# Misc
+
+## Visualization of fusion
+
+```bash
+CIRC=test F=2 M=8 T=5 sh -c 'DYNAMIC_COST_FILENAME=./log/gate_exe_time_aer.csv ./fusion ./circuit/${CIRC}.txt ./xxx.txt ${F} ${T} ${M} >fusion_dump.txt && python python/circuit_drawer.py circuit/${CIRC}.txt -q ${T} && python python/circuit_drawer.py xxx.txt -q ${T}'
+```
+
+## USE_SHORTEST_PATH_ONLY: gMethod
+
++ static for queen: 3
++ dynamic for queen: 4,6
++ static for aer: 1,2,5
++ dynamic for aer: 7,8
