@@ -81,3 +81,10 @@ CIRC=test F=2 M=8 T=5 sh -c 'DYNAMIC_COST_FILENAME=./log/gate_exe_time_aer.csv .
 + dynamic for queen: 4,6
 + static for aer: 1,2,5
 + dynamic for aer: 7,8
+
+## Download microbenchmark results from the machine mentioned in paper (not recommanded)
+
+```bash
+$ wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1d5rNiB2oge7w1Q6mzmrQRn3YAdt8bZPY' -O ./qfusion-opt/log/microbenchmark_result_queen.csv 2>/dev/null
+$ wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1UKZ0ipUKnzI-flgqqJJ9MzHdAM85kUZa' -O ./qfusion-opt/log/microbenchmark_result_aer.csv 2>/dev/null
+```
