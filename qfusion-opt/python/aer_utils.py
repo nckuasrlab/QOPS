@@ -205,13 +205,13 @@ def exec_circuit(
     )
 
 
-def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
+def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.001):
     """Compares two circuits by sampling random input states."""
 
     simulator = AerSimulator(
         method="statevector",
         seed_simulator=0,
-        fusion_enable=False,
+        fusion_enable=True,
     )
     t_start1 = time.perf_counter()
     res1 = simulator.run(circ1, shots=shots).result().get_counts()
@@ -226,5 +226,5 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     # Compute total variation distance (TVD)
     all_keys = set(prob1.keys()).union(set(prob2.keys()))
     tvd = sum(abs(prob1.get(k, 0) - prob2.get(k, 0)) for k in all_keys) / 2
-    print(f"TVD: {tvd:.4f}; {'' if tvd < tol else 'NOT '}Equivalent.")
+    print(f"TVD: {tvd:.6f}; {'' if tvd < tol else 'NOT '}Equivalent.")
     return tvd < tol, t_end1 - t_start1, t_end2 - t_start2
