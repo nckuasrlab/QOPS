@@ -5,6 +5,7 @@ import sys
 from dataclasses import dataclass
 
 from python.aer_utils import circuits_equivalent_by_samples, exec_circuit, load_circuit
+from python.log_utils import FileLogger
 from qiskit import QuantumCircuit
 
 
@@ -109,9 +110,9 @@ def run_benchmark(
     total_qubit: int,
     fusion_config: FusionConfig,
     exec_config: ExecConfig,
-    logfile,
+    logfile: FileLogger,
     compare_circuit: QuantumCircuit = None,
-    repeat_num: int = 3,
+    repeat_num: int = 5,
 ):
     fusion_method = fusion_config.fusion_method
 
@@ -186,8 +187,6 @@ def run_benchmark(
             True if i == (repeat_num // 2) else False,  # we only dump log at the middle
         )
         logfile.write(str(exec_result) + "\n")
-        logfile.flush()
-        os.fsync(logfile)
     print("", flush=True)
 
 
@@ -195,7 +194,8 @@ if __name__ == "__main__":
     print(f"running {__file__ }")
     fusion_max_qubit = 5  # max_fusion_qubits
     total_qubit = 32
-    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"]  # , "ising"
+    eq_check = True
+    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "vqc", "ising", "qaoa"]
 
     os.makedirs("./qiskitFusionCircuit", exist_ok=True)
 
@@ -204,8 +204,8 @@ if __name__ == "__main__":
         filename = circuit_name + ".txt"
         print("==================================================================")
         print(filename)
-        logfile = open(
-            f"./qiskitFusionCircuit/experiment_{benchmark}{total_qubit}.log", "a"
+        logfile = FileLogger(
+            f"./qiskitFusionCircuit/experiment_{benchmark}{total_qubit}.log"
         )
         logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
 
@@ -219,8 +219,9 @@ if __name__ == "__main__":
             logfile,
         )
 
-        qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
-        # qc1 = None
+        qc1 = None
+        if eq_check:
+            qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
 
         # static Qiskit = origin
         fusion_method = "static_qiskit"

@@ -10,7 +10,7 @@ QOPS is a quantum compiler framework that enables profile-guided optimization (P
 + llvm-pass-qpgo: Clang/LLVM instrumenter for quantum circuit simulator, [BSD-3-Clause license](https://github.com/nckuasrlab/QOPS/blob/main/llvm-pass-qpgo/LICENSE)
 + qviz-gui: interactive quantum performance analyzer and debugger, [GPL-3.0 license](https://github.com/nckuasrlab/QOPS/blob/main/qviz-gui/LICENSE)
 + qcor-code: example quantum programs, [BSD-3-Clause license](https://github.com/nckuasrlab/QOPS/blob/main/qcor-code/LICENSE)
-+ qfusion-opt
++ qfusion-opt: a novel gate fusion workflow and algorithm that leverages profile-informed techniques, [Apache-2.0 license](https://github.com/nckuasrlab/QOPS/blob/main/qfusion-opt/LICENSE)
   + qiskit-aer: a high performance simulator for quantum circuits written in Qiskit ([b77f005; tag:0.14.2](https://github.com/Qiskit/qiskit-aer/tree/b77f00578101d449ae9489a4ab164a7d11dcd1b3)), Apache-2.0 license
 
 ## Requirements
@@ -23,13 +23,17 @@ QOPS is a quantum compiler framework that enables profile-guided optimization (P
 ## Citation
 
 ```bib
-@misc{wu2024qopscompilerframeworkquantum,
-      title={QOPS: A Compiler Framework for Quantum Circuit Simulation Acceleration with Profile Guided Optimizations},
-      author={Yu-Tsung Wu and Po-Hsuan Huang and Kai-Chieh Chang and Chia-Heng Tu and Shih-Hao Hung},
-      year={2024},
-      eprint={2410.09326},
-      archivePrefix={arXiv},
-      primaryClass={quant-ph},
-      url={https://arxiv.org/abs/2410.09326},
+@article{Wu2025QOPS,
+  author    = {Wu, Yu-Tsung and Huang, Po-Hsuan and Chang, Kai-Chieh and Tu, Chia-Heng and Hung, Shih-Hao},
+  title     = {{QOPS}: a compiler framework for quantum circuit simulation acceleration with profile-guided optimizations},
+  journal   = {The Journal of Supercomputing},
+  year      = {2025},
+  month     = {Mar},
+  day       = {30},
+  volume    = {81},
+  number    = {5},
+  articleno = {674},
+  issn      = {1573-0484},
+  doi       = {10.1007/s11227-025-07157-2}
 }
 ```

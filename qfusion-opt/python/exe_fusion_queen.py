@@ -4,8 +4,8 @@ import subprocess
 import sys
 from dataclasses import dataclass
 
-import numpy as np
 from python.aer_utils import circuits_equivalent_by_samples, load_circuit
+from python.log_utils import FileLogger
 from python.microbenchmark_suite.gen_cost_table.queen import get_best_chunk_size
 from python.queen_utils import exec_circuit
 from qiskit import QuantumCircuit
@@ -118,9 +118,9 @@ def run_benchmark(
     total_qubit: int,
     fusion_config: FusionConfig,
     exec_config: ExecConfig,
-    logfile,
+    logfile: FileLogger,
     compare_circuit: QuantumCircuit = None,
-    repeat_num: int = 3,
+    repeat_num: int = 5,
 ):
     fusion_method = fusion_config.fusion_method
 
@@ -207,8 +207,6 @@ def run_benchmark(
             ),  # we only dump log at the middle
         )
         logfile.write(str(exec_result.simulation_time) + "\n")
-        logfile.flush()
-        os.fsync(logfile)
     print("", flush=True)
 
 
@@ -216,8 +214,9 @@ if __name__ == "__main__":
     print(f"running {__file__ }")
     fusion_max_qubit = 5  # max_fusion_qubits
     total_qubit = 32
+    eq_check = True
     best_chunk_size = get_best_chunk_size(MICROBENCHMARK_RESULT_FILE, total_qubit)
-    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "qaoa"]  # , "ising"
+    benchmarks = ["sc", "vc", "hs", "bv", "qv", "qft", "vqc", "ising", "qaoa"]
 
     os.makedirs("./queenFusionCircuit", exist_ok=True)
 
@@ -226,8 +225,8 @@ if __name__ == "__main__":
         filename = circuit_name + ".txt"
         print("==================================================================")
         print(filename)
-        logfile = open(
-            f"./queenFusionCircuit/experiment_{benchmark}{total_qubit}.log", "a"
+        logfile = FileLogger(
+            f"./queenFusionCircuit/experiment_{benchmark}{total_qubit}.log"
         )
         logfile.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
 
@@ -241,8 +240,21 @@ if __name__ == "__main__":
             logfile,
         )
 
-        qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
-        # qc1 = None
+        # chunk size tuning
+        # fusion_method = "disable"
+        # for chunk_size in range(10, 18+1):
+        #     run_benchmark(
+        #         circuit_name,
+        #         total_qubit,
+        #         FusionConfig(fusion_method, fusion_max_qubit),
+        #         ExecConfig(False, fusion_max_qubit, chunk_size),
+        #         logfile,
+        #         repeat_num=1
+        #     )
+
+        qc1 = None
+        if eq_check:
+            qc1 = load_circuit("./circuit/" + filename, total_qubit, circuit_name)
 
         # static Qiskit
         fusion_method = "static_qiskit"
@@ -255,6 +267,17 @@ if __name__ == "__main__":
             qc1,
         )
 
+        # static Qiskit with best_chunk_size
+        fusion_method = "static_qiskit"
+        run_benchmark(
+            circuit_name,
+            total_qubit,
+            FusionConfig(fusion_method, fusion_max_qubit),
+            ExecConfig(False, fusion_max_qubit, best_chunk_size),
+            logfile,
+            qc1,
+        )
+
         # dynamic Qiskit
         fusion_method = "dynamic_qiskit"
         run_benchmark(
@@ -262,6 +285,17 @@ if __name__ == "__main__":
             total_qubit,
             FusionConfig(fusion_method, fusion_max_qubit),
             ExecConfig(False, fusion_max_qubit),
+            logfile,
+            qc1,
+        )
+
+        # dynamic Qiskit with best_chunk_size
+        fusion_method = "dynamic_qiskit"
+        run_benchmark(
+            circuit_name,
+            total_qubit,
+            FusionConfig(fusion_method, fusion_max_qubit),
+            ExecConfig(False, fusion_max_qubit, best_chunk_size),
             logfile,
             qc1,
         )

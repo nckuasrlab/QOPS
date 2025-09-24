@@ -1,27 +1,29 @@
 # qfusion-opt
 
+qfusion-opt is a novel gate fusion workflow and algorithm that leverages profile-informed techniques.
+
 ## Prerequisite
 
 ### 1. Create all the directory we need.
 
 ```bash
+$ cd qfusion-opt
 $ mkdir -p fusionCircuit model qiskitFusionCircuit subCircuit txt
 ```
 
-### 2. Install requirements with conda
+### 2. Install requirements with uv
 
 ```bash
-$ conda config --set channel_priority disabled
-$ conda env create --name qfusion-opt --file requirements.yml
-$ conda activate qfusion-opt
+$ uv venv -p 3.12.10
+$ source .venv/bin/activate
+$ uv pip install -r requirements.txt
 ```
-
-+ Note: the `requirements.yml` is prepared by `conda env export | head -n -1 > requirements.yml`, which ignores the last line for the prefix path.
 
 ### 3. Compile the target program
 
 ``` bash
-$ g++ -O3 -o fusion fusion.cpp
+$ make
+g++-10 -std=c++2a -O3 -march=native -flto=auto -funroll-loops -fno-rtti -fno-exceptions -pipe -Wall -Wextra -Wpedantic -o fusion fusion.cpp -lpthread
 ```
 
 **NOTE:** You should have `./cpu` and `./finder` in this directory to verify the result of `fusion`.
@@ -32,59 +34,69 @@ $ g++ -O3 -o fusion fusion.cpp
 
 Check `python/microbenchmark_suite/README.md`.
 
-### 2. Fusion algorithm
-
-If `mode=4,6,7,8`(different with `.env` setting), `fusion` needs to read `./log/gate_exe_time.csv`.
+### 2. Test on Aer and Queen simulators with fusion methods
 
 ```bash
-$ ./fusion [input_file] [output_file] [max_fusion_qubit] [total_qubit] [mode]
+$ ./exe.sh "test on aer" "python python/exe_fusion_aer.py"
+$ ./exe.sh "test on queen" "python python/exe_fusion_queen.py"
 ```
 
-Fusion mode setting
+## Manual run (Optional)
 
-```text
-mode 
+### Fusion algorithm
 
-0: origin
-1: cutsubtree
-2: smallCircuit
-3: all opt (cutsubtree + smallCircuit)
-4: all opt with dynamic cost function
-5: same as mode3，but with diagonal fusion
-6: same as mode4，but with diagonal fusion
-7: same as mode4 but for qiskit execution version
-8: same as mode7，but with diagonal fusion
-```
-
-### 3. Fused circuit transform (optional)
-
-If you're going to run on `Quokka` simulator, you should transform the circuit by `./finder`.
+If mode=4,6,7,8, `fusion` needs to read `./log/gate_exe_time.csv` by setting `DYNAMIC_COST_FILENAME`.
 
 ```bash
-$ g++ -o finder/finder finder/finder.cpp
-$ finder/finder [input_circuit] [output_circuit] [chunk_size]
+$ DYNAMIC_COST_FILENAME=[csv_file] ./fusion [input_file] [output_file] [max_fusion_qubit] [total_qubit] [mode]
 ```
 
-### 4. Run on simulator
-Executing circuit on `Quokka` needs to setting `ini` file(`sub_cpu.ini`).
+Fusion mode setting:
+
++ 0: origin
++ 1: cutsubtree
++ 2: smallCircuit
++ 3: all opt (cutsubtree + smallCircuit)
++ 4: all opt with dynamic cost function
++ 5: same as mode3，but with diagonal fusion
++ 6: same as mode4，but with diagonal fusion
++ 7: same as mode4 but for qiskit execution version
++ 8: same as mode7，but with diagonal fusion
+
+### Run fusion and simulate the fused circuit
 
 ```bash
-$ ./cpu/Quokka -i sub_cpu.ini -c [circuit_file]
+$ DYNAMIC_COST_FILENAME=./log/gate_exe_time_queen.csv ./fusion ./circuit/sc32.txt ./xxx.txt 5 32 4 >fusion_dump.txt
+$ cat <<EOF > cpu.ini
+[system]
+total_qbit=32
+device_qbit=0
+chunk_qbit=17
+buffer_qbit=26
+threads_bit=6
+EOF
+$ PATH_TO/finder ./xxx.txt 17 32 32 1 0 5 1 > xxx_finder.txt
+$ PATH_TO/Queen -i ./cpu.ini -c xxx_finder.txt
 ```
 
-**NOTE:** Executing circuit on qiskit needs to transform the circuit format. Please reference to `exe_circuit` function in `python/exe_fusion_qiskit.py`
+## Misc
 
-## Example
+### Visualization of fusion
 
 ```bash
-$ python python/microbenchmark_suite/gen_cost_table/quokka.py gen_table 32 18
-$ ./fusion ./circuit/sc24.txt ./fusionCircuit/sc24.txt 3 24 3
-$ finder/finder ./fusionCircuit/sc24.txt out.txt 18
-$ cpu/Quokka -i sub_cpu.ini -c out.txt
+CIRC=test F=2 M=8 T=5 sh -c 'DYNAMIC_COST_FILENAME=./log/gate_exe_time_aer.csv ./fusion ./circuit/${CIRC}.txt ./xxx.txt ${F} ${T} ${M} >fusion_dump.txt && python python/circuit_drawer.py circuit/${CIRC}.txt -q ${T} && python python/circuit_drawer.py xxx.txt -q ${T}'
 ```
 
-## Test on Aer simulator with fusion methods
+### if `USE_SHORTEST_PATH_ONLY=1`: gMethod
+
++ static for queen: 3
++ dynamic for queen: 4,6
++ static for aer: 1,2,5
++ dynamic for aer: 7,8
+
+### Download microbenchmark results from the machine mentioned in paper (not recommanded)
 
 ```bash
-python python/exe_fusion_aer.py > out.txt
+$ wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1d5rNiB2oge7w1Q6mzmrQRn3YAdt8bZPY' -O ./qfusion-opt/log/microbenchmark_result_queen.csv 2>/dev/null
+$ wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1UKZ0ipUKnzI-flgqqJJ9MzHdAM85kUZa' -O ./qfusion-opt/log/microbenchmark_result_aer.csv 2>/dev/null
 ```

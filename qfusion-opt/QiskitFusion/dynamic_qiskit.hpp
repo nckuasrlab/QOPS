@@ -47,7 +47,10 @@
   GATE_ENTRY("diagonal-5", D5) \
   GATE_ENTRY("y-1", Y) \
   GATE_ENTRY("z-1", Z) \
-  GATE_ENTRY("swap-2", SWAP)
+  GATE_ENTRY("swap-2", SWAP) \
+  GATE_ENTRY("u1-1", U1Gate) \
+  GATE_ENTRY("u2-1", U2Gate) \
+  GATE_ENTRY("u3-1", U3Gate)
 
 // #define GATE_ENTRY(aer_gate, quokka_gate) quokka_gate,
 // typedef enum { GATE_TABLE } gate_type_t;

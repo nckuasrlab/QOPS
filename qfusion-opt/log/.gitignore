@@ -1,3 +1,2 @@
-# Use gen_cost_table to generate
-gate_exe_time.csv
-gate_exe_time_aer.csv
+# Use qfusion-opt/python/microbenchmark_suite to generate
+*.csv

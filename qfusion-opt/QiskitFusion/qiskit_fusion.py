@@ -3,16 +3,18 @@ import json
 import os
 import subprocess
 import sys
-import warnings
 from pathlib import Path
+from uuid import uuid4
 
 from qiskit import QuantumCircuit
-from qiskit.compiler import assemble, transpile
 
-warnings.filterwarnings(
-    "ignore", category=DeprecationWarning
-)  # Ignore DeprecationWarning of qiskit.compiler.assembler.assemble()
+# Updated imports to support both legacy (<2.0) and Qiskit 2.1.0+
+try:
+    from qiskit.compiler import assemble, transpile  # Legacy path (pre 2.0)
+except ImportError:
+    from qiskit import transpile  # Qiskit 2.0+ (assemble removed)
 
+    assemble = None
 
 def parse_circuit(circuit_filename, qubit):
     """
@@ -57,6 +59,93 @@ def parse_circuit(circuit_filename, qubit):
 
     circuit.measure_all()
     return circuit
+
+
+def write_qobj_or_instruction_json(circuit, out_path: Path):
+    """
+    Qiskit >=2.0 removed assemble/Qobj. For backward compatibility with external
+    tools expecting a qobj-like JSON, we create a minimal instruction JSON when
+    assemble is unavailable.
+    """
+    tcirc = transpile(circuit)
+    if assemble is not None:
+        # Legacy path: produce real Qobj dict
+        qobj = assemble(tcirc)
+        with open(out_path, "wt") as fp:
+            json.dump(qobj.to_dict(), fp)
+    else:
+        # Fallback: emulate a minimal legacy Qobj dict expected by downstream C++ tool.
+        # NOTE: This is NOT a full Qiskit Qobj; it only supplies the fields used by the fusion executables.
+        qubit_index = {qb: i for i, qb in enumerate(tcirc.qubits)}
+        clbit_index = {cb: i for i, cb in enumerate(tcirc.clbits)}
+
+        try:  # Optional import for parameter expressions
+            from qiskit.circuit import ParameterExpression
+        except Exception:  # pragma: no cover
+            ParameterExpression = tuple()  # type: ignore
+
+        def serialize_param(p):
+            if isinstance(p, (int, float)):
+                return float(p)
+            if isinstance(p, complex):
+                return {"real": p.real, "imag": p.imag}
+            if ParameterExpression and isinstance(p, ParameterExpression):
+                try:
+                    return float(p)
+                except Exception:
+                    return str(p)
+            return str(p)
+
+        instructions = []
+        for item in tcirc.data:
+            if hasattr(item, "operation"):
+                inst = item.operation
+                qargs = item.qubits
+                cargs = item.clbits
+            else:  # legacy tuple unpacking
+                inst, qargs, cargs = item
+
+            entry = {
+                "name": inst.name,
+                "qubits": [qubit_index[q] for q in qargs],
+            }
+            if cargs:
+                entry["clbits"] = [clbit_index[c] for c in cargs]
+            if getattr(inst, "params", None):
+                entry["params"] = [serialize_param(p) for p in inst.params]
+            instructions.append(entry)
+
+        # Legacy headers (simplified)
+        cl_labels = [["c", i] for i in range(tcirc.num_clbits)]
+        q_labels = [["q", i] for i in range(tcirc.num_qubits)]
+
+        qobj_dict = {
+            "qobj_id": f"auto-{uuid4()}",
+            "type": "QASM",
+            "schema_version": "1.3.0",  # Chosen common legacy version
+            "experiments": [
+                {
+                    "header": {
+                        "n_qubits": tcirc.num_qubits,
+                        "memory_slots": tcirc.num_clbits,
+                        "clbit_labels": cl_labels,
+                        "qubit_labels": q_labels,
+                        "name": "circuit0",
+                    },
+                    "instructions": instructions,
+                }
+            ],
+            "header": {"backend_name": "", "backend_version": ""},
+            "config": {
+                "shots": 1,
+                "memory": True,
+                "memory_slots": tcirc.num_clbits,
+                "n_qubits": tcirc.num_qubits,
+            },
+        }
+
+        with open(out_path, "wt") as fp:
+            json.dump(qobj_dict, fp, indent=2)
 
 
 def get_args():
@@ -112,9 +201,9 @@ def main():
     print(args)
     current_dir = Path(__file__).parent
     circuit = parse_circuit(args.circuit_filename, args.num_qubits)
-    qobj = assemble(transpile(circuit))
-    with open(current_dir / "qobj.json", "wt") as fp:
-        json.dump(qobj.to_dict(), fp)
+
+    # Write qobj (legacy) or fallback JSON
+    write_qobj_or_instruction_json(circuit, current_dir / "qobj.json")
 
     # Get a copy of the current environment and insert new environment variables
     modified_env = os.environ.copy()

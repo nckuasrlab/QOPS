@@ -24,6 +24,7 @@ def print_matrix(matrix):
 
 def read_unitary_matrix(num_qubits, matrix_1d):
     dim = int(pow(2, num_qubits))
+    assert len(matrix_1d) == dim * dim * 2, f"{len(matrix_1d)} != {dim*dim*2}"
     matrix = []
     for i in range(dim):
         row = []
@@ -41,6 +42,7 @@ def read_unitary_matrix(num_qubits, matrix_1d):
 
 def read_diagonal_matrix(num_qubits, matrix_1d):
     dim = int(pow(2, num_qubits))
+    assert len(matrix_1d) == dim * 2, f"{len(matrix_1d)} != {dim*2}"
     matrix = []
     for i in range(0, dim * 2, 2):
         matrix.append(float(matrix_1d[i]) + float(matrix_1d[i + 1]) * 1j)
@@ -72,7 +74,7 @@ def random_diagonal_matrix(num_qubits):
 
 
 def load_circuit(
-    filename: str, total_qubit: int, circuit_name: str, use_random_matrix=False
+    filename: str, total_qubit: int, circuit_name: str, use_random_matrix=False, skip_measurement=False
 ) -> QuantumCircuit:
     circuit = QuantumCircuit(total_qubit)
     circuit.name = circuit_name
@@ -82,6 +84,8 @@ def load_circuit(
     line_count = 0
     for line in lines:
         line_count = line_count + 1
+        if line.startswith("//") or line.strip() == "":
+            continue
         line = line.split()
         if line[0] == "U1" and len(line) == 5:
             circuit.u(float(line[2]), float(line[3]), float(line[4]), int(line[1]))
@@ -121,10 +125,16 @@ def load_circuit(
             circuit.rz(float(line[2]), int(line[1]))
         elif line[0] == "RZZ":
             circuit.rzz(float(line[3]), int(line[1]), int(line[2]))
+        elif line[0] == "U1Gate":
+            circuit.u(0, 0, float(line[2]), int(line[1]))
+        elif line[0] == "U2Gate":
+            circuit.u(np.pi/2, float(line[2]), float(line[3]), int(line[1]))
+        elif line[0] == "U3Gate":
+            circuit.u(float(line[2]), float(line[3]), float(line[4]), int(line[1]))
         else:
-            raise Exception(f"{line[0]} is not supported ({line})")
-
-    circuit.measure_all()
+            raise Exception(f"{line[0]} is not supported ({line}), in {filename}:{line_count}")
+    if not skip_measurement:
+        circuit.measure_all()
     return circuit
 
 
@@ -195,13 +205,13 @@ def exec_circuit(
     )
 
 
-def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
+def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.001):
     """Compares two circuits by sampling random input states."""
 
     simulator = AerSimulator(
         method="statevector",
         seed_simulator=0,
-        fusion_enable=False,
+        fusion_enable=True,
     )
     t_start1 = time.perf_counter()
     res1 = simulator.run(circ1, shots=shots).result().get_counts()
@@ -216,5 +226,5 @@ def circuits_equivalent_by_samples(circ1, circ2, shots=1024, tol=0.01):
     # Compute total variation distance (TVD)
     all_keys = set(prob1.keys()).union(set(prob2.keys()))
     tvd = sum(abs(prob1.get(k, 0) - prob2.get(k, 0)) for k in all_keys) / 2
-    print(f"TVD: {tvd:.4f}; {'' if tvd < tol else 'NOT '}Equivalent.")
+    print(f"TVD: {tvd:.6f}; {'' if tvd < tol else 'NOT '}Equivalent.")
     return tvd < tol, t_end1 - t_start1, t_end2 - t_start2

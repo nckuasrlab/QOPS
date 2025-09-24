@@ -1,0 +1,4 @@
+[submodule "qfusion-opt/examples"]
+	path = qfusion-opt/examples
+	url = git@github.com:aben20807/qfusion-opt-examples.git
+    branch = main
