@@ -23,7 +23,7 @@
 #define DEBUG_getSmallWeightSingleThread 0
 #define DEBUG_shortestPath 0
 #define DEBUG_schedule 0
-#define DEBUG_ir 0
+#define DEBUG_ir 0 // used to generate scheduled and fused circuit file
 #define DEBUG_SECTION(x, y)                                                    \
     if constexpr (x)                                                           \
         /* std::cout << #x << ": " << __LINE__ << "\n"; */                     \
@@ -32,6 +32,7 @@
     } while (0)
 #define USE_SHORTEST_PATH_ONLY 1
 #define MULTIPLE_OUTPUTS_PER_GATE 1
+#define ENABLE_SCHEDULE 1
 
 #if !USE_SHORTEST_PATH_ONLY
 #include "ThreadPool.h"
@@ -2007,7 +2008,11 @@ int main(int argc, char *argv[]) {
     DEBUG_SECTION(DEBUG_INFO, std::cout << "reorder start" << std::endl;);
     auto time_start = std::chrono::steady_clock::now();
     Circuit circuit(inputFileName);
+#if ENABLE_SCHEDULE
     Circuit newCircuit = circuit.schedule();
+#else
+    Circuit newCircuit = circuit;
+#endif
     auto time_end = std::chrono::steady_clock::now();
     timers["reorder"] =
         std::chrono::duration<double>(time_end - time_start).count();
