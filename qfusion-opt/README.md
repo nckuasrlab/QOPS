@@ -63,7 +63,8 @@ $ PATH_TO/Queen -i ../circuit/sub0/32/cpu.ini -c xxx_finder.txt
 ## Test on Aer and Queen simulators with fusion methods
 
 ```bash
-$ date +"%Y%m%d_%H%M%S" >> out.txt; python python/exe_fusion_aer.py >> out.txt; date +"%Y%m%d_%H%M%S" >> out.txt; python python/exe_fusion_queen.py >> out.txt; date +"%Y%m%d_%H%M%S" >> out.txt
+$ ./exe.sh "test on aer" "python python/exe_fusion_aer.py"
+$ ./exe.sh "test on queen" "python python/exe_fusion_queen.py"
 ```
 
 # Misc
