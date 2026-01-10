@@ -277,3 +277,35 @@ def circuit_load(circuit_path, total_qubit, reverse_qubits=True) -> QuantumCircu
                     )
 
         return circ
+
+
+if __name__ == "__main__":
+    """
+    Usage: python ir_converter.py <circuit.qasm> <output.ir>
+
+    Converts a QASM2 or QASM3 circuit file to an IR representation and saves it to the specified output file.
+    """
+    import sys
+
+    circuit_path = sys.argv[1]
+    ir_path = sys.argv[2]
+
+    circuit_file = ""
+    with open(circuit_path, "r") as f:
+        circuit_file = f.read()
+
+    # Try QASM3 first, fall back to QASM2
+    try:
+        from qiskit_qasm3_import import parse
+
+        qc = parse(circuit_file)
+    except:
+        from qiskit import QuantumCircuit
+
+        qc = QuantumCircuit.from_qasm_str(circuit_file)
+    # print(qc)
+    ir = qasm_to_ir(qc)
+    # print("==== IR ====")
+    # print(ir)
+    with open(ir_path, "w") as f:
+        f.write(ir)
