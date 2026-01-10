@@ -82,7 +82,7 @@ size_t targetQubitCounter(const std::string &gateType) {
     static const std::set<std::string> k1QubitGates = {
         "H", "X", "Y", "Z", "I2", "S", "Z", "T", "RX", "RY", "RZ", "D1", "U1"};
     static const std::set<std::string> k2QubitGates = {"CX", "CP", "CZ", "RZZ",
-                                                       "D2"};
+                                                       "D2", "U2", "SWAP"};
     static const std::set<std::string> k3QubitGates = {"D3", "U3"};
     static const std::set<std::string> k4QubitGates = {"D4", "U4"};
     static const std::set<std::string> k5QubitGates = {"D5", "U5"};
