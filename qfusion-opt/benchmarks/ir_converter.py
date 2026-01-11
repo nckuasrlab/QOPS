@@ -1,8 +1,12 @@
 # ref: https://github.com/wang2346581/Quokka/blob/SC24/utils/circuit.py
 
+import sys
+
 import numpy as np
+import openqasm3
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import DiagonalGate, UnitaryGate
+from qiskit_qasm3_import import parse
 
 
 def qasm_to_ir(qc: QuantumCircuit, verbose=False) -> str:
@@ -285,8 +289,6 @@ if __name__ == "__main__":
 
     Converts a QASM2 or QASM3 circuit file to an IR representation and saves it to the specified output file.
     """
-    import sys
-
     circuit_path = sys.argv[1]
     ir_path = sys.argv[2]
 
@@ -294,15 +296,33 @@ if __name__ == "__main__":
     with open(circuit_path, "r") as f:
         circuit_file = f.read()
 
-    # Try QASM3 first, fall back to QASM2
     try:
-        from qiskit_qasm3_import import parse
-
-        qc = parse(circuit_file)
+        qc = openqasm3.parse(circuit_file)
     except:
-        from qiskit import QuantumCircuit
+        print("Error: OpenQASM parsing failed.")
+        sys.exit(1)
+    version = qc.version
 
-        qc = QuantumCircuit.from_qasm_str(circuit_file)
+    if version is not None and float(version) < 3.0:  # QASM 2
+        try:
+            qc = QuantumCircuit.from_qasm_str(circuit_file)
+        except:
+            print("Error: QASM2 parsing succeeded, but the loading process failed.")
+            sys.exit(1)
+    else:  # QASM 3
+        try:
+            # from qbraid import transpile
+            # qc = transpile(circuit_file, "qiskit")
+
+            # from qiskit import qasm3
+            # qc = qasm3.loads_experimental(circuit_file)
+
+            qc = parse(circuit_file)
+            # print(qc)
+        except:
+            print("Error: QASM3 parsing succeeded, but the loading process failed.")
+            sys.exit(1)
+
     # print(qc)
     ir = qasm_to_ir(qc)
     # print("==== IR ====")
