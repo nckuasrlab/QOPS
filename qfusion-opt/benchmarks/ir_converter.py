@@ -300,7 +300,7 @@ if __name__ == "__main__":
         qc = openqasm3.parse(circuit_file)
     except:
         print("Error: OpenQASM parsing failed.")
-        sys.exit(1)
+        raise
     version = qc.version
 
     if version is not None and float(version) < 3.0:  # QASM 2
@@ -308,7 +308,7 @@ if __name__ == "__main__":
             qc = QuantumCircuit.from_qasm_str(circuit_file)
         except:
             print("Error: QASM2 parsing succeeded, but the loading process failed.")
-            sys.exit(1)
+            raise
     else:  # QASM 3
         try:
             # from qbraid import transpile
@@ -321,7 +321,7 @@ if __name__ == "__main__":
             # print(qc)
         except:
             print("Error: QASM3 parsing succeeded, but the loading process failed.")
-            sys.exit(1)
+            raise
 
     # print(qc)
     ir = qasm_to_ir(qc)
