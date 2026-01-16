@@ -253,6 +253,7 @@ extern std::string __user_opt_passes;
 
 // Placement strategy specified in the QCOR command line.
 extern std::string __placement_name;
+
 // Qubit map for DefaultPlacement transformation.
 // If provided in the command line (not empty),
 // we'll map qubits according to this.
@@ -265,6 +266,10 @@ extern bool __print_final_submission;
 extern std::string __print_final_submission_filename;
 // Backend execution validation
 extern bool __validate_nisq_execution;
+extern bool __fusion_enable;
+extern int __fusion_mode;
+extern int __fusion_total_qubit;
+extern int __fusion_max_fusion_qubit;
 // Execute the pass manager on the provided kernel.
 // If none provided, execute the pass manager on the current QRT kernel.
 void execute_pass_manager(

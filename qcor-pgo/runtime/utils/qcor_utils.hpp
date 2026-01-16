@@ -19,6 +19,7 @@
 #include <Eigen/Dense>
 
 #include "qcor_ir.hpp"
+#include "IRTransformation.hpp"
 
 namespace xacc {
 class IRProvider;
