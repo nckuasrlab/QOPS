@@ -85,11 +85,19 @@ $ PATH_TO/Queen -i ./cpu.ini -c xxx_finder.txt
 
 ## Misc
 
-### Visualization of fusion
+### Visualization of fusion circuit
 
 ```bash
 CIRC=test F=2 M=8 T=5 sh -c 'DYNAMIC_COST_FILENAME=./log/gate_exe_time_aer.csv ./fusion ./circuit/${CIRC}.txt ./xxx.txt ${F} ${T} ${M} >fusion_dump.txt && python python/circuit_drawer.py circuit/${CIRC}.txt -q ${T} && python python/circuit_drawer.py xxx.txt -q ${T}'
 ```
+
+### Visualization of fusion path with DAG
+
++ enable `DEBUG_shortestPath` to 1 in `fusion.cpp` and recompile `fusion`.
++ after running fusion, use `dot -Tsvg graph.dot > fusion_dag.svg` to generate the svg file.
++ Example:
+
+![](assets/fusion_dag.svg)
 
 ### if `USE_SHORTEST_PATH_ONLY=1`: gMethod
 
