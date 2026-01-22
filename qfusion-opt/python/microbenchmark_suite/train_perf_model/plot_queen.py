@@ -83,6 +83,16 @@ def main():
         label="Perfect Fit",
     )
 
+    # Annotate the MAPE on the plot
+    mape = mean_absolute_percentage_error(y_test, y_test_predict)
+    plt.text(
+        min_val + (max_val - min_val) * 0.6,
+        max_val - (max_val - min_val) * 0.95,
+        f"MAPE: {mape:.1%}",
+        fontsize=10,
+        bbox=dict(facecolor="white", alpha=0.5),
+    )
+
     plt.xlabel("Actual Execution Time")
     plt.ylabel("Predicted Execution Time")
     # plt.title('Actual vs. Predicted Values')

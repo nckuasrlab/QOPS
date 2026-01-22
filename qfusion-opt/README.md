@@ -28,20 +28,23 @@ g++-10 -std=c++2a -O3 -march=native -flto=auto -funroll-loops -fno-rtti -fno-exc
 
 **NOTE:** You should have `./cpu` and `./finder` in this directory to verify the result of `fusion`.
 
-## Usage
+## Reproducibility
 
-### 1. Microbenchmark Suite
+### 1. Run Microbenchmark Suite
 
-Check `python/microbenchmark_suite/README.md`.
++ Check `python/microbenchmark_suite/README.md`.
++ Performance model robustness visualization via `python/microbenchmark_suite/train_perf_model/plot_queen.py` and `python/microbenchmark_suite/train_perf_model/plot_aer.py`.
 
-### 2. Test on Aer and Queen simulators with fusion methods
+### 2. Test Aer and Queen simulators with fusion methods
+
++ qiskit fusion and qfusion-opt are run for comparison.
 
 ```bash
 $ ./exe.sh "test on aer" "python python/exe_fusion_aer.py"
 $ ./exe.sh "test on queen" "python python/exe_fusion_queen.py"
 ```
 
-## Manual run (Optional)
+## Usage
 
 ### Fusion algorithm
 
