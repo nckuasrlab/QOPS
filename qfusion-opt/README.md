@@ -37,7 +37,8 @@ g++-10 -std=c++2a -O3 -march=native -flto=auto -funroll-loops -fno-rtti -fno-exc
 
 ### 2. Test Aer and Queen simulators with fusion methods
 
-+ qiskit fusion and qfusion-opt are run for comparison.
++ Both qiskit fusion and qfusion-opt are run for comparison.
++ Check `related_work/` for running related work, e.g., UniQ and qsimcirq.
 
 ```bash
 $ ./exe.sh "test on aer" "python python/exe_fusion_aer.py"
