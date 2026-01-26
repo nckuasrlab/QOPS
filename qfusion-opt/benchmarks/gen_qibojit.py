@@ -10,7 +10,7 @@ from ir_converter import qasm_to_ir
 from qiskit import qasm2
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from python.aer_utils import draw_circuit
+from python.circuit_drawer import draw_circuit
 
 
 def gen_qaoa_file(graph):
@@ -38,16 +38,16 @@ if __name__ == "__main__":
             qc = qiskit.QuantumCircuit.from_qasm_str(qasms)
             qc.remove_final_measurements(True)  # affect gate's ordering
 
-            output_dir = "ir"
-            os.makedirs(f"{output_dir}/", exist_ok=True)
-            with open(f"{output_dir}/{cir_name}{q}.txt", "w") as f:
+            ir_output_dir = "ir"
+            os.makedirs(f"{ir_output_dir}/", exist_ok=True)
+            with open(f"{ir_output_dir}/{cir_name}{q}.txt", "w") as f:
                 print(qasm_to_ir(qc), end="", file=f, flush=True)
 
-            output_dir = "qasm"
-            os.makedirs(f"{output_dir}/", exist_ok=True)
-            qasm2.dump(qc, f"{output_dir}/{cir_name}{q}.qasm")
+            qasm_output_dir = "qasm"
+            os.makedirs(f"{qasm_output_dir}/", exist_ok=True)
+            qasm2.dump(qc, f"{qasm_output_dir}/{cir_name}{q}.qasm")
 
-            draw_circuit(
-                f"{output_dir}/{cir_name}{q}.txt",
-                filename=f"{output_dir}/{cir_name}{q}.png",
-            )
+            # draw_circuit(
+            #     f"{qasm_output_dir}/{cir_name}{q}.qasm",
+            #     filename=f"{qasm_output_dir}/{cir_name}{q}.png",
+            # )
