@@ -605,6 +605,14 @@ def main(argv=None):
     if '-opt-pass' in sys.argv[1:]:
         sidx = sys.argv.index('-opt-pass')
         qrtOptPasses = sys.argv[sidx+1]
+        # Check the fusion parameters
+        parts = qrtOptPasses.split(',')
+        if len(parts) < 4:
+            print("Fusion usage: -opt-pass fusion,[max_fusion_qubit],[total_qubit],[mode]")
+            exit(1)
+        if not all(part.isdigit() for part in parts[1:4]):
+            print("Fusion usage: -opt-pass fusion,[max_fusion_qubit],[total_qubit],[mode]")
+            exit(1)
         sys.argv.remove(qrtOptPasses)
         sys.argv.remove('-opt-pass')
         sys.argv += ['-D__internal__qcor__compile__opt__passes=\"'+qrtOptPasses+'\"']
