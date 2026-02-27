@@ -60,8 +60,8 @@ double gCostFactor = 1.8;
 std::map<std::string, std::vector<double>> gGateTime; // dynamic cost
 
 bool isDiagonalGate(const std::string &gateType) {
-    static const std::set<std::string> kDiagonalGates = {"S",  "Z",  "T",  "RZ",
-                                                         "CZ", "CP", "RZZ"};
+    static const std::set<std::string> kDiagonalGates = {"S",  "SDG", "Z",  "T",  "TDG",
+                                                         "RZ", "CZ",  "CP",  "RZZ"};
     if (gateType[0] == 'D') {
         return true;
     } else {
@@ -80,7 +80,8 @@ struct Finfo {
 
 size_t targetQubitCounter(const std::string &gateType) {
     static const std::set<std::string> k1QubitGates = {
-        "H", "X", "Y", "Z", "I2", "S", "Z", "T", "RX", "RY", "RZ", "D1", "U1"};
+        "H", "X", "Y", "Z", "I2", "S", "SDG", "SX", "SXDG", "T", "TDG",
+        "RX", "RY", "RZ", "D1", "U1"};
     static const std::set<std::string> k2QubitGates = {"CX", "CP", "CZ", "RZZ",
                                                        "D2", "U2", "SWAP"};
     static const std::set<std::string> k3QubitGates = {"D3", "U3"};
@@ -313,6 +314,21 @@ Matrix gateMatrix(const std::string &gateType,
     } else if (gateType == "S") {
         mat[0].assign({{1, 0}, {0, 0}});
         mat[1].assign({{0, 0}, {0, 1}});
+    } else if (gateType == "SDG") {
+        mat[0].assign({{1, 0}, {0, 0}});
+        mat[1].assign({{0, 0}, {0, -1}});
+    } else if (gateType == "SX") {
+        mat[0].assign({{0.5, 0.5}, {0.5, -0.5}});
+        mat[1].assign({{0.5, -0.5}, {0.5, 0.5}});
+    } else if (gateType == "SXDG") {
+        mat[0].assign({{0.5, -0.5}, {0.5, 0.5}});
+        mat[1].assign({{0.5, 0.5}, {0.5, -0.5}});
+    } else if (gateType == "T") {
+        mat[0].assign({{1, 0}, {0, 0}});
+        mat[1].assign({{0, 0}, {cos(M_PI / 4), sin(M_PI / 4)}});
+    } else if (gateType == "TDG") {
+        mat[0].assign({{1, 0}, {0, 0}});
+        mat[1].assign({{0, 0}, {cos(M_PI / 4), -sin(M_PI / 4)}});
     } else if (gateType == "Z") {
         mat[0].assign({{1, 0}, {0, 0}});
         mat[1].assign({{0, 0}, {-1, 0}});

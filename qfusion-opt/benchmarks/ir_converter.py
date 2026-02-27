@@ -20,23 +20,29 @@ def qasm_to_ir(qc: QuantumCircuit, verbose=False) -> str:
         op = gate.operation.name
         if verbose:
             print(op)
+        if op == "measure":
+            continue
         if op not in [
             "h",
+            "x",
             "rx",
-            "rzz",
-            "cp",
+            "ry",
+            "rz",
             "u",
             "cu1",
+            "s",
+            "sdg",
+            "t",
+            "tdg",
+            "sx",
+            "rzz",
+            "cp",
             "swap",
-            "x",
             "cx",
-            "rz",
             "cz",
-            "ry",
             "u1",
         ]:
-            print(f"Unknown gate: {op}")
-            exit(-1)
+            raise ValueError(f"Unknown gate: {op}")
 
         if op == "cu1":
             op = "cp"
