@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 import openqasm3
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit, transpile
 from qiskit.circuit.library import DiagonalGate, UnitaryGate
 from qiskit_qasm3_import import parse
 
@@ -330,6 +330,8 @@ if __name__ == "__main__":
             raise
 
     # print(qc)
+    basis = ['id', 'rz', 'rx', 'ry', 's', 'sdg', 't', 'tdg', 'h', 'x', 'cx', 'cz', 'cp', 'swap', 'rzz']
+    qc = transpile(qc, basis_gates=basis, optimization_level=1)
     ir = qasm_to_ir(qc)
     # print("==== IR ====")
     # print(ir)
