@@ -20,7 +20,7 @@ def qasm_to_ir(qc: QuantumCircuit, verbose=False) -> str:
         op = gate.operation.name
         if verbose:
             print(op)
-        if op == "measure":
+        if op == "measure" or op == "barrier":
             continue
         if op not in [
             "h",
