@@ -274,6 +274,19 @@ Matrix twoQubitsGateMat(const Gate &gate,
                 ((i & firstQubitMask) >> (reorderQubits[0]));
             resMat[i][i] = rzzTmp[target][target];
         }
+    } else if (gate.gateType == "SWAP") {
+        for (int i = 0; i < sizeAfterExpand; i++)
+            resMat[i][i] = 1;
+        uint32_t firstQubitMask = 1 << reorderQubits[0];
+        uint32_t secondQubitMask = 1 << reorderQubits[1];
+        uint32_t swapMask = firstQubitMask | secondQubitMask;
+        for (size_t i = 0; i < resMat.size(); i++) {
+            if ((i & swapMask) == swapMask || (i & swapMask) == 0)
+                continue;
+            uint32_t swappedIndex = i ^ swapMask;
+            resMat[i][i] = 0;
+            resMat[i][swappedIndex] = 1;
+        }
     } else if (gate.gateType[0] == 'D') {
         for (size_t i = 0; i < resMat.size(); i++)
             resMat[i][i] = 1;
@@ -394,7 +407,7 @@ Matrix gateExpansion(const Gate &targetGate,
      * from twoQubitsGateMat().(Because they can't be simply expanded from
      * tensor product.) */
     if (targetGate.gateType[0] == 'C' || targetGate.gateType == "RZZ" ||
-        targetGate.gateType[0] == 'D')
+        targetGate.gateType[0] == 'D' || targetGate.gateType == "SWAP")
         return twoQubitsGateMat(targetGate, sortedQubits);
 
     for (auto &qubit : sortedQubits) {
