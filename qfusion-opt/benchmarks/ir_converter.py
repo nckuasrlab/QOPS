@@ -330,8 +330,9 @@ if __name__ == "__main__":
             raise
 
     # print(qc)
-    basis = ['id', 'rz', 'rx', 'ry', 's', 'sdg', 't', 'tdg', 'h', 'x', 'cx', 'cz', 'cp', 'swap', 'rzz']
-    qc = transpile(qc, basis_gates=basis, optimization_level=1)
+    # basis = ['id', 'rz', 'rx', 'ry', 's', 'sdg', 't', 'tdg', 'h', 'x', 'cx', 'cz', 'cp', 'swap', 'rzz']
+    basis = ['id', 'rz', 'rx', 'ry', 'h', 'x', 'cx', 'cz', 'cp', 'swap', 'rzz']
+    qc = transpile(qc, basis_gates=basis, optimization_level=0)
     ir = qasm_to_ir(qc)
     # print("==== IR ====")
     # print(ir)

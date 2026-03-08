@@ -2038,6 +2038,12 @@ int main(int argc, char *argv[]) {
     DEBUG_SECTION(DEBUG_INFO, std::cout << "reorder start" << std::endl;);
     auto time_start = std::chrono::steady_clock::now();
     Circuit circuit(inputFileName);
+    if (circuit.size() == 0) {
+        // Empty circuit: write empty output file and exit successfully
+        std::ofstream outputFile(outputFileName, std::ios_base::out);
+        outputFile.close();
+        return 0;
+    }
 #if ENABLE_SCHEDULE
     Circuit newCircuit = circuit.schedule();
 #else
