@@ -329,12 +329,21 @@ if __name__ == "__main__":
             print("Error: QASM3 parsing succeeded, but the loading process failed.")
             raise
 
-    # print(qc)
-    # basis = ['id', 'rz', 'rx', 'ry', 's', 'sdg', 't', 'tdg', 'h', 'x', 'cx', 'cz', 'cp', 'swap', 'rzz']
-    basis = ['id', 'rz', 'rx', 'ry', 'h', 'x', 'cx', 'cz', 'cp', 'swap', 'rzz']
-    qc = transpile(qc, basis_gates=basis, optimization_level=0)
-    ir = qasm_to_ir(qc)
-    # print("==== IR ====")
-    # print(ir)
-    with open(ir_path, "w") as f:
-        f.write(ir)
+    if True:  # to ir
+        # print(qc)
+        # basis = ['id', 'rz', 'rx', 'ry', 's', 'sdg', 't', 'tdg', 'h', 'x', 'cx', 'cz', 'cp', 'swap', 'rzz']
+        basis = ["id", "rz", "rx", "ry", "h", "x", "cx", "cz", "cp", "swap", "rzz"]
+        qc = transpile(qc, basis_gates=basis, optimization_level=0)
+        ir = qasm_to_ir(qc)
+        # print("==== IR ====")
+        # print(ir)
+        with open(ir_path, "w") as f:
+            f.write(ir)
+    else:  # to qiskit
+        from qiskit.qasm2 import dumps
+
+        basis = ["id", "rz", "rx", "ry", "h", "x", "cx", "cz", "cp", "swap", "rzz"]
+        qc = transpile(qc, basis_gates=basis, optimization_level=3)
+        qasm_str = dumps(qc)
+        with open(ir_path, "w") as f:
+            f.write(qasm_str)
